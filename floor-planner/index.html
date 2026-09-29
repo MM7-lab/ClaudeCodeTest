@@ -299,6 +299,7 @@ const CATALOG = {
   door:{g:'other', name:'門', s:'', w:90, d:90, ht:210, qty:null, sym:'door', round:true},
   column:{g:'other', name:'柱／固定位', s:'', w:40, d:40, ht:0, qty:null, sym:'column'},
   plant:{g:'other', name:'植物', s:'', w:50, d:50, ht:0, qty:null, sym:'plant', round:true},
+  window:{g:'other', name:'窗', s:'', w:120, d:10, ht:0, qty:null, sym:'window'},
 };
 const TALL = 180;
 const TEMPLATES = {
@@ -327,6 +328,7 @@ const PLAN_CSS = `
 .f-plant{fill:var(--plant-soft);stroke:var(--plant);stroke-width:1.25}
 .f-board{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.25}
 .f-gap{stroke:var(--sheet);stroke-width:5;fill:none}
+.f-win{fill:var(--sheet);stroke:var(--ink);stroke-width:1.25}
 .f-hit{fill:transparent;stroke:none}
 .f-label{fill:var(--ink);font-family:var(--f-ui);font-weight:500}
 .f-tag{fill:var(--muted);font-family:var(--f-ui)}
@@ -338,7 +340,7 @@ const PLAN_CSS = `
 .draft-text{fill:var(--accent);font-family:var(--f-mono)}
 .grid-minor{stroke:var(--grid);fill:none}
 .grid-major{stroke:var(--grid-major);fill:none}
-.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-solid,.f-plant,.f-board,.f-gap,.sel-box,.handle,.handle-v,.draft,.hit-line{vector-effect:non-scaling-stroke}
+.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-win,.f-solid,.f-plant,.f-board,.f-gap,.sel-box,.handle,.handle-v,.draft,.hit-line{vector-effect:non-scaling-stroke}
 `;
 const EXPORT_VARS = {
   sheet:'#FFFFFF', surface:'#FFFFFF', ink:'#15202A', muted:'#5A6875', accent:'#1D5BC9', 'accent-soft':'rgba(29,91,201,.10)',
@@ -421,6 +423,7 @@ function symbol(sym, w, h){
     case 'plant': return `<circle class="f-plant" cx="0" cy="0" r="${r2(w/2)}"/>` + [0,72,144,216,288].map(a => { const cx = r2(Math.cos(rad(a))*w*.22), cy = r2(Math.sin(rad(a))*w*.22); return `<ellipse class="f-plant" cx="${cx}" cy="${cy}" rx="${r2(w*.16)}" ry="${r2(w*.08)}" transform="rotate(${a} ${cx} ${cy})"/>`; }).join('');
     case 'door': return rect(X,Y,w,h,'f-hit') + line(X, Y+h, X+w, Y+h, 'f-gap') + `<path class="f-line" d="M ${r2(X)} ${r2(Y)} A ${r2(w)} ${r2(h)} 0 0 1 ${r2(X+w)} ${r2(Y+h)}" stroke-dasharray="4 3"/>` + line(X, Y+h, X, Y, 'f-body');
     case 'column': return rect(X,Y,w,h,'f-solid');
+    case 'window': return rect(X,Y,w,h,'f-win') + line(X, 0, X+w, 0) + line(X, Y, X, Y+h) + line(X+w, Y, X+w, Y+h);
     default: return rect(X,Y,w,h);
   }
 }
@@ -439,14 +442,14 @@ function renderWorld(o){
     h += `<line class="wall${sel?' is-sel':''}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
     if (o.interactive) h += `<line class="hit-line" data-wall="${w.id}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
   }
-  const layer = it => it.type === 'door' || it.type === 'column' ? 3 : it.type === 'chair' || it.type === 'plant' ? 2 : 1;
+  const layer = it => it.type === 'door' || it.type === 'column' || it.type === 'window' ? 3 : it.type === 'chair' || it.type === 'plant' ? 2 : 1;
   const items = Object.values(shown()).sort((a, b) => layer(a) - layer(b));
   for (const it of items){
     const c = CATALOG[it.type]; if (!c) continue;
     h += `<g data-item="${it.id}" transform="translate(${r2(it.x)} ${r2(it.y)}) rotate(${it.r||0})">`;
     if (o.interactive) h += `<rect class="f-hit" x="${r2(-it.w/2)}" y="${r2(-it.h/2)}" width="${r2(it.w)}" height="${r2(it.h)}"/>`;
     h += symbol(c.sym, it.w, it.h);
-    if (heightOf(it) >= TALL && !['panel','ushape','door','column'].includes(c.sym)) h += `<path class="f-tall" d="M${r2(-it.w/2)} ${r2(-it.h/2)}L${r2(it.w/2)} ${r2(it.h/2)}M${r2(it.w/2)} ${r2(-it.h/2)}L${r2(-it.w/2)} ${r2(it.h/2)}"/>`;
+    if (heightOf(it) >= TALL && !['panel','ushape','door','column','window'].includes(c.sym)) h += `<path class="f-tall" d="M${r2(-it.w/2)} ${r2(-it.h/2)}L${r2(it.w/2)} ${r2(it.h/2)}M${r2(it.w/2)} ${r2(-it.h/2)}L${r2(-it.w/2)} ${r2(it.h/2)}"/>`;
     const text = it.label || (o.names ? c.s : '');
     if (text){
       const fs = it.label ? 11 : 10, span = Math.max(it.w, it.h) * k;
