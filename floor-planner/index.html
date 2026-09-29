@@ -54,6 +54,7 @@ button,input,select{font:inherit;color:inherit}
 .btn:hover{border-color:var(--muted)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.danger{color:var(--danger)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--sheet)}
 .btn svg{width:16px;height:16px;flex:none}
 
 .app{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) 270px;gap:12px}
@@ -85,6 +86,16 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 .rarea{font:12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
 .muted{color:var(--muted);font-size:12.5px;margin:0}
 
+.schemes{display:flex;flex-direction:column;gap:6px}
+.scheme{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--rule);border-radius:8px;background:var(--sheet);padding:8px 10px;cursor:pointer}
+.scheme:hover{border-color:var(--accent)}
+.scheme b{font:600 13.5px/1.35 var(--f-ui)}
+.scheme span{font-size:12px;line-height:1.4;color:var(--muted)}
+.scheme[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.scheme[aria-pressed="true"] b{color:var(--accent)}
+.pvbar{position:absolute;left:50%;top:54px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:var(--surface);border:1.5px solid var(--accent);border-radius:10px;padding:6px 8px 6px 12px;box-shadow:var(--shadow);width:max-content;max-width:calc(100% - 20px)}
+.pvbar span{font-weight:600;font-size:13px;color:var(--accent)}
+.insp ul.pts{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
 .lib{display:flex;flex-direction:column;gap:14px}
 .lib h4{margin:0 0 4px;font:600 12.5px/1.3 var(--f-ui);color:var(--ink);display:flex;align-items:baseline;gap:8px}
 .lib h4 span{font:500 11px var(--f-mono);color:var(--muted)}
@@ -176,6 +187,11 @@ ol.steps b{color:var(--ink);font-weight:600}
 
 <div class="app">
   <aside class="panel" id="side" aria-label="清單同傢俬">
+    <section class="sec" id="schemes-sec" hidden>
+      <p class="eyebrow">建議方案</p>
+      <p class="muted">撳一個方案可以喺平面圖預覽；滿意先套用。</p>
+      <div class="schemes" id="schemes"></div>
+    </section>
     <section class="sec">
       <p class="eyebrow">搬遷進度</p>
       <div class="stats" id="stats"></div>
@@ -214,6 +230,7 @@ ol.steps b{color:var(--ink);font-weight:600}
       </div>
     </div>
     <div class="hint" id="hint" hidden></div>
+    <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span><button class="btn primary" type="button" id="pv-apply">套用呢個方案</button><button class="btn" type="button" id="pv-exit">返回目前平面圖</button></div>
     <div class="scalebar" id="scalebar"><span id="sb-label">100 cm</span><i id="sb-bar" style="width:80px"></i></div>
     <div class="seg zoom" role="group" aria-label="縮放">
       <button type="button" id="z-out" aria-label="縮細"><svg viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.8"><path d="M3 8h10"/></svg></button>
@@ -338,7 +355,11 @@ const S = {
   view:{x:-100, y:-100, k:0.5},
   sel:null, mode:'select', snap:true, dims:true, names:true,
   loaded:false, sync:'loading', readOnly:false, fitted:false,
+  schemes:[], preview:null,
 };
+let previewItems = {};
+const shown = () => S.preview ? previewItems : S.items;
+const schemeById = id => S.schemes.find(s => s.id === id);
 let base = {layout:clone(S.layout), items:{}};
 const undoStack = [], redoStack = [];
 let db = null, drag = null;
@@ -374,7 +395,7 @@ function bounds(){
   const add = (x, y) => { x0 = Math.min(x0,x); y0 = Math.min(y0,y); x1 = Math.max(x1,x); y1 = Math.max(y1,y); };
   S.layout.rooms.forEach(r => r.pts.forEach(p => add(p.x, p.y)));
   S.layout.walls.forEach(w => { add(w.a.x, w.a.y); add(w.b.x, w.b.y); });
-  Object.values(S.items).forEach(it => { const m = Math.max(it.w, it.h)/2; add(it.x-m, it.y-m); add(it.x+m, it.y+m); });
+  Object.values(shown()).forEach(it => { const m = Math.max(it.w, it.h)/2; add(it.x-m, it.y-m); add(it.x+m, it.y+m); });
   if (!isFinite(x0)) return {x:0, y:0, w:1000, h:800};
   return {x:x0, y:y0, w:Math.max(x1-x0, 50), h:Math.max(y1-y0, 50)};
 }
@@ -419,7 +440,7 @@ function renderWorld(o){
     if (o.interactive) h += `<line class="hit-line" data-wall="${w.id}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
   }
   const layer = it => it.type === 'door' || it.type === 'column' ? 3 : it.type === 'chair' || it.type === 'plant' ? 2 : 1;
-  const items = Object.values(S.items).sort((a, b) => layer(a) - layer(b));
+  const items = Object.values(shown()).sort((a, b) => layer(a) - layer(b));
   for (const it of items){
     const c = CATALOG[it.type]; if (!c) continue;
     h += `<g data-item="${it.id}" transform="translate(${r2(it.x)} ${r2(it.y)}) rotate(${it.r||0})">`;
@@ -575,7 +596,7 @@ function angleSnap(a, q){
 }
 
 /* ---------- pointer interaction ---------- */
-const canEdit = () => S.loaded && !S.readOnly;
+const canEdit = () => S.loaded && !S.readOnly && !S.preview;
 let lastVtx = null;
 svg.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
@@ -922,6 +943,14 @@ async function start(){
     }
     ready();
   }, e => { onWriteError(e); gotItems = true; ready(); });
+  db.collection('schemes').onSnapshot(snap => {
+    S.schemes = snap.docs.map(d => ({...clone(d.data() || {}), id:d.id})).filter(sc => Array.isArray(sc.items)).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+    if (S.preview){
+      const sc = schemeById(S.preview);
+      if (!sc) setPreview(null); else { loadPreviewItems(sc); renderSide(); renderInspector(); requestRender(); }
+    }
+    renderSchemes();
+  }, () => {});
 }
 function afterLoad(){
   applyReadOnly(); renderSide(); renderInspector();
@@ -929,10 +958,42 @@ function afterLoad(){
   requestRender();
 }
 function applyReadOnly(){
-  document.querySelectorAll('#lib button, #add-room button, #empty-tpls button, #imp-json, #t-wall').forEach(b => b.disabled = S.readOnly);
+  document.querySelectorAll('#lib button, #add-room button, #empty-tpls button, #imp-json, #t-wall').forEach(b => b.disabled = !canEdit());
   if (S.readOnly && S.mode === 'wall') setMode('select');
   renderInspector(); requestRender();
 }
+
+/* ---------- suggested layouts ---------- */
+function loadPreviewItems(sc){
+  previewItems = {};
+  (sc?.items || []).forEach(it => { if (it && it.id && CATALOG[it.type]) previewItems[String(it.id)] = {...it, id:String(it.id)}; });
+}
+function renderSchemes(){
+  $('#schemes-sec').hidden = !S.schemes.length;
+  $('#schemes').innerHTML = [`<button type="button" class="scheme" data-scheme="" aria-pressed="${!S.preview}"><b>目前平面圖</b><span>同事一齊編輯緊嘅版本</span></button>`]
+    .concat(S.schemes.map(sc => `<button type="button" class="scheme" data-scheme="${esc(sc.id)}" aria-pressed="${S.preview === sc.id}"><b>${esc(sc.name)}</b><span>${esc(sc.summary || '')}</span></button>`)).join('');
+  $('#pvbar').hidden = !S.preview;
+  if (S.preview){ $('#pv-name').textContent = '預覽緊：' + (schemeById(S.preview)?.name || ''); $('#pv-apply').disabled = S.readOnly; }
+}
+function setPreview(id){
+  if (drag) return;
+  const sc = id ? schemeById(id) : null;
+  S.preview = sc ? sc.id : null;
+  loadPreviewItems(sc);
+  S.sel = null;
+  if (S.mode === 'wall') setMode('select');
+  renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); fit();
+}
+$('#schemes').addEventListener('click', e => { const b = e.target.closest('[data-scheme]'); if (b) setPreview(b.dataset.scheme || null); });
+$('#pv-exit').onclick = () => setPreview(null);
+$('#pv-apply').onclick = () => {
+  if (!S.preview || S.readOnly) return;
+  const sc = schemeById(S.preview), next = clone(previewItems);
+  S.preview = null; previewItems = {};
+  S.items = next; S.sel = null;
+  commit(); renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); requestRender();
+  toast(`已套用「${sc?.name || ''}」。`, true);
+};
 
 /* ---------- side panel ---------- */
 function libIcon(key){
@@ -941,7 +1002,7 @@ function libIcon(key){
 }
 function renderLib(){
   const counts = {};
-  Object.values(S.items).forEach(i => counts[i.type] = (counts[i.type] || 0) + 1);
+  Object.values(shown()).forEach(i => counts[i.type] = (counts[i.type] || 0) + 1);
   $('#lib').innerHTML = GROUPS.map(([g, label], gi) => {
     const keys = Object.keys(CATALOG).filter(k => CATALOG[k].g === g);
     const need = keys.reduce((s, k) => s + (CATALOG[k].qty || 0), 0);
@@ -950,12 +1011,12 @@ function renderLib(){
       const c = CATALOG[k], n = counts[k] || 0;
       const cls = c.qty ? (n >= c.qty ? 'done' : n ? 'part' : '') : '';
       const size = c.sym === 'tv' ? `${c.w} 闊 · 高 ${c.ht}` : `${c.w}×${c.d}${c.ht ? ` · 高 ${c.ht}` : ''}`;
-      return `<li><button type="button" draggable="true" data-type="${k}" title="${esc(c.name)}${c.note ? '：' + esc(c.note) : ''}"${S.readOnly ? ' disabled' : ''}>${libIcon(k)}<span class="nm">${esc(c.name)}<span class="sz">${size}</span></span><span class="cnt ${cls}">${c.qty ? `${n}/${c.qty}` : n}</span></button></li>`;
+      return `<li><button type="button" draggable="true" data-type="${k}" title="${esc(c.name)}${c.note ? '：' + esc(c.note) : ''}"${canEdit() ? '' : ' disabled'}>${libIcon(k)}<span class="nm">${esc(c.name)}<span class="sz">${size}</span></span><span class="cnt ${cls}">${c.qty ? `${n}/${c.qty}` : n}</span></button></li>`;
     }).join('')}</ul></div>`;
   }).join('');
 }
 function renderSide(){
-  const items = Object.values(S.items);
+  const items = Object.values(shown());
   const counts = {};
   items.forEach(i => counts[i.type] = (counts[i.type] || 0) + 1);
   let need = 0, got = 0;
@@ -997,6 +1058,14 @@ function renderInspector(){
   const el = $('#inspector');
   if (el.contains(document.activeElement) && document.activeElement.matches('input')) return;
   const s = S.sel, ro = S.readOnly ? ' disabled' : '';
+  const pv = S.preview && schemeById(S.preview);
+  if (pv){
+    const list = (title, arr) => arr?.length ? `<section class="sec"><p class="eyebrow">${title}</p><ul class="pts">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>` : '';
+    el.innerHTML = `<section class="sec"><p class="eyebrow">建議方案（預覽）</p><h3>${esc(pv.name)}</h3><p class="muted">${esc(pv.summary || '')}</p></section>`
+      + list('分區', pv.zones) + list('好處', pv.pros) + list('要留意', pv.cons)
+      + `<section class="sec"><p class="muted">預覽唔會改動目前平面圖。撳「套用呢個方案」會用呢個方案取代目前嘅傢俬位置，之後仍然可以復原。</p></section>`;
+    return;
+  }
   if (s?.kind === 'item' && S.items[s.id]){
     const it = S.items[s.id], c = CATALOG[it.type];
     const orig = it.w !== c.w || it.h !== c.d;
@@ -1152,7 +1221,7 @@ function exportSvg(){
   const x0 = b.x - pad, y0 = b.y - pad, fy = y0 + H - 80/px;
   let bar = 100; while (bar * px < 90) bar *= 2;
   const foot = `<g font-family='${EXPORT_VARS['f-ui']}' fill="#5A6875" font-size="${r2(13/sizeK)}">
-    <text x="${r2(x0 + 24/sizeK)}" y="${r2(fy)}">新辦公室平面圖 · ${esc(date)} · 共 ${Object.keys(S.items).length} 件 · 單位 cm</text>
+    <text x="${r2(x0 + 24/sizeK)}" y="${r2(fy)}">新辦公室平面圖 · ${esc(date)} · ${S.preview ? esc(schemeById(S.preview)?.name || '') + ' · ' : ''}共 ${Object.keys(shown()).length} 件 · 單位 cm</text>
     <rect x="${r2(x0 + W - bar - 24/sizeK)}" y="${r2(fy - 6/sizeK)}" width="${bar}" height="${r2(5/sizeK)}" fill="#15202A"/>
     <text x="${r2(x0 + W - 24/sizeK)}" y="${r2(fy - 12/sizeK)}" text-anchor="end">${bar} cm</text></g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${pw}" height="${ph}" viewBox="${r2(x0)} ${r2(y0)} ${r2(W)} ${r2(H)}"><style>${css}</style><rect x="${r2(x0)}" y="${r2(y0)}" width="${r2(W)}" height="${r2(H)}" fill="#FFFFFF"/>${renderWorld({k:sizeK, interactive:false, names:S.names})}${foot}</svg>`;
