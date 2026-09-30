@@ -7,7 +7,7 @@
 :root{
   --bg:#E5EAEE; --sheet:#FBFCFD; --surface:#FFFFFF; --ink:#15202A; --muted:#5A6875; --rule:#D2DAE1;
   --accent:#1D5BC9; --accent-soft:rgba(29,91,201,.10); --select:#C9740F;
-  --room:rgba(29,91,201,.035); --furn:#EDF1F4; --furn-line:#4B5A67; --panel:#7C8A96; --plant:#3A845A; --plant-soft:rgba(58,132,90,.14);
+  --room:rgba(29,91,201,.035); --furn:#EDF1F4; --furn-line:#4B5A67; --panel:#7C8A96; --glasswall:#4E9ED6; --plant:#3A845A; --plant-soft:rgba(58,132,90,.14);
   --grid:rgba(21,32,42,.055); --grid-major:rgba(21,32,42,.11);
   --ok:#2C7D4F; --ok-soft:rgba(44,125,79,.12); --warn:#A55D0B; --warn-soft:rgba(201,116,15,.14); --danger:#B8392B;
   --shadow:0 1px 2px rgba(21,32,42,.06),0 6px 18px rgba(21,32,42,.07);
@@ -18,7 +18,7 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0E151C; --sheet:#121B24; --surface:#17222D; --ink:#E4ECF2; --muted:#93A3B1; --rule:#26343F;
   --accent:#6FA1FF; --accent-soft:rgba(111,161,255,.14); --select:#F0A53A;
-  --room:rgba(111,161,255,.05); --furn:#1E2B37; --furn-line:#A2B3C1; --panel:#8FA0AE; --plant:#6CC08E; --plant-soft:rgba(108,192,142,.16);
+  --room:rgba(111,161,255,.05); --furn:#1E2B37; --furn-line:#A2B3C1; --panel:#8FA0AE; --glasswall:#7CC4F0; --plant:#6CC08E; --plant-soft:rgba(108,192,142,.16);
   --grid:rgba(228,236,242,.05); --grid-major:rgba(228,236,242,.10);
   --ok:#6CC08E; --ok-soft:rgba(108,192,142,.14); --warn:#F0A53A; --warn-soft:rgba(240,165,58,.14); --danger:#FF7A69;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.3);
@@ -27,7 +27,7 @@
 :root[data-theme="dark"]{
   --bg:#0E151C; --sheet:#121B24; --surface:#17222D; --ink:#E4ECF2; --muted:#93A3B1; --rule:#26343F;
   --accent:#6FA1FF; --accent-soft:rgba(111,161,255,.14); --select:#F0A53A;
-  --room:rgba(111,161,255,.05); --furn:#1E2B37; --furn-line:#A2B3C1; --panel:#8FA0AE; --plant:#6CC08E; --plant-soft:rgba(108,192,142,.16);
+  --room:rgba(111,161,255,.05); --furn:#1E2B37; --furn-line:#A2B3C1; --panel:#8FA0AE; --glasswall:#7CC4F0; --plant:#6CC08E; --plant-soft:rgba(108,192,142,.16);
   --grid:rgba(228,236,242,.05); --grid-major:rgba(228,236,242,.10);
   --ok:#6CC08E; --ok-soft:rgba(108,192,142,.14); --warn:#F0A53A; --warn-soft:rgba(240,165,58,.14); --danger:#FF7A69;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.3);
@@ -337,6 +337,7 @@ const PLAN_CSS = `
 .room{fill:var(--room);stroke:var(--ink);stroke-width:2.25;stroke-linejoin:miter}
 .room.is-sel{stroke:var(--accent)}
 .wall{stroke:var(--ink);stroke-width:2.25;stroke-linecap:square;fill:none}
+.wall.glass{stroke:var(--glasswall);stroke-width:3}
 .wall.is-sel{stroke:var(--accent)}
 .hit-line{stroke:transparent;stroke-width:14;fill:none}
 .room-num{fill:var(--ink);font-family:var(--f-display);font-weight:700}
@@ -371,7 +372,7 @@ const PLAN_CSS = `
 `;
 const EXPORT_VARS = {
   sheet:'#FFFFFF', surface:'#FFFFFF', ink:'#15202A', muted:'#5A6875', accent:'#1D5BC9', 'accent-soft':'rgba(29,91,201,.10)',
-  select:'#C9740F', room:'rgba(29,91,201,.035)', furn:'#EDF1F4', 'furn-line':'#4B5A67', panel:'#7C8A96', plant:'#3A845A', 'plant-soft':'rgba(58,132,90,.14)',
+  select:'#C9740F', room:'rgba(29,91,201,.035)', furn:'#EDF1F4', 'furn-line':'#4B5A67', panel:'#7C8A96', glasswall:'#4E9ED6', plant:'#3A845A', 'plant-soft':'rgba(58,132,90,.14)',
   grid:'rgba(0,0,0,0)', 'grid-major':'rgba(0,0,0,0)',
   'f-ui':'"Noto Sans HK","PingFang HK","Microsoft JhengHei",Arial,sans-serif', 'f-display':'"IBM Plex Sans Condensed","Noto Sans HK","PingFang HK",Arial,sans-serif', 'f-mono':'"IBM Plex Mono",Menlo,monospace',
 };
@@ -467,7 +468,7 @@ function renderWorld(o){
   }
   for (const w of S.layout.walls){
     const sel = o.interactive && S.sel?.kind === 'wall' && S.sel.id === w.id;
-    h += `<line class="wall${sel?' is-sel':''}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
+    h += `<line class="wall${w.glass?' glass':''}${sel?' is-sel':''}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
     if (o.interactive) h += `<line class="hit-line" data-wall="${w.id}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
   }
   const layer = it => it.type === 'door' || it.type === 'door2' || it.type === 'column' || it.type === 'window' ? 3 : it.type === 'chair' || it.type === 'plant' ? 2 : 1;
@@ -1280,8 +1281,9 @@ function renderInspector(){
   }
   if (s?.kind === 'wall' && wall(s.id)){
     const w = wall(s.id), len = Math.hypot(w.b.x-w.a.x, w.b.y-w.a.y);
-    el.innerHTML = `<section class="sec"><p class="eyebrow">牆／間隔</p><h3>${cm(len)}</h3>
+    el.innerHTML = `<section class="sec"><p class="eyebrow">${w.glass ? '玻璃牆' : '牆／間隔'}</p><h3>${cm(len)}</h3>
       <label class="field">長度 (cm)<input id="wl-len" type="number" step="1" min="1" value="${Math.round(len)}"${ro}></label>
+      <label class="edge" style="grid-template-columns:auto 1fr"><input id="wl-glass" type="checkbox"${w.glass ? ' checked' : ''}${ro} style="width:auto;height:auto"><span style="color:var(--ink);font-family:var(--f-ui)">玻璃牆</span></label>
       <p class="muted">拖兩端可以移動。㩒住 Shift 鎖 45°。</p>
       <div class="btns"><button class="btn danger" type="button" data-act="del"${ro}>刪除牆</button></div></section>`;
     return;
@@ -1329,6 +1331,7 @@ $('#inspector').addEventListener('change', e => {
     }
   } else if (s.kind === 'wall'){
     const w = wall(s.id), v = num(t.value);
+    if (w && t.id === 'wl-glass'){ if (t.checked) w.glass = true; else delete w.glass; }
     if (w && t.id === 'wl-len' && v && v > 0){
       const len = Math.hypot(w.b.x-w.a.x, w.b.y-w.a.y) || 1, f = v / len;
       w.b = {x:r2(w.a.x + (w.b.x-w.a.x)*f), y:r2(w.a.y + (w.b.y-w.a.y)*f)};
@@ -1480,7 +1483,7 @@ function walls3D(parent, list){
   const H = V3.low ? 110 : WALL_H;
   const segs = [];
   S.layout.rooms.forEach(r => r.pts.forEach((p, i) => segs.push({a:p, b:r.pts[(i+1) % r.pts.length], t:15})));
-  S.layout.walls.forEach(w => segs.push({a:w.a, b:w.b, t:8}));
+  S.layout.walls.forEach(w => segs.push({a:w.a, b:w.b, t:w.glass ? 4 : 8, glass:!!w.glass}));
   const opens = [];
   list.forEach(it => {
     if (it.type === 'window') opens.push({kind:'window', e:[toWorldFrom(it, -it.w/2, 0), toWorldFrom(it, it.w/2, 0)]});
@@ -1495,7 +1498,7 @@ function walls3D(parent, list){
     });
     holes.sort((a, b) => a.s0 - b.s0);
     const g = new THREE.Group();
-    const piece = (s0, s1, y0, y1, m = 'wall') => { if (s1 - s0 > .5 && y1 - y0 > .5) box3(g, s1 - s0, y1 - y0, sg.t, (s0 + s1)/2, y0, 0, m, m !== 'glass'); };
+    const piece = (s0, s1, y0, y1, m = sg.glass ? 'glass' : 'wall') => { if (s1 - s0 > .5 && y1 - y0 > .5) box3(g, s1 - s0, y1 - y0, sg.t, (s0 + s1)/2, y0, 0, m, m !== 'glass'); };
     let cur = 0;
     holes.forEach(hl => {
       piece(cur, hl.s0, 0, H);
@@ -1504,6 +1507,7 @@ function walls3D(parent, list){
       cur = Math.max(cur, hl.s1);
     });
     piece(cur, L, 0, H);
+    if (sg.glass){ box3(g, L, 6, 6, L/2, 0, 0, 'steel', false); if (H > 20) box3(g, L, 5, 6, L/2, H - 5, 0, 'steel', false); }
     g.position.set(sg.a.x, 0, sg.a.y); g.rotation.y = -Math.atan2(dy, dx);
     parent.add(g);
   });
@@ -1633,7 +1637,7 @@ $('#imp-file').addEventListener('change', async e => {
     const d = JSON.parse(await f.text());
     const pt = p => p && Number.isFinite(+p.x) && Number.isFinite(+p.y) ? {x:+p.x, y:+p.y} : null;
     const rooms = (d.layout?.rooms || []).map(r => ({id:String(r.id || uid()), num:String(r.num ?? '').slice(0, 6), name:String(r.name ?? '').slice(0, 40), ...(r.src ? {src:String(r.src).slice(0, 300)} : {}), pts:(r.pts || []).map(pt).filter(Boolean), ...(pt(r.lp) ? {lp:pt(r.lp)} : {})})).filter(r => r.pts.length >= 3);
-    const walls = (d.layout?.walls || []).map(w => ({id:String(w.id || uid()), a:pt(w.a), b:pt(w.b)})).filter(w => w.a && w.b);
+    const walls = (d.layout?.walls || []).map(w => ({id:String(w.id || uid()), a:pt(w.a), b:pt(w.b), ...(w.glass ? {glass:true} : {})})).filter(w => w.a && w.b);
     const items = {};
     (Array.isArray(d.items) ? d.items : Object.values(d.items || {})).forEach(it => {
       const c = CATALOG[it?.type]; if (!c) return;
