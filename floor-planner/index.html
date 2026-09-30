@@ -118,7 +118,17 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 #plan [data-item]{cursor:move}
 #plan [data-h="rot"]{cursor:alias} #plan [data-h="res"]{cursor:nwse-resize} #plan [data-h="vtx"],#plan [data-h="wend"],#plan [data-h="mid"]{cursor:crosshair}
 #plan [data-h="label"]{cursor:move}
-.tools{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;right:10px;pointer-events:none}
+.tools{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;right:130px;pointer-events:none}
+.vswitch{position:absolute;top:10px;right:10px}
+#v3{position:absolute;inset:0;display:none;touch-action:none}
+#v3 canvas{display:block;width:100%!important;height:100%!important}
+.stage.is-3d #v3{display:block}
+.stage.is-3d #plan,.stage.is-3d .tools,.stage.is-3d .zoom,.stage.is-3d .scalebar,.stage.is-3d #hint{display:none!important}
+.v3tools{position:absolute;right:10px;bottom:10px;display:none}
+.stage.is-3d .v3tools{display:inline-flex}
+.v3hint{position:absolute;left:12px;bottom:14px;font-size:12px;color:var(--muted);display:none;pointer-events:none;max-width:calc(100% - 260px)}
+.stage.is-3d .v3hint{display:block}
+.v3load{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;pointer-events:none}
 .tools>*{pointer-events:auto}
 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:2px;box-shadow:var(--shadow)}
 .seg button{height:30px;min-width:30px;padding:0 9px;display:inline-flex;align-items:center;gap:6px;border:0;border-radius:6px;background:none;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--muted)}
@@ -233,6 +243,18 @@ ol.steps b{color:var(--ink);font-weight:600}
     <div class="hint" id="hint" hidden></div>
     <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span><button class="btn primary" type="button" id="pv-apply">套用呢個方案</button><button class="btn" type="button" id="pv-exit">返回目前平面圖</button></div>
     <div class="scalebar" id="scalebar"><span id="sb-label">100 cm</span><i id="sb-bar" style="width:80px"></i></div>
+    <div id="v3" aria-label="3D 模型"></div>
+    <div class="v3load" id="v3load" hidden>載入緊 3D 模型…</div>
+    <div class="seg vswitch" role="group" aria-label="檢視方式">
+      <button type="button" id="t-2d" aria-pressed="true" title="平面圖">平面</button>
+      <button type="button" id="t-3d" aria-pressed="false" title="3D 模型"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5z"/><path d="M2 5l6 3.2L14 5M8 8.2v6"/></svg>3D</button>
+    </div>
+    <div class="seg v3tools" role="group" aria-label="3D 設定">
+      <button type="button" id="v3-low" aria-pressed="false" title="將牆身降低，方便睇入去">矮牆</button>
+      <button type="button" id="v3-top" title="由上面望落去">俯視</button>
+      <button type="button" id="v3-reset" title="返回預設視角">重設視角</button>
+    </div>
+    <p class="v3hint">拖動：旋轉 · 右鍵或兩指拖：移動 · 滾輪或捏：縮放</p>
     <div class="seg zoom" role="group" aria-label="縮放">
       <button type="button" id="z-out" aria-label="縮細"><svg viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.8"><path d="M3 8h10"/></svg></button>
       <output id="z-val" title="螢幕上嘅大約比例">1:100</output>
@@ -566,7 +588,7 @@ function gridSvg(){
   return h;
 }
 let rafPending = false;
-function requestRender(){ if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; render(); }); }
+function requestRender(){ schedule3D(); if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; render(); }); }
 function render(){
   const {k, x, y} = S.view;
   world.setAttribute('transform', `translate(${(-x*k).toFixed(2)} ${(-y*k).toFixed(2)}) scale(${k})`);
@@ -1296,6 +1318,195 @@ $('#inspector').addEventListener('input', e => {
   if (s?.kind === 'item' && t.id === 'in-label'){ const it = S.items[s.id]; if (it){ it.label = t.value.slice(0, 40); requestRender(); } }
 });
 
+/* ---------- 3D view ---------- */
+const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0};
+const WALL_H = 270;
+function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src)); document.head.appendChild(el); }); }
+function load3D(){
+  if (!V3.ready) V3.ready = loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js')
+    .then(() => loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'))
+    .catch(e => { V3.ready = null; throw e; });
+  return V3.ready;
+}
+async function set3D(on){
+  V3.on = on;
+  $('#stage').classList.toggle('is-3d', on);
+  $('#t-3d').setAttribute('aria-pressed', on); $('#t-2d').setAttribute('aria-pressed', !on);
+  if (!on){ requestRender(); return; }
+  $('#v3load').hidden = false;
+  try { await load3D(); }
+  catch (e){ $('#v3load').hidden = true; toast('3D 模型載入唔到，請檢查網絡再試。'); set3D(false); return; }
+  $('#v3load').hidden = true;
+  if (!V3.on) return;
+  init3D(); build3D(); if (!V3.built){ V3.built = true; view3D('iso'); } draw3D();
+}
+function init3D(){
+  if (V3.renderer) return;
+  const T = THREE, host = $('#v3');
+  const r = new T.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+  r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;
+  host.appendChild(r.domElement);
+  const scene = new T.Scene();
+  const cam = new T.PerspectiveCamera(45, 1, 10, 20000);
+  const ctl = new T.OrbitControls(cam, r.domElement);
+  ctl.maxPolarAngle = Math.PI / 2 - 0.02; ctl.minDistance = 100; ctl.maxDistance = 6000;
+  ctl.addEventListener('change', draw3D);
+  scene.add(new T.HemisphereLight(0xffffff, 0xb8b2a6, 0.75));
+  const sun = new T.DirectionalLight(0xffffff, 0.55);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, {left:-1200, right:1200, top:1200, bottom:-1200, near:10, far:6000});
+  sun.shadow.bias = -0.0005;
+  scene.add(sun, sun.target);
+  Object.assign(V3, {renderer:r, scene, camera:cam, controls:ctl, sun});
+  new ResizeObserver(() => { if (V3.on){ size3D(); draw3D(); } }).observe(host);
+  size3D();
+}
+function size3D(){
+  const host = $('#v3'), w = host.clientWidth || 1, h = host.clientHeight || 1;
+  V3.renderer.setSize(w, h, false); V3.camera.aspect = w / h; V3.camera.updateProjectionMatrix();
+}
+function draw3D(){ if (V3.on && V3.renderer) V3.renderer.render(V3.scene, V3.camera); }
+function schedule3D(){ if (!V3.on || !V3.renderer) return; clearTimeout(V3.timer); V3.timer = setTimeout(() => { build3D(); draw3D(); }, 120); }
+function view3D(kind){
+  const b = bounds(), cx = b.x + b.w/2, cz = b.y + b.h/2, sz = Math.max(b.w, b.h);
+  V3.controls.target.set(cx, 60, cz);
+  if (kind === 'top') V3.camera.position.set(cx, sz * 1.55, cz + 1);
+  else V3.camera.position.set(cx - sz * 0.45, sz * 0.85, cz + sz * 0.95);
+  V3.controls.update(); draw3D();
+}
+const M3 = {};
+function mat(key){
+  if (M3[key]) return M3[key];
+  const T = THREE, spec = {
+    floor:[0xdedad2], wall:[0xf3f1ec], wallcut:[0xc9c4ba], glass:[0x9fcbe8, .35], wood:[0xcaa57c], light:[0xeef0f2],
+    top:[0xdcc7a6], steel:[0x9aa3ab], dark:[0x39434d], fabric:[0x8ea3b6, .92], door:[0xb89574], column:[0x6f777e],
+    card:[0xb88b58], screen:[0x1c2127], plant:[0x4f9a63], pot:[0x9a8f84], machine:[0xe3e5e8], edge:[0x55606a]
+  }[key] || [0xcccccc];
+  const m = key === 'edge' ? new T.LineBasicMaterial({color:spec[0], transparent:true, opacity:.35})
+    : new T.MeshStandardMaterial({color:spec[0], roughness:.85, metalness:key === 'steel' ? .35 : 0, transparent:spec[1] !== undefined, opacity:spec[1] ?? 1, side:key === 'floor' ? T.DoubleSide : T.FrontSide});
+  return (M3[key] = m);
+}
+function box3(parent, w, h, d, x, y, z, m, edges = true){
+  const T = THREE, g = new T.BoxGeometry(Math.max(w, .5), Math.max(h, .5), Math.max(d, .5)), mesh = new T.Mesh(g, mat(m));
+  mesh.position.set(x, y + h/2, z); mesh.castShadow = m !== 'glass'; mesh.receiveShadow = true;
+  parent.add(mesh);
+  if (edges){ const e = new T.LineSegments(new T.EdgesGeometry(g), mat('edge')); e.position.copy(mesh.position); parent.add(e); }
+  return mesh;
+}
+const WOOD = ['window1','window2','cube3','sqcab','rectcab','bigrect','incentive'];
+function itemMat(it){
+  const t = it.type;
+  if (t.startsWith('rack')) return 'steel';
+  if (WOOD.includes(t)) return 'wood';
+  if (t === 'supplybox') return 'card';
+  if (t === 'printer') return 'dark';
+  if (t === 'microwave' || t === 'oven') return 'machine';
+  return 'light';
+}
+function baseOf(it, list){
+  if (it.type !== 'microwave' && it.type !== 'oven') return 0;
+  let top = 0;
+  list.forEach(o => { if (o === it || ['microwave','oven','chair','door','door2','window'].includes(o.type)) return;
+    if (Math.hypot(o.x - it.x, o.y - it.y) < Math.max(o.w, o.h) / 2) top = Math.max(top, heightOf(o)); });
+  return top;
+}
+function furniture3D(it, list){
+  const T = THREE, c = CATALOG[it.type]; if (!c || it.type === 'window') return null;
+  const g = new T.Group(), w = it.w, d = it.h, H = heightOf(it) || 80;
+  switch (c.sym){
+    case 'desk': case 'meeting':
+      box3(g, w, 3, d, 0, H - 3, 0, 'top');
+      box3(g, 3, H - 3, d - 8, -w/2 + 3, 0, 0, 'steel', false); box3(g, 3, H - 3, d - 8, w/2 - 3, 0, 0, 'steel', false);
+      if (c.sym === 'desk') box3(g, w - 8, 35, 2, 0, H - 40, -d/2 + 4, 'steel', false);
+      break;
+    case 'chair':
+      box3(g, 8, 40, 8, 0, 0, 0, 'dark', false);
+      box3(g, w * .84, 8, d * .7, 0, 40, -d * .05, 'dark');
+      box3(g, w * .84, 42, 6, 0, 48, d/2 - 6, 'dark');
+      break;
+    case 'panel': box3(g, w, H, Math.max(d, 4), 0, 0, 0, 'fabric'); break;
+    case 'ushape': {
+      const t = Math.min(5, w/4, d/4);
+      box3(g, w, H, t, 0, 0, -d/2 + t/2, 'fabric'); box3(g, t, H, d, -w/2 + t/2, 0, 0, 'fabric'); box3(g, t, H, d, w/2 - t/2, 0, 0, 'fabric');
+      break;
+    }
+    case 'shelf': {
+      box3(g, 3, H, d, -w/2 + 1.5, 0, 0, 'steel', false); box3(g, 3, H, d, w/2 - 1.5, 0, 0, 'steel', false);
+      const n = Math.max(3, Math.round(H / 40));
+      for (let i = 0; i <= n; i++) box3(g, w, 2, d, 0, Math.min(H - 2, i * H / n), 0, 'steel', i === n);
+      break;
+    }
+    case 'tv': box3(g, w, H, Math.max(d, 4), 0, 100, 0, 'screen'); break;
+    case 'plant': {
+      const pot = new T.Mesh(new T.CylinderGeometry(w * .3, w * .24, 35, 16), mat('pot')); pot.position.y = 17.5; pot.castShadow = true; g.add(pot);
+      const leaf = new T.Mesh(new T.SphereGeometry(w * .5, 16, 12), mat('plant')); leaf.position.y = 35 + w * .45; leaf.castShadow = true; g.add(leaf);
+      break;
+    }
+    case 'column': box3(g, w, V3.low ? 110 : WALL_H, d, 0, 0, 0, 'column'); break;
+    case 'door': box3(g, 4, V3.low ? 100 : 210, d, -w/2 + 2, 0, 0, 'door'); break;
+    case 'door2': { const dh = V3.low ? 100 : 210; box3(g, 4, dh, d, -w/2 + 2, 0, 0, 'door'); box3(g, 4, dh, d, w/2 - 2, 0, 0, 'door'); break; }
+    default: box3(g, w, H, d, 0, 0, 0, itemMat(it));
+  }
+  g.position.set(it.x, baseOf(it, list), it.y);
+  g.rotation.y = -rad(it.r || 0);
+  return g;
+}
+function walls3D(parent, list){
+  const H = V3.low ? 110 : WALL_H;
+  const segs = [];
+  S.layout.rooms.forEach(r => r.pts.forEach((p, i) => segs.push({a:p, b:r.pts[(i+1) % r.pts.length], t:15})));
+  S.layout.walls.forEach(w => segs.push({a:w.a, b:w.b, t:8}));
+  const opens = [];
+  list.forEach(it => {
+    if (it.type === 'window') opens.push({kind:'window', e:[toWorldFrom(it, -it.w/2, 0), toWorldFrom(it, it.w/2, 0)]});
+    if (it.type === 'door' || it.type === 'door2') opens.push({kind:'door', e:[toWorldFrom(it, -it.w/2, it.h/2), toWorldFrom(it, it.w/2, it.h/2)]});
+  });
+  segs.forEach(sg => {
+    const dx = sg.b.x - sg.a.x, dy = sg.b.y - sg.a.y, L = Math.hypot(dx, dy); if (L < 1) return;
+    const ux = dx / L, uy = dy / L, holes = [];
+    opens.forEach(o => {
+      const t = o.e.map(p => ({s:(p.x - sg.a.x)*ux + (p.y - sg.a.y)*uy, d:Math.abs((p.x - sg.a.x)*uy - (p.y - sg.a.y)*ux)}));
+      if (t.every(q => q.d < 14 && q.s > -10 && q.s < L + 10)) holes.push({s0:Math.max(0, Math.min(t[0].s, t[1].s)), s1:Math.min(L, Math.max(t[0].s, t[1].s)), kind:o.kind});
+    });
+    holes.sort((a, b) => a.s0 - b.s0);
+    const g = new THREE.Group();
+    const piece = (s0, s1, y0, y1, m = 'wall') => { if (s1 - s0 > .5 && y1 - y0 > .5) box3(g, s1 - s0, y1 - y0, sg.t, (s0 + s1)/2, y0, 0, m, m !== 'glass'); };
+    let cur = 0;
+    holes.forEach(hl => {
+      piece(cur, hl.s0, 0, H);
+      if (hl.kind === 'door'){ piece(hl.s0, hl.s1, 210, H); }
+      else { piece(hl.s0, hl.s1, 0, Math.min(90, H)); piece(hl.s0, hl.s1, Math.min(240, H), H); if (H > 90) piece(hl.s0, hl.s1, 90, Math.min(240, H), 'glass'); }
+      cur = Math.max(cur, hl.s1);
+    });
+    piece(cur, L, 0, H);
+    g.position.set(sg.a.x, 0, sg.a.y); g.rotation.y = -Math.atan2(dy, dx);
+    parent.add(g);
+  });
+}
+function build3D(){
+  const T = THREE;
+  if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  const root = new T.Group(), list = Object.values(shown());
+  S.layout.rooms.forEach(r => {
+    const shape = new T.Shape(r.pts.map(p => new T.Vector2(p.x, -p.y)));
+    const floor = new T.Mesh(new T.ShapeGeometry(shape), mat('floor'));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; root.add(floor);
+  });
+  walls3D(root, list);
+  list.forEach(it => { const f = furniture3D(it, list); if (f){ f.traverse(o => { if (o.isMesh){ o.castShadow = o.material !== mat('glass'); o.receiveShadow = true; } }); root.add(f); } });
+  V3.scene.add(root); V3.group = root;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim() || '#fbfcfd';
+  V3.scene.background = new T.Color(bg);
+  const b = bounds(), cx = b.x + b.w/2, cz = b.y + b.h/2;
+  V3.sun.position.set(cx - 600, 1400, cz - 400); V3.sun.target.position.set(cx, 0, cz);
+}
+$('#t-3d').onclick = () => set3D(true);
+$('#t-2d').onclick = () => set3D(false);
+$('#v3-low').onclick = e => { V3.low = !V3.low; e.currentTarget.setAttribute('aria-pressed', V3.low); build3D(); draw3D(); };
+$('#v3-reset').onclick = () => view3D('iso');
+$('#v3-top').onclick = () => view3D('top');
+
 /* ---------- toolbar & keys ---------- */
 function setMode(m){ S.mode = m; ['select','wall','box'].forEach(x => { svg.classList.toggle('mode-' + x, m === x); $('#t-' + x).setAttribute('aria-pressed', m === x); }); requestRender(); }
 $('#t-select').onclick = () => setMode('select');
@@ -1310,6 +1521,7 @@ $('#z-out').onclick = () => zoomAt({x:svg.clientWidth/2, y:svg.clientHeight/2}, 
 $('#z-fit').onclick = () => fit();
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea, select')) return;
+  if (V3.on && e.key !== 'Escape') return;
   const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   if (mod && k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && k === 'y'){ e.preventDefault(); redo(); return; }
@@ -1372,6 +1584,11 @@ async function offerFile(filename, data){
 }
 const stamp = () => new Date().toISOString().slice(0, 10);
 $('#exp-png').onclick = async () => {
+  if (V3.on && V3.renderer){
+    draw3D();
+    const blob = await new Promise(r => V3.renderer.domElement.toBlob(r, 'image/png'));
+    if (blob){ await offerFile(`office-3d-${stamp()}.png`, blob); return; }
+  }
   try {
     const s = exportSvg(), img = new Image();
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
