@@ -545,6 +545,10 @@ function selectionOverlay(k){
     const ids = s.ids.filter(id => S.items[id]); if (!ids.length) return '';
     const pad = px(4), P = px(10), b = selBox(ids);
     let h = `<rect class="sel-all" x="${r2(b.x0-P)}" y="${r2(b.y0-P)}" width="${r2(b.x1-b.x0+2*P)}" height="${r2(b.y1-b.y0+2*P)}"/>`;
+    if (!S.readOnly && !S.preview){
+      const cx = r2((b.x0 + b.x1)/2), top = r2(b.y0 - P), hy = r2(b.y0 - P - px(24));
+      h += `<line class="sel-box" x1="${cx}" y1="${top}" x2="${cx}" y2="${hy}"/><circle class="handle" data-h="mrot" cx="${cx}" cy="${hy}" r="${px(7)}"/>`;
+    }
     ids.forEach(id => { const it = S.items[id]; h += `<g transform="translate(${r2(it.x)} ${r2(it.y)}) rotate(${it.r||0})"><rect class="sel-box" x="${r2(-it.w/2-pad)}" y="${r2(-it.h/2-pad)}" width="${r2(it.w+2*pad)}" height="${r2(it.h+2*pad)}"/></g>`; });
     return h;
   }
@@ -658,6 +662,11 @@ svg.addEventListener('pointerdown', e => {
   const h = t.closest('[data-h]');
   if (h && canEdit()){
     const kind = h.dataset.h;
+    if (kind === 'mrot' && S.sel?.kind === 'multi'){
+      const ids = selIds().filter(id => S.items[id]), b = selBox(ids), c = {x:(b.x0 + b.x1)/2, y:(b.y0 + b.y1)/2};
+      drag = {kind:'mrot', ids, c, a0:Math.atan2(w.y - c.y, w.x - c.x), orig:ids.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y, r:S.items[i].r || 0})), edit:true, moved:false, deg:0};
+      return;
+    }
     if ((kind === 'rot' || kind === 'res') && S.sel?.kind === 'item'){
       const it = S.items[S.sel.id];
       drag = {kind, id:it.id, edit:true, moved:false};
@@ -736,6 +745,16 @@ svg.addEventListener('pointermove', e => {
       const dx = snapV(a.x + w.x - drag.w0.x, 5) - a.x, dy = snapV(a.y + w.y - drag.w0.y, 5) - a.y;
       drag.orig.forEach(o => { const it = S.items[o.id]; if (it){ it.x = r2(o.x + dx); it.y = r2(o.y + dy); } });
       drag.moved = true;
+      break;
+    }
+    case 'mrot': {
+      let deg = (Math.atan2(w.y - drag.c.y, w.x - drag.c.x) - drag.a0) * 180 / Math.PI;
+      deg = e.shiftKey ? Math.round(deg) : Math.round(deg / 15) * 15;
+      if (deg === drag.deg && drag.moved) break;
+      drag.deg = deg; drag.moved = true;
+      const a = rad(deg), c = Math.cos(a), sn = Math.sin(a);
+      drag.orig.forEach(o => { const it = S.items[o.id]; if (!it) return; const dx = o.x - drag.c.x, dy = o.y - drag.c.y;
+        it.x = r2(drag.c.x + dx*c - dy*sn); it.y = r2(drag.c.y + dx*sn + dy*c); it.r = normDeg(o.r + deg); });
       break;
     }
     case 'box': {
@@ -1054,7 +1073,7 @@ async function start(){
     gotItems = true;
     if (stable(m) !== stable(base.items)){
       base.items = clone(m);
-      const keep = drag && ['move','rot','res'].includes(drag.kind) ? (drag.ids || [drag.id]) : [];
+      const keep = drag && ['move','rot','res','mrot'].includes(drag.kind) ? (drag.ids || [drag.id]) : [];
       const next = clone(m);
       keep.forEach(k => { if (S.items[k]) next[k] = S.items[k]; });
       S.items = next;
@@ -1207,9 +1226,13 @@ function renderInspector(){
       <p class="muted">${Object.entries(counts).map(([t, n]) => `${esc(CATALOG[t]?.name || t)} × ${n}`).join('、')}</p>
       <dl><dt>範圍</dt><dd>${Math.round(b.x1 - b.x0)} × ${Math.round(b.y1 - b.y0)} cm</dd></dl>
       <div class="btns">${oneGroup ? '' : `<button class="btn primary" type="button" data-act="group"${ro}>組合</button>`}${groups.size ? `<button class="btn" type="button" data-act="ungroup"${ro}>解散組合</button>` : ''}</div>
+      <div class="grid2" style="align-items:end">
+        <label class="field">轉動角度（°，正數順時針）<input id="multi-rot" type="number" step="15" placeholder="例如 45"${ro}></label>
+        <div class="btns"><button class="btn" type="button" data-act="rotm15"${ro}>−15°</button><button class="btn" type="button" data-act="rotp15"${ro}>+15°</button></div>
+      </div>
       <div class="btns"><button class="btn" type="button" data-act="rot90"${ro}>轉 90°</button><button class="btn" type="button" data-act="dup"${ro}>複製</button><button class="btn danger" type="button" data-act="del"${ro}>刪除</button></div>
     </section>
-    <section class="sec"><p class="muted">拖其中一件，全部會一齊移動。組合之後，撳一下就會揀晒成組；㩒住 Alt 再撳可以只揀組合入面一件。</p></section>`;
+    <section class="sec"><p class="muted">拖頂部圓形手柄可以成組任意轉（每 15° 一格，㩒住 Shift 可以逐度轉）。拖其中一件，全部會一齊移動。組合之後，撳一下就會揀晒成組；㩒住 Alt 再撳可以只揀組合入面一件。</p></section>`;
     return;
   }
   if (s?.kind === 'item' && S.items[s.id]){
@@ -1275,12 +1298,13 @@ function renderInspector(){
 }
 $('#inspector').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  ({rot90:() => rotateSel(90), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
+  ({rot90:() => rotateSel(90), rotm15:() => rotateSel(-15), rotp15:() => rotateSel(15), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
 });
 $('#inspector').addEventListener('change', e => {
   if (!canEdit()) return;
   const t = e.target, s = S.sel; if (!s) return;
   const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  if (t.id === 'multi-rot'){ const v = num(t.value); t.value = ''; t.blur(); if (v) rotateSel(v); renderInspector(); return; }
   if (s.kind === 'item'){
     const it = S.items[s.id]; if (!it) return;
     const v = num(t.value);
