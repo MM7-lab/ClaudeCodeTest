@@ -133,10 +133,28 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 .stage.is-3d #v3{display:block}
 .stage.is-3d #plan,.stage.is-3d .tools,.stage.is-3d .zoom,.stage.is-3d .scalebar,.stage.is-3d #hint{display:none!important}
 .v3tools{position:absolute;right:10px;bottom:10px}
-.stage .v3tools,.stage .v3undo{display:none}
+.stage .v3tools,.stage .v3undo,.stage .walktools,.stage .minimap{display:none}
 .stage.is-3d .v3tools{display:inline-flex}
 .v3undo{position:absolute;top:10px;left:10px}
+.minimap{position:absolute;top:10px;left:10px;width:150px;max-height:190px;background:var(--surface);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow);cursor:crosshair;touch-action:none;z-index:2}
+.mm-room{fill:var(--room);stroke:var(--ink);stroke-width:1.2}
+.mm-wall{stroke:var(--ink);stroke-width:1;fill:none}
+.mm-glass{stroke:var(--glasswall);stroke-width:1.4;fill:none}
+.mm-item{fill:var(--furn);stroke:var(--furn-line);stroke-width:.4}
+.mm-me{fill:var(--accent);stroke:var(--surface);stroke-width:1}
+.walktools{position:absolute;right:10px;bottom:10px}
+.walkpad{position:absolute;left:12px;bottom:44px;display:none;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);gap:6px;z-index:2}
+.walkpad button{border:1px solid var(--rule);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);font-size:16px;color:var(--ink);cursor:pointer;touch-action:none;opacity:.88}
+.walkpad button:active{background:var(--accent-soft);color:var(--accent)}
+.walkpad [data-wk="f"]{grid-column:2;grid-row:1}
+.walkpad [data-wk="l"]{grid-column:1;grid-row:2}
+.walkpad [data-wk="b"]{grid-column:2;grid-row:2}
+.walkpad [data-wk="r"]{grid-column:3;grid-row:2}
 .stage.is-3d .v3undo{display:inline-flex}
+.stage.is-walk .walktools{display:inline-flex}
+.stage.is-walk .minimap{display:block}
+.stage.is-walk .v3tools,.stage.is-walk .v3undo,.stage.is-walk .selbar{display:none!important}
+@media (pointer: coarse), (max-width: 760px){.stage.is-walk .walkpad{display:grid}}
 .selbar{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);max-width:calc(100% - 20px);flex-wrap:wrap;justify-content:center;align-items:center;z-index:2}
 .selinfo{font:12px var(--f-mono);color:var(--muted);padding:0 8px;white-space:nowrap}
 .selbar button svg{width:15px;height:15px}
@@ -268,7 +286,8 @@ ol.steps b{color:var(--ink);font-weight:600}
     <div class="v3load" id="v3load" hidden>載入緊 3D 模型…</div>
     <div class="seg vswitch" role="group" aria-label="檢視方式">
       <button type="button" id="t-2d" aria-pressed="true" title="平面圖">平面</button>
-      <button type="button" id="t-3d" aria-pressed="false" title="3D 模型"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5z"/><path d="M2 5l6 3.2L14 5M8 8.2v6"/></svg>3D</button>
+      <button type="button" id="t-3d" aria-pressed="false" title="3D 模型（軌道視角）"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5z"/><path d="M2 5l6 3.2L14 5M8 8.2v6"/></svg>3D</button>
+      <button type="button" id="t-walk" aria-pressed="false" title="第一身漫遊：用 WASD 喺辦公室入面行"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3" r="1.6"/><path d="M8 5.2v4.3M8 6.6l-2.6 1.6M8 6.6l2.6 1.6M8 9.5l-2 4.2M8 9.5l2 4.2"/></svg>漫遊</button>
     </div>
     <div class="seg v3tools" role="group" aria-label="3D 設定">
       <button type="button" id="v3-light" aria-pressed="true" title="切換辦公室天花燈／日光">辦公室燈</button>
@@ -276,6 +295,16 @@ ol.steps b{color:var(--ink);font-weight:600}
       <button type="button" id="v3-eye" title="企喺辦公室入面嘅高度">人視角</button>
       <button type="button" id="v3-top" title="由上面望落去">俯視</button>
       <button type="button" id="v3-reset" title="返回預設視角">重設視角</button>
+    </div>
+    <svg id="minimap" class="minimap" aria-label="位置圖（撳一下可以傳送）"></svg>
+    <div class="seg walktools" role="group" aria-label="漫遊設定">
+      <button type="button" id="w-collide" aria-pressed="true" title="撞牆同傢俬（關閉就可以穿過）">碰撞</button>
+      <button type="button" id="w-light" aria-pressed="true" title="辦公室燈／日光">辦公室燈</button>
+      <button type="button" id="w-home" title="返回起點">起點</button>
+      <button type="button" id="w-exit" title="返回 3D 軌道視角 (Esc)">返回 3D</button>
+    </div>
+    <div class="walkpad" aria-label="移動掣">
+      <button type="button" data-wk="f" aria-label="向前">▲</button><button type="button" data-wk="l" aria-label="向左">◀</button><button type="button" data-wk="b" aria-label="向後">▼</button><button type="button" data-wk="r" aria-label="向右">▶</button>
     </div>
     <p class="v3hint">拖傢俬：移動（已固定嘅只會選取） · 拖空位：旋轉視角 · 右鍵或兩指拖：移動畫面 · 滾輪或捏：縮放</p>
     <div class="seg v3undo" role="group" aria-label="復原">
@@ -1521,7 +1550,7 @@ $('#inspector').addEventListener('input', e => {
 });
 
 /* ---------- 3D view ---------- */
-const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0, light:'office', groups:{}, marks:[], selSet:new Set(), drag:null, tap:null};
+const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0, light:'office', groups:{}, marks:[], selSet:new Set(), drag:null, tap:null, walk:false};
 const WALL_H = 270;
 function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src)); document.head.appendChild(el); }); }
 function load3D(){
@@ -1767,7 +1796,7 @@ function lighting3D(root){
 function build3D(){
   const T = THREE;
   if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.userData?.own && o.material) o.material.dispose(); }); }
-  V3.groups = {}; V3.marks = []; V3.selSet = new Set(S.preview ? [] : selIds());
+  V3.groups = {}; V3.marks = []; V3.selSet = new Set(S.preview || V3.walk ? [] : selIds());
   const root = new T.Group(), list = Object.values(shown());
   S.layout.rooms.forEach(r => {
     const shape = new T.Shape(r.pts.map(p => new T.Vector2(p.x, -p.y)));
@@ -1778,6 +1807,8 @@ function build3D(){
   list.forEach(it => { const f = furniture3D(it, list); if (f){ f.traverse(o => { if (o.isMesh){ o.castShadow = o.material !== mat('glass'); o.receiveShadow = true; } }); root.add(f); } });
   lighting3D(root);
   V3.scene.add(root); V3.group = root;
+  V3.marks.forEach(m => { m.visible = !V3.walk; });
+  if (V3.walk){ collisionData(); buildMini(); }
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim() || '#fbfcfd';
   V3.scene.background = new T.Color(bg);
 }
@@ -1819,7 +1850,7 @@ function onUp3(e){
   if (d.moved){ restack(d.sel, d.set); commit(); }
 }
 $('#v3').addEventListener('pointerdown', e => {
-  if (!V3.on || !V3.controls || e.button !== 0 || !e.isPrimary) return;
+  if (!V3.on || V3.walk || !V3.controls || e.button !== 0 || !e.isPrimary) return;
   V3.controls.enabled = true; V3.tap = {x:e.clientX, y:e.clientY, handled:false};
   const h = pick3D(e), hid = h?.id && S.items[h.id] ? h.id : null;
   if (!hid) return;
@@ -1843,13 +1874,196 @@ $('#v3').addEventListener('pointerup', e => {
   if (Math.hypot(e.clientX - t.x, e.clientY - t.y) < 5 && S.sel) select(null);
 });
 $('#v3-undo').onclick = undo; $('#v3-redo').onclick = redo;
-$('#t-3d').onclick = () => set3D(true);
-$('#t-2d').onclick = () => set3D(false);
+async function setView(v){
+  if (v !== 'walk' && V3.walk) exitWalk();
+  if (v === '2d') await set3D(false);
+  else {
+    if (!V3.on) await set3D(true);
+    if (V3.on && v === 'walk' && !V3.walk) enterWalk();
+  }
+  const cur = !V3.on ? '2d' : V3.walk ? 'walk' : '3d';
+  ['2d', '3d', 'walk'].forEach(x => $('#t-' + x).setAttribute('aria-pressed', x === cur));
+}
+$('#t-3d').onclick = () => setView('3d');
+$('#t-2d').onclick = () => setView('2d');
+$('#t-walk').onclick = () => setView('walk');
 $('#v3-low').onclick = e => { V3.low = !V3.low; e.currentTarget.setAttribute('aria-pressed', V3.low); build3D(); draw3D(); };
 $('#v3-reset').onclick = () => view3D('iso');
-$('#v3-light').onclick = e => { V3.light = V3.light === 'office' ? 'day' : 'office'; e.currentTarget.setAttribute('aria-pressed', V3.light === 'office'); build3D(); draw3D(); };
+const toggleLight = () => { V3.light = V3.light === 'office' ? 'day' : 'office'; ['#v3-light', '#w-light'].forEach(q => $(q).setAttribute('aria-pressed', V3.light === 'office')); build3D(); draw3D(); };
+$('#v3-light').onclick = toggleLight;
 $('#v3-top').onclick = () => view3D('top');
 $('#v3-eye').onclick = () => view3D('eye');
+
+/* ---------- walk-through (第一身漫遊) ---------- */
+const W = {x:0, y:0, yaw:0, pitch:0, eye:160, k:{}, pad:{}, run:false, collide:true, segs:[], rects:[], last:0, home:null, saved:null, mm:null, look:null, hintOrbit:''};
+const HINT_WALK = 'WASD 行路 · 方向鍵或 Q／E 轉身 · 拖動畫面望四周 · Shift 快行 · 撳小地圖可以傳送 · Esc 返回';
+const WALK_R = 22;
+function collisionData(){
+  const items = Object.values(shown()), base = [];
+  S.layout.rooms.forEach(r => r.pts.forEach((q, i) => base.push({a:q, b:r.pts[(i + 1) % r.pts.length], t:15})));
+  S.layout.walls.forEach(w => base.push({a:w.a, b:w.b, t:w.glass ? 4 : 8}));
+  const doors = items.filter(i => i.type === 'door' || i.type === 'door2').map(it => [toWorldFrom(it, -it.w/2, it.h/2), toWorldFrom(it, it.w/2, it.h/2)]);
+  const segs = [];
+  base.forEach(sg => {
+    const dx = sg.b.x - sg.a.x, dy = sg.b.y - sg.a.y, L = Math.hypot(dx, dy); if (L < 1) return;
+    const ux = dx / L, uy = dy / L, holes = [];
+    doors.forEach(e => {
+      const t = e.map(q => ({s:(q.x - sg.a.x)*ux + (q.y - sg.a.y)*uy, d:Math.abs((q.x - sg.a.x)*uy - (q.y - sg.a.y)*ux)}));
+      if (t.every(q => q.d < 14 && q.s > -10 && q.s < L + 10)) holes.push([Math.max(0, Math.min(t[0].s, t[1].s)), Math.min(L, Math.max(t[0].s, t[1].s))]);
+    });
+    holes.sort((a, b) => a[0] - b[0]);
+    const piece = (s0, s1) => { if (s1 - s0 > 1) segs.push({ax:sg.a.x + ux*s0, ay:sg.a.y + uy*s0, bx:sg.a.x + ux*s1, by:sg.a.y + uy*s1, r:sg.t / 2}); };
+    let cur = 0;
+    holes.forEach(h => { piece(cur, h[0]); cur = Math.max(cur, h[1]); });
+    piece(cur, L);
+  });
+  W.segs = segs;
+  W.rects = items.filter(it => !['door', 'door2', 'window'].includes(it.type) && elev(it) + heightOf(it) >= 30).map(it => ({x:it.x, y:it.y, w:it.w, h:it.h, r:it.r || 0}));
+}
+function resolveWalk(p){
+  const R = WALK_R;
+  for (let n = 0; n < 4; n++){
+    let moved = false;
+    for (const s of W.segs){
+      const dx = s.bx - s.ax, dy = s.by - s.ay, L2 = dx*dx + dy*dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - s.ax)*dx + (p.y - s.ay)*dy) / L2));
+      const cx = s.ax + t*dx, cy = s.ay + t*dy, vx = p.x - cx, vy = p.y - cy, d = Math.hypot(vx, vy), min = R + s.r;
+      if (d < min){
+        if (d > 1e-6){ p.x = cx + vx / d * min; p.y = cy + vy / d * min; }
+        else { const nl = Math.sqrt(L2); p.x += -dy / nl * min; p.y += dx / nl * min; }
+        moved = true;
+      }
+    }
+    for (const r of W.rects){
+      const a = rad(r.r), ca = Math.cos(a), sa = Math.sin(a), dx = p.x - r.x, dy = p.y - r.y;
+      const lx = dx*ca + dy*sa, ly = -dx*sa + dy*ca, hw = r.w / 2, hh = r.h / 2;
+      const cx = Math.max(-hw, Math.min(hw, lx)), cy = Math.max(-hh, Math.min(hh, ly)), vx = lx - cx, vy = ly - cy, d = Math.hypot(vx, vy);
+      if (d < R){
+        let nx, ny;
+        if (d > 1e-6){ nx = cx + vx / d * R; ny = cy + vy / d * R; }
+        else if (hw - Math.abs(lx) < hh - Math.abs(ly)){ nx = (lx < 0 ? -1 : 1) * (hw + R); ny = ly; }
+        else { nx = lx; ny = (ly < 0 ? -1 : 1) * (hh + R); }
+        p.x = r.x + nx*ca - ny*sa; p.y = r.y + nx*sa + ny*ca; moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+function buildMini(){
+  const mm = $('#minimap'), b = bounds(), pad = 6, bw = 150 - pad * 2, sc = bw / Math.max(b.w, b.h);
+  W.mm = {sc, ox:pad + (bw - b.w * sc) / 2 - b.x * sc, oy:pad - b.y * sc, h:Math.round(b.h * sc + pad * 2)};
+  const X = x => r2(x * sc + W.mm.ox), Y = y => r2(y * sc + W.mm.oy);
+  mm.setAttribute('viewBox', `0 0 150 ${W.mm.h}`); mm.setAttribute('height', W.mm.h);
+  let h = '';
+  S.layout.rooms.forEach(r => { h += `<polygon class="mm-room" points="${r.pts.map(q => X(q.x) + ',' + Y(q.y)).join(' ')}"/>`; });
+  S.layout.walls.forEach(w => { h += `<line class="${w.glass ? 'mm-glass' : 'mm-wall'}" x1="${X(w.a.x)}" y1="${Y(w.a.y)}" x2="${X(w.b.x)}" y2="${Y(w.b.y)}"/>`; });
+  Object.values(shown()).forEach(it => { if (['door', 'door2', 'window'].includes(it.type)) return; h += `<polygon class="mm-item" points="${corners(it).map(q => X(q.x) + ',' + Y(q.y)).join(' ')}"/>`; });
+  h += '<g id="mm-me"><path class="mm-me" d="M0 -8 L5 5 L0 2 L-5 5 Z"/></g>';
+  mm.innerHTML = h; drawMini();
+}
+function drawMini(){
+  const g = $('#mm-me'); if (!g || !W.mm) return;
+  g.setAttribute('transform', `translate(${r2(W.x * W.mm.sc + W.mm.ox)} ${r2(W.y * W.mm.sc + W.mm.oy)}) rotate(${r2(-W.yaw * 180 / Math.PI)})`);
+}
+function placeCam(){
+  const cam = V3.camera; cam.rotation.order = 'YXZ';
+  cam.position.set(W.x, W.eye, W.y); cam.rotation.set(W.pitch, W.yaw, 0);
+  draw3D(); drawMini();
+}
+function walkTo(x, y){
+  const p = {x, y}; if (W.collide) resolveWalk(p);
+  W.x = p.x; W.y = p.y; placeCam();
+}
+function enterWalk(){
+  if (V3.walk) return;
+  V3.walk = true; $('#stage').classList.add('is-walk');
+  W.saved = {pos:V3.camera.position.clone(), target:V3.controls.target.clone(), low:V3.low};
+  V3.controls.enabled = false;
+  if (V3.low){ V3.low = false; $('#v3-low').setAttribute('aria-pressed', false); }
+  const hint = $('.v3hint'); W.hintOrbit = hint.textContent; hint.textContent = HINT_WALK;
+  W.k = {}; W.pad = {}; W.run = false; W.look = null;
+  collisionData();
+  const spot = eyeSpot(), b = bounds(), c = spot ? spot.c : {x:b.x + b.w/2, y:b.y + b.h/2}, p = spot ? spot.p : {x:c.x, y:c.y};
+  W.home = {x:p.x, y:p.y, yaw:Math.atan2(-(c.x - p.x), -(c.y - p.y))};
+  W.x = W.home.x; W.y = W.home.y; W.yaw = W.home.yaw; W.pitch = 0; W.eye = 160;
+  V3.camera.fov = 70; V3.camera.updateProjectionMatrix();
+  build3D(); walkTo(W.x, W.y);
+  startWalkLoop();
+}
+function exitWalk(){
+  if (!V3.walk) return;
+  V3.walk = false; $('#stage').classList.remove('is-walk');
+  W.k = {}; W.pad = {}; W.look = null;
+  $('.v3hint').textContent = W.hintOrbit;
+  const cam = V3.camera; cam.rotation.order = 'XYZ'; cam.fov = 45; cam.updateProjectionMatrix();
+  if (W.saved){
+    V3.low = W.saved.low; $('#v3-low').setAttribute('aria-pressed', V3.low);
+    cam.position.copy(W.saved.pos); V3.controls.target.copy(W.saved.target);
+  }
+  V3.controls.enabled = true; V3.controls.update();
+  build3D(); draw3D();
+}
+function startWalkLoop(){
+  const id = W.loop = (W.loop || 0) + 1;
+  W.last = performance.now();
+  const tick = t => {
+    if (!V3.walk || id !== W.loop) return;
+    const dt = Math.min(0.3, (t - W.last) / 1000); W.last = t;
+    const k = W.k, pd = W.pad;
+    const f = (k.f || pd.f ? 1 : 0) - (k.b || pd.b ? 1 : 0), st = (k.r || pd.r ? 1 : 0) - (k.l || pd.l ? 1 : 0), tr = (k.tr ? 1 : 0) - (k.tl ? 1 : 0);
+    if (tr || f || st){
+      const n = Math.max(1, Math.ceil(dt / 0.04)), h = dt / n, n2 = Math.hypot(f, st) || 1;
+      for (let i = 0; i < n; i++){
+        if (tr) W.yaw -= tr * 1.8 * h;
+        if (f || st){
+          const sp = 140 * (W.run ? 2.2 : 1) * h, sy = Math.sin(W.yaw), cy = Math.cos(W.yaw);
+          const p = {x:W.x + ((-sy * f + cy * st) / n2) * sp, y:W.y + ((-cy * f - sy * st) / n2) * sp};
+          if (W.collide) resolveWalk(p);
+          W.x = p.x; W.y = p.y;
+        }
+      }
+      placeCam();
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+const WALK_KEYS = {w:'f', arrowup:'f', s:'b', arrowdown:'b', a:'l', d:'r', arrowleft:'tl', q:'tl', arrowright:'tr', e:'tr'};
+function walkKey(e, down){
+  const k = e.key.toLowerCase();
+  if (k === 'shift'){ W.run = down; return; }
+  if (down && k === 'escape'){ setView('3d'); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const m = WALK_KEYS[k]; if (!m) return;
+  e.preventDefault(); W.k[m] = down;
+}
+window.addEventListener('keyup', e => { if (V3.walk) walkKey(e, false); });
+window.addEventListener('blur', () => { W.k = {}; W.pad = {}; W.run = false; });
+$('#v3').addEventListener('pointerdown', e => {
+  if (!V3.walk || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  W.look = {id:e.pointerId, x:e.clientX, y:e.clientY};
+  try { $('#v3').setPointerCapture(e.pointerId); } catch (err) {}
+});
+$('#v3').addEventListener('pointermove', e => {
+  const l = W.look; if (!V3.walk || !l || e.pointerId !== l.id) return;
+  W.yaw -= (e.clientX - l.x) * 0.005; W.pitch = Math.max(-1.3, Math.min(1.3, W.pitch - (e.clientY - l.y) * 0.005));
+  l.x = e.clientX; l.y = e.clientY; placeCam();
+});
+['pointerup', 'pointercancel'].forEach(t => $('#v3').addEventListener(t, e => { if (W.look && e.pointerId === W.look.id) W.look = null; }));
+$('#minimap').addEventListener('pointerdown', e => {
+  if (!V3.walk || !W.mm) return;
+  const r = $('#minimap').getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * 150, vy = (e.clientY - r.top) / r.height * W.mm.h;
+  walkTo((vx - W.mm.ox) / W.mm.sc, (vy - W.mm.oy) / W.mm.sc);
+});
+document.querySelectorAll('.walkpad [data-wk]').forEach(b => {
+  const k = b.dataset.wk;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); W.pad[k] = true; });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, () => { W.pad[k] = false; }));
+});
+$('#w-collide').onclick = e => { W.collide = !W.collide; e.currentTarget.setAttribute('aria-pressed', W.collide); if (W.collide) walkTo(W.x, W.y); };
+$('#w-light').onclick = toggleLight;
+$('#w-home').onclick = () => { if (W.home){ W.yaw = W.home.yaw; W.pitch = 0; walkTo(W.home.x, W.home.y); } };
+$('#w-exit').onclick = () => setView('3d');
 
 /* ---------- toolbar & keys ---------- */
 function setMode(m){ S.mode = m; ['select','wall','box'].forEach(x => { svg.classList.toggle('mode-' + x, m === x); $('#t-' + x).setAttribute('aria-pressed', m === x); }); requestRender(); }
@@ -1865,6 +2079,7 @@ $('#z-out').onclick = () => zoomAt({x:svg.clientWidth/2, y:svg.clientHeight/2}, 
 $('#z-fit').onclick = () => fit();
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea, select')) return;
+  if (V3.walk){ walkKey(e, true); return; }
   const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   if (V3.on && !mod && ['v','w','m','f'].includes(k)) return;
   if (mod && k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
