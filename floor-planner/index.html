@@ -134,6 +134,7 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 .selbar button svg{width:15px;height:15px}
 #sb-lock[aria-pressed="true"]{background:var(--warn-soft);color:var(--warn)}
 #sb-del{color:var(--danger)}
+.btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .lockrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:12.5px;color:var(--muted)}
 .lockrow.on{border-color:var(--select);background:var(--warn-soft);color:var(--warn)}
 .v3hint{position:absolute;left:12px;bottom:14px;font-size:12px;color:var(--muted);display:none;pointer-events:none;max-width:calc(100% - 260px)}
@@ -276,6 +277,7 @@ ol.steps b{color:var(--ink);font-weight:600}
     <div class="seg selbar" id="selbar" role="toolbar" aria-label="選取傢俬操作" hidden>
       <span class="selinfo" id="selbar-info"></span>
       <button type="button" id="sb-lock" aria-pressed="false" title="固定／解除固定（L）：固定咗嘅傢俬唔會被拖郁、轉向或刪除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" fill-opacity=".18"/><path id="sb-lock-d" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span id="sb-lock-t">固定</span></button>
+      <button type="button" id="sb-lay" title="瞓低／企返直（T）：櫃可以平瞓或者側瞓">瞓低</button>
       <button type="button" id="sb-rot" title="轉 90° (R)">轉 90°</button>
       <button type="button" id="sb-dup" title="複製 (Ctrl+D)">複製</button>
       <button type="button" id="sb-del" title="刪除 (Delete)">刪除</button>
@@ -382,6 +384,7 @@ const PLAN_CSS = `
 .f-hit{fill:transparent;stroke:none}
 .f-label{fill:var(--ink);font-family:var(--f-ui);font-weight:500}
 .f-tag{fill:var(--muted);font-family:var(--f-ui)}
+.f-elev{fill:var(--accent);font-family:var(--f-mono);font-weight:500;pointer-events:none}
 .sel-box{fill:none;stroke:var(--select);stroke-width:1.5;stroke-dasharray:5 4}
 .sel-all{fill:var(--accent-soft);fill-opacity:.4;stroke:var(--accent);stroke-width:1.25;stroke-dasharray:6 4}
 .marquee{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
@@ -429,6 +432,55 @@ const snapV = (v, step) => S.snap ? Math.round(v / step) * step : r2(v);
 const heightOf = it => it.ht ?? CATALOG[it.type]?.ht ?? 0;
 const isLocked = it => !!(it && (it.lock ?? CATALOG[it.type]?.fixed));
 const movableIds = ids => ids.filter(id => S.items[id] && !isLocked(S.items[id]));
+const SUPPORT_SYMS = new Set(['desk','meeting','cabinet','drawers','shelf','box','printer']);
+const STACK_SYMS = new Set(['cabinet','drawers','box','printer','appliance','plant']);
+const LAY_SYMS = new Set(['cabinet','drawers','shelf','box','printer','appliance']);
+const symOf = it => CATALOG[it?.type]?.sym;
+const canLay = it => LAY_SYMS.has(symOf(it));
+const isStacker = it => STACK_SYMS.has(symOf(it));
+function baseDims(it){ const L = it.lay || 0, ht = heightOf(it); return L === 1 ? {w:ht, d:it.h, ht:it.w} : L === 2 ? {w:it.w, d:ht, ht:it.h} : {w:it.w, d:it.h, ht}; }
+function elev(it, depth = 0){
+  if (!it) return 0;
+  if (it.on === undefined) return legacyBase(it);
+  const sup = it.on ? shown()[it.on] : null;
+  return sup && depth < 8 ? elev(sup, depth + 1) + heightOf(sup) : 0;
+}
+function legacyBase(it){
+  if (it.type !== 'microwave' && it.type !== 'oven') return 0;
+  let top = 0;
+  Object.values(shown()).forEach(o => { if (o === it || ['microwave','oven','chair','door','door2','window'].includes(o.type)) return;
+    if (Math.hypot(o.x - it.x, o.y - it.y) < Math.max(o.w, o.h) / 2) top = Math.max(top, heightOf(o)); });
+  return top;
+}
+function pointInItem(p, o){ const a = rad(o.r || 0), dx = p.x - o.x, dy = p.y - o.y, lx = dx * Math.cos(a) + dy * Math.sin(a), ly = -dx * Math.sin(a) + dy * Math.cos(a); return Math.abs(lx) <= o.w / 2 && Math.abs(ly) <= o.h / 2; }
+function findSupport(it, excl){
+  let best = null, top = 0;
+  for (const o of Object.values(S.items)){
+    if (o.id === it.id || excl.has(o.id) || !SUPPORT_SYMS.has(symOf(o)) || !pointInItem(it, o)) continue;
+    const t = elev(o) + heightOf(o);
+    if (t > top){ top = t; best = o.id; }
+  }
+  return best;
+}
+function ridersOf(ids){
+  const set = new Set(ids), out = [], items = Object.values(S.items);
+  for (let grew = true; grew;){
+    grew = false;
+    for (const o of items){
+      if (set.has(o.id)) continue;
+      let on = o.on;
+      if (on === undefined && symOf(o) === 'appliance'){ const s = items.find(x => set.has(x.id) && SUPPORT_SYMS.has(symOf(x)) && pointInItem(o, x)); on = s?.id; }
+      if (on && set.has(on)){ set.add(o.id); out.push(o.id); grew = true; }
+    }
+  }
+  return out;
+}
+function restack(ids, moved){
+  ids.forEach(id => {
+    const it = S.items[id]; if (!it || !isStacker(it) || (it.on && moved.has(it.on))) return;
+    it.on = findSupport(it, moved);
+  });
+}
 
 /* ---------- geometry ---------- */
 function polyArea(pts){ let a = 0; for (let i = 0; i < pts.length; i++){ const p = pts[i], q = pts[(i+1) % pts.length]; a += p.x*q.y - q.x*p.y; } return a / 2; }
@@ -502,7 +554,7 @@ function renderWorld(o){
     if (o.interactive) h += `<line class="hit-line" data-wall="${w.id}" x1="${w.a.x}" y1="${w.a.y}" x2="${w.b.x}" y2="${w.b.y}"/>`;
   }
   const layer = it => it.type === 'door' || it.type === 'door2' || it.type === 'column' || it.type === 'window' ? 3 : it.type === 'chair' || it.type === 'plant' ? 2 : 1;
-  const items = Object.values(shown()).sort((a, b) => layer(a) - layer(b));
+  const items = Object.values(shown()).sort((a, b) => layer(a) - layer(b) || elev(a) - elev(b));
   for (const it of items){
     const c = CATALOG[it.type]; if (!c) continue;
     h += `<g data-item="${it.id}" transform="translate(${r2(it.x)} ${r2(it.y)}) rotate(${it.r||0})">`;
@@ -517,6 +569,7 @@ function renderWorld(o){
     }
     h += '</g>';
   }
+  if (o.interactive) for (const it of items){ if (it.on && elev(it) > 0){ const cs = corners(it)[0]; h += `<text class="f-elev" x="${r2(cs.x)}" y="${r2(cs.y - px(3))}" font-size="${px(9.5)}" text-anchor="middle">+${Math.round(elev(it))}</text>`; } }
   if (o.interactive) for (const it of items){ if (it.lock === true){ const cs = corners(it)[1]; h += lockGlyph(cs.x, cs.y, k, 0); } }
   for (const r of S.layout.rooms){
     const c = labelPos(r);
@@ -702,8 +755,8 @@ svg.addEventListener('pointerdown', e => {
     const kind = h.dataset.h;
     if (kind === 'mrot' && S.sel?.kind === 'multi'){
       const ids = movableIds(selIds()); if (!ids.length) return;
-      const b = selBox(ids), c = {x:(b.x0 + b.x1)/2, y:(b.y0 + b.y1)/2};
-      drag = {kind:'mrot', ids, c, a0:Math.atan2(w.y - c.y, w.x - c.x), orig:ids.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y, r:S.items[i].r || 0})), edit:true, moved:false, deg:0};
+      const b = selBox(ids), c = {x:(b.x0 + b.x1)/2, y:(b.y0 + b.y1)/2}, all = ids.concat(ridersOf(ids));
+      drag = {kind:'mrot', ids:all, c, a0:Math.atan2(w.y - c.y, w.x - c.x), orig:all.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y, r:S.items[i].r || 0})), edit:true, moved:false, deg:0};
       return;
     }
     if ((kind === 'rot' || kind === 'res') && S.sel?.kind === 'item' && !isLocked(S.items[S.sel.id])){
@@ -744,9 +797,9 @@ svg.addEventListener('pointerdown', e => {
     }
     const already = members.every(m => cur.includes(m));
     if (!already) selectItems(members);
-    const mv = movableIds(selIds());
+    const mv = movableIds(selIds()), all = mv.concat(ridersOf(mv));
     drag = canEdit() && mv.length
-      ? {kind:'move', anchor:mv.includes(id) ? id : mv[0], ids:mv, w0:w, orig:mv.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), edit:true, moved:false, start:p, reselect: already && cur.length > members.length ? members : null}
+      ? {kind:'move', anchor:mv.includes(id) ? id : mv[0], ids:all, sel:mv, w0:w, orig:all.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), edit:true, moved:false, start:p, reselect: already && cur.length > members.length ? members : null}
       : {kind:'pan', start:p, v0:{...S.view}, keep:true};
     return;
   }
@@ -880,6 +933,7 @@ function endPointer(e){
   } else if (d.kind === 'move' && !d.moved && d.reselect){
     selectItems(d.reselect);
   } else if (d.edit && d.moved){
+    if (d.kind === 'move') restack(d.sel, new Set(d.ids));
     commit();
   }
   requestRender(); renderInspector();
@@ -974,13 +1028,15 @@ function deleteSel(){
 }
 function duplicateSel(){
   const ids = selIds().filter(id => S.items[id]); if (!ids.length || !canEdit()) return;
-  const gmap = {}, out = [];
+  const gmap = {}, out = [], idMap = {};
   ids.forEach(id => {
     const src = S.items[id], it = {...clone(src), id:uid(), x:r2(src.x + 20), y:r2(src.y + 20)};
     delete it.lock;
     if (src.g) it.g = gmap[src.g] || (gmap[src.g] = uid());
-    S.items[it.id] = it; out.push(it.id);
+    S.items[it.id] = it; out.push(it.id); idMap[id] = it.id;
   });
+  out.forEach(nid => { const it = S.items[nid]; if (it.on && idMap[it.on]) it.on = idMap[it.on]; });
+  restack(out.filter(nid => !(S.items[nid].on && out.includes(S.items[nid].on))), new Set(out));
   Object.values(gmap).forEach(g => { const m = out.filter(id => S.items[id].g === g); if (m.length < 2) m.forEach(id => delete S.items[id].g); });
   commit(); selectItems(out);
 }
@@ -988,19 +1044,39 @@ function rotateSel(deg){
   const all = selIds().filter(id => S.items[id]); if (!all.length || !canEdit()) return;
   const ids = movableIds(all);
   if (!ids.length){ toast('呢啲傢俬已固定，要先解除固定先轉到。'); return; }
-  if (ids.length === 1){ const it = S.items[ids[0]]; it.r = normDeg((it.r||0) + deg); }
-  else {
-    const b = selBox(ids), cx = (b.x0 + b.x1)/2, cy = (b.y0 + b.y1)/2, a = rad(deg), c = Math.cos(a), s = Math.sin(a);
-    ids.forEach(id => { const it = S.items[id], dx = it.x - cx, dy = it.y - cy; it.x = r2(cx + dx*c - dy*s); it.y = r2(cy + dx*s + dy*c); it.r = normDeg((it.r||0) + deg); });
-  }
+  const b = selBox(ids), cx = (b.x0 + b.x1)/2, cy = (b.y0 + b.y1)/2, a = rad(deg), c = Math.cos(a), s = Math.sin(a);
+  ids.concat(ridersOf(ids)).forEach(id => { const it = S.items[id], dx = it.x - cx, dy = it.y - cy; it.x = r2(cx + dx*c - dy*s); it.y = r2(cy + dx*s + dy*c); it.r = normDeg((it.r||0) + deg); });
   commit(); requestRender();
 }
 function nudge(dx, dy){
   const s = S.sel; if (!s || !canEdit()) return;
-  if (s.kind === 'item' || s.kind === 'multi'){ const mv = movableIds(selIds()); if (!mv.length) return; mv.forEach(id => { const it = S.items[id]; it.x = r2(it.x + dx); it.y = r2(it.y + dy); }); }
+  if (s.kind === 'item' || s.kind === 'multi'){ const mv = movableIds(selIds()); if (!mv.length) return; mv.concat(ridersOf(mv)).forEach(id => { const it = S.items[id]; it.x = r2(it.x + dx); it.y = r2(it.y + dy); }); }
   else if (s.kind === 'room'){ const r = room(s.id); r.pts = r.pts.map(p => ({x:r2(p.x+dx), y:r2(p.y+dy)})); if (r.lp) r.lp = {x:r2(r.lp.x+dx), y:r2(r.lp.y+dy)}; }
   else if (s.kind === 'wall'){ const w = wall(s.id); w.a = {x:r2(w.a.x+dx), y:r2(w.a.y+dy)}; w.b = {x:r2(w.b.x+dx), y:r2(w.b.y+dy)}; }
   scheduleCommit(); requestRender();
+}
+function setLay(ids, t){
+  if (!canEdit()) return;
+  const mv = movableIds(ids).filter(id => canLay(S.items[id]));
+  if (!mv.length){ toast('揀咗嘅傢俬唔可以瞓低（或者已固定）。'); return; }
+  mv.forEach(id => {
+    const it = S.items[id], b = baseDims(it);
+    const n = t === 1 ? {w:b.ht, h:b.d, ht:b.w} : t === 2 ? {w:b.w, h:b.ht, ht:b.d} : {w:b.w, h:b.d, ht:b.ht};
+    it.w = n.w; it.h = n.h; it.ht = n.ht;
+    if (t) it.lay = t; else delete it.lay;
+  });
+  commit(); renderInspector(); requestRender();
+  toast(t === 0 ? `已企返直（${mv.length} 件）。` : `已瞓低（${mv.length} 件）。`, true);
+}
+function toggleLay(){
+  const ids = movableIds(selIds()).filter(id => canLay(S.items[id]));
+  if (!ids.length){ toast('揀咗嘅傢俬唔可以瞓低（或者已固定）。'); return; }
+  setLay(ids, ids.some(id => !S.items[id].lay) ? 2 : 0);
+}
+function unstackSel(){
+  if (!canEdit()) return;
+  movableIds(selIds()).forEach(id => { if (S.items[id].on) S.items[id].on = null; });
+  commit(); renderInspector(); requestRender();
 }
 function toggleLock(){
   const ids = selIds().filter(id => S.items[id]); if (!ids.length || !canEdit()) return;
@@ -1017,10 +1093,13 @@ function renderSelbar(){
   const lk = $('#sb-lock'); lk.setAttribute('aria-pressed', all);
   $('#sb-lock-t').textContent = all ? '已固定' : n ? `固定（${n}/${ids.length}）` : '固定';
   $('#sb-lock-d').setAttribute('d', all ? 'M5.5 7V5a2.5 2.5 0 0 1 5 0v2' : 'M5.5 7V5a2.5 2.5 0 0 1 4.9-.7');
+  const layable = ids.filter(id => canLay(S.items[id])), lb = $('#sb-lay');
+  lb.hidden = !layable.length; lb.textContent = layable.some(id => !S.items[id].lay) ? '瞓低' : '企返直'; lb.disabled = !ed || all;
   lk.disabled = !ed; $('#sb-rot').disabled = !ed || all; $('#sb-dup').disabled = !ed; $('#sb-del').disabled = !ed || all;
 }
 $('#sb-lock').onclick = toggleLock;
 $('#sb-rot').onclick = () => rotateSel(90);
+$('#sb-lay').onclick = toggleLay;
 $('#sb-dup').onclick = duplicateSel;
 $('#sb-del').onclick = deleteSel;
 let commitTimer = 0;
@@ -1327,6 +1406,8 @@ function renderInspector(){
     el.innerHTML = `<section class="sec"><p class="eyebrow">傢俬</p><h3>${esc(c.name)}</h3>
       ${c.note ? `<p class="note">${esc(c.note)}</p>` : ''}
       <div class="lockrow${locked ? ' on' : ''}"><span>${locked ? '已固定：唔會被拖郁、轉向或刪除' : '未固定'}</span><button class="btn${locked ? ' primary' : ''}" type="button" data-act="lock"${ro}>${locked ? '解除固定' : '固定'}</button></div>
+      ${canLay(it) ? `<div class="field">擺放方式<div class="btns"><button class="btn" type="button" data-act="lay0" aria-pressed="${!it.lay}"${rg}>直立</button><button class="btn" type="button" data-act="lay2" aria-pressed="${it.lay === 2}"${rg}>平瞓（門向上）</button><button class="btn" type="button" data-act="lay1" aria-pressed="${it.lay === 1}"${rg}>側瞓</button></div></div>` : ''}
+      ${elev(it) > 0 ? `<p class="muted">${it.on && S.items[it.on] ? `疊喺「${esc(CATALOG[S.items[it.on].type]?.name || '')}」上面，` : ''}離地 ${Math.round(elev(it))} cm。</p>${it.on ? `<div class="btns"><button class="btn" type="button" data-act="unstack"${rg}>放返落地</button></div>` : ''}` : ''}
       ${it.g ? `<p class="muted">呢件屬於一個組合（${groupOf(it.id).length} 件）。</p><div class="btns"><button class="btn" type="button" data-act="selgroup">揀晒成個組合</button><button class="btn" type="button" data-act="leave"${ro}>移出組合</button></div>` : ''}
       <label class="field">標籤（例如同事名）<input id="in-label" maxlength="40" value="${esc(it.label)}"${ro}></label>
       <div class="grid3">
@@ -1382,11 +1463,11 @@ function renderInspector(){
       <li><b>加標籤。</b>喺同事枱寫上名，搬之前大家都知坐邊。</li>
     </ol></section>
     <section class="sec kbd-only"><p class="eyebrow">快捷鍵</p>
-    <dl class="keys"><dt>V / W</dt><dd>選取／畫牆</dd><dt>方向鍵</dt><dd>移 1 cm（Shift：10 cm）</dd><dt>R</dt><dd>轉 90°</dd><dt>Shift 撳</dt><dd>加入／移除選取</dd><dt>Shift 拖</dt><dd>喺空白位拉框選多件</dd><dt>Ctrl A</dt><dd>全選傢俬</dd><dt>Ctrl G</dt><dd>組合（Shift：解散）</dd><dt>L</dt><dd>固定／解除固定</dd><dt>Ctrl D</dt><dd>複製</dd><dt>Delete</dt><dd>刪除</dd><dt>Ctrl Z</dt><dd>復原</dd><dt>F</dt><dd>全圖</dd><dt>滾輪</dt><dd>縮放 · 拖空白位移動畫面</dd></dl></section>`;
+    <dl class="keys"><dt>V / W</dt><dd>選取／畫牆</dd><dt>方向鍵</dt><dd>移 1 cm（Shift：10 cm）</dd><dt>R</dt><dd>轉 90°</dd><dt>Shift 撳</dt><dd>加入／移除選取</dd><dt>Shift 拖</dt><dd>喺空白位拉框選多件</dd><dt>Ctrl A</dt><dd>全選傢俬</dd><dt>Ctrl G</dt><dd>組合（Shift：解散）</dd><dt>L</dt><dd>固定／解除固定</dd><dt>T</dt><dd>瞓低／企返直</dd><dt>Ctrl D</dt><dd>複製</dd><dt>Delete</dt><dd>刪除</dd><dt>Ctrl Z</dt><dd>復原</dd><dt>F</dt><dd>全圖</dd><dt>滾輪</dt><dd>縮放 · 拖空白位移動畫面</dd></dl></section>`;
 }
 $('#inspector').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  ({lock:toggleLock, rot90:() => rotateSel(90), rotm15:() => rotateSel(-15), rotp15:() => rotateSel(15), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
+  ({lay0:() => setLay(selIds(), 0), lay1:() => setLay(selIds(), 1), lay2:() => setLay(selIds(), 2), unstack:unstackSel, lock:toggleLock, rot90:() => rotateSel(90), rotm15:() => rotateSel(-15), rotp15:() => rotateSel(15), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
 });
 $('#inspector').addEventListener('change', e => {
   if (!canEdit()) return;
@@ -1543,16 +1624,9 @@ function itemMat(it){
   if (t === 'microwave' || t === 'oven') return 'machine';
   return 'light';
 }
-function baseOf(it, list){
-  if (it.type !== 'microwave' && it.type !== 'oven') return 0;
-  let top = 0;
-  list.forEach(o => { if (o === it || ['microwave','oven','chair','door','door2','window'].includes(o.type)) return;
-    if (Math.hypot(o.x - it.x, o.y - it.y) < Math.max(o.w, o.h) / 2) top = Math.max(top, heightOf(o)); });
-  return top;
-}
 function furniture3D(it, list){
   const T = THREE, c = CATALOG[it.type]; if (!c || it.type === 'window') return null;
-  const g = new T.Group(), w = it.w, d = it.h, H = heightOf(it) || 80;
+  const b0 = baseDims(it), w = b0.w, d = b0.d, H = b0.ht || 80, g = new T.Group();
   switch (c.sym){
     case 'desk': case 'meeting':
       box3(g, w, 3, d, 0, H - 3, 0, 'top');
@@ -1587,24 +1661,31 @@ function furniture3D(it, list){
     case 'door2': { const dh = V3.low ? 100 : 210; box3(g, 4, dh, d, -w/2 + 2, 0, 0, 'door'); box3(g, 4, dh, d, w/2 - 2, 0, 0, 'door'); break; }
     default: box3(g, w, H, d, 0, 0, 0, itemMat(it));
   }
-  const bb = new T.Box3().setFromObject(g);
+  const out = new T.Group(); out.add(g);
+  if (it.lay){
+    if (it.lay === 1) g.rotation.z = Math.PI / 2; else g.rotation.x = -Math.PI / 2;
+    out.updateMatrixWorld(true);
+    const lb = new T.Box3().setFromObject(out);
+    g.position.set(-(lb.min.x + lb.max.x) / 2, -lb.min.y, -(lb.min.z + lb.max.z) / 2);
+  }
+  const bb = new T.Box3().setFromObject(out);
   if (!bb.isEmpty()){
     const sz = bb.getSize(new T.Vector3()), ct = bb.getCenter(new T.Vector3());
     if (V3.selSet.has(it.id)){
       const col = isLocked(it) ? 0xC9740F : 0x1D5BC9, geo = new T.BoxGeometry(sz.x + 6, sz.y + 6, sz.z + 6);
       const fill = new T.Mesh(geo, new T.MeshBasicMaterial({color:col, transparent:true, opacity:.16, depthWrite:false}));
       const edge = new T.LineSegments(new T.EdgesGeometry(geo), new T.LineBasicMaterial({color:col}));
-      [fill, edge].forEach(m => { m.position.copy(ct); m.userData.noPick = true; m.userData.own = true; V3.marks.push(m); g.add(m); });
+      [fill, edge].forEach(m => { m.position.copy(ct); m.userData.noPick = true; m.userData.own = true; V3.marks.push(m); out.add(m); });
     }
     if (it.lock === true){
       const sp = new T.Sprite(lockSpriteMat()); sp.scale.set(24, 24, 1); sp.position.set(ct.x, bb.max.y + 20, ct.z);
-      sp.userData.noPick = true; V3.marks.push(sp); g.add(sp);
+      sp.userData.noPick = true; V3.marks.push(sp); out.add(sp);
     }
   }
-  g.userData.itemId = it.id; V3.groups[it.id] = g;
-  g.position.set(it.x, baseOf(it, list), it.y);
-  g.rotation.y = -rad(it.r || 0);
-  return g;
+  out.userData.itemId = it.id; V3.groups[it.id] = out;
+  out.position.set(it.x, elev(it), it.y);
+  out.rotation.y = -rad(it.r || 0);
+  return out;
 }
 function lockSpriteMat(){
   if (M3.lockSprite) return M3.lockSprite;
@@ -1719,13 +1800,15 @@ function onMove3(e){
   const pt = V3.ray.ray.intersectPlane(d.plane, V3.tmp); if (!pt || pt.distanceTo(d.p0) > 4000) return;
   const a = d.orig.find(o => o.id === d.anchor); if (!a || !S.items[d.anchor]) return;
   const dx = snapV(a.x + pt.x - d.p0.x, 5) - a.x, dy = snapV(a.y + pt.z - d.p0.z, 5) - a.y;
-  d.orig.forEach(o => { const it = S.items[o.id]; if (!it) return; it.x = r2(o.x + dx); it.y = r2(o.y + dy); const g = V3.groups[o.id]; if (g){ g.position.x = it.x; g.position.z = it.y; } });
+  d.orig.forEach(o => { const it = S.items[o.id]; if (it){ it.x = r2(o.x + dx); it.y = r2(o.y + dy); } });
+  restack(d.sel, d.set);
+  d.orig.forEach(o => { const it = S.items[o.id], g = V3.groups[o.id]; if (it && g) g.position.set(it.x, elev(it), it.y); });
   d.moved = true; draw3D();
 }
 function onUp3(e){
   const d = V3.drag; if (!d || e.pointerId !== d.pid) return;
   V3.drag = null; endDrag3D();
-  if (d.moved) commit();
+  if (d.moved){ restack(d.sel, d.set); commit(); }
 }
 $('#v3').addEventListener('pointerdown', e => {
   if (!V3.on || !V3.controls || e.button !== 0 || !e.isPrimary) return;
@@ -1742,7 +1825,8 @@ $('#v3').addEventListener('pointerdown', e => {
   const mv = movableIds(selIds());
   if (!canEdit() || !mv.length) return;
   V3.controls.enabled = false;
-  V3.drag = {pid:e.pointerId, ids:mv, anchor:mv.includes(hid) ? hid : mv[0], p0:h.point.clone(), plane:new THREE.Plane(new THREE.Vector3(0, 1, 0), -h.point.y), orig:mv.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), sx:e.clientX, sy:e.clientY, moved:false};
+  const all = mv.concat(ridersOf(mv));
+  V3.drag = {pid:e.pointerId, ids:all, sel:mv, set:new Set(all), anchor:mv.includes(hid) ? hid : mv[0], p0:h.point.clone(), plane:new THREE.Plane(new THREE.Vector3(0, 1, 0), -h.point.y), orig:all.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), sx:e.clientX, sy:e.clientY, moved:false};
   window.addEventListener('pointermove', onMove3); window.addEventListener('pointerup', onUp3); window.addEventListener('pointercancel', onUp3);
 }, true);
 $('#v3').addEventListener('pointerup', e => {
@@ -1785,6 +1869,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'escape'){ if (S.mode !== 'select') setMode('select'); else select(null); }
   else if (k === 'm') setMode(S.mode === 'box' ? 'select' : 'box');
   else if (k === 'l') toggleLock();
+  else if (k === 't') toggleLay();
   else if (k === 'v') setMode('select');
   else if (k === 'w' && canEdit()) setMode('wall');
   else if (k === 'f') fit();
@@ -1874,7 +1959,7 @@ $('#imp-file').addEventListener('change', async e => {
     (Array.isArray(d.items) ? d.items : Object.values(d.items || {})).forEach(it => {
       const c = CATALOG[it?.type]; if (!c) return;
       const id = String(it.id || uid()).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || uid();
-      items[id] = {id, type:it.type, x:+it.x || 0, y:+it.y || 0, w:Math.max(3, +it.w || c.w), h:Math.max(3, +it.h || c.d), ht:Number.isFinite(+it.ht) ? +it.ht : c.ht, r:+it.r || 0, label:String(it.label ?? '').slice(0, 40), ...(it.g ? {g:String(it.g).slice(0, 40)} : {})};
+      items[id] = {id, type:it.type, x:+it.x || 0, y:+it.y || 0, w:Math.max(3, +it.w || c.w), h:Math.max(3, +it.h || c.d), ht:Number.isFinite(+it.ht) ? +it.ht : c.ht, r:+it.r || 0, label:String(it.label ?? '').slice(0, 40), ...(it.g ? {g:String(it.g).slice(0, 40)} : {}), ...(it.on ? {on:String(it.on).slice(0, 40)} : {}), ...(it.lay === 1 || it.lay === 2 ? {lay:it.lay} : {})};
     });
     if (!rooms.length && !walls.length && !Object.keys(items).length) throw new Error('empty');
     S.layout = {rooms, walls, team:null}; S.items = items; S.sel = null;
