@@ -414,6 +414,7 @@ const PLAN_CSS = `
 .f-tall{fill:none;stroke:var(--furn-line);stroke-width:.75;opacity:.55}
 .f-panel{fill:var(--panel);stroke:var(--panel);stroke-width:1}
 .f-solid{fill:var(--ink);stroke:var(--ink);stroke-width:1}
+.f-col{fill:var(--surface);stroke:var(--ink);stroke-width:2.25;stroke-linejoin:miter}
 .f-plant{fill:var(--plant-soft);stroke:var(--plant);stroke-width:1.25}
 .f-board{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.25}
 .f-gap{stroke:var(--sheet);stroke-width:5;fill:none}
@@ -436,7 +437,7 @@ const PLAN_CSS = `
 .draft-text{fill:var(--accent);font-family:var(--f-mono)}
 .grid-minor{stroke:var(--grid);fill:none}
 .grid-major{stroke:var(--grid-major);fill:none}
-.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-win,.f-solid,.f-plant,.f-board,.f-gap,.sel-box,.sel-all,.marquee,.handle,.handle-v,.draft,.hit-line,.lock-bg,.lock-sh{vector-effect:non-scaling-stroke}
+.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-win,.f-solid,.f-col,.f-plant,.f-board,.f-gap,.sel-box,.sel-all,.marquee,.handle,.handle-v,.draft,.hit-line,.lock-bg,.lock-sh{vector-effect:non-scaling-stroke}
 `;
 const EXPORT_VARS = {
   sheet:'#FFFFFF', surface:'#FFFFFF', ink:'#15202A', muted:'#5A6875', accent:'#1D5BC9', 'accent-soft':'rgba(29,91,201,.10)',
@@ -570,7 +571,7 @@ function symbol(sym, w, h){
     case 'plant': return `<circle class="f-plant" cx="0" cy="0" r="${r2(w/2)}"/>` + [0,72,144,216,288].map(a => { const cx = r2(Math.cos(rad(a))*w*.22), cy = r2(Math.sin(rad(a))*w*.22); return `<ellipse class="f-plant" cx="${cx}" cy="${cy}" rx="${r2(w*.16)}" ry="${r2(w*.08)}" transform="rotate(${a} ${cx} ${cy})"/>`; }).join('');
     case 'door': return rect(X,Y,w,h,'f-hit') + line(X, Y+h, X+w, Y+h, 'f-gap') + `<path class="f-line" d="M ${r2(X)} ${r2(Y)} A ${r2(w)} ${r2(h)} 0 0 1 ${r2(X+w)} ${r2(Y+h)}" stroke-dasharray="4 3"/>` + line(X, Y+h, X, Y, 'f-body');
     case 'door2': { const r = w/2; return rect(X,Y,w,h,'f-hit') + line(X, Y+h, X+w, Y+h, 'f-gap') + line(X, Y+h, X, Y+h-r, 'f-body') + line(X+w, Y+h, X+w, Y+h-r, 'f-body') + `<path class="f-line" d="M ${r2(X)} ${r2(Y+h-r)} A ${r2(r)} ${r2(r)} 0 0 1 0 ${r2(Y+h)} M ${r2(X+w)} ${r2(Y+h-r)} A ${r2(r)} ${r2(r)} 0 0 0 0 ${r2(Y+h)}" stroke-dasharray="4 3"/>`; }
-    case 'column': return rect(X,Y,w,h,'f-solid');
+    case 'column': return rect(X,Y,w,h,'f-col');
     case 'window': return rect(X,Y,w,h,'f-win') + line(X, 0, X+w, 0) + line(X, Y, X, Y+h) + line(X+w, Y, X+w, Y+h);
     default: return rect(X,Y,w,h);
   }
@@ -1693,7 +1694,7 @@ function furniture3D(it, list){
       const leaf = new T.Mesh(new T.SphereGeometry(w * .5, 16, 12), mat('plant')); leaf.position.y = 35 + w * .45; leaf.castShadow = true; g.add(leaf);
       break;
     }
-    case 'column': box3(g, w, V3.low ? 110 : WALL_H, d, 0, 0, 0, 'column'); break;
+    case 'column': box3(g, w, V3.low ? 110 : WALL_H, d, 0, 0, 0, 'wall'); break;
     case 'door': box3(g, 4, V3.low ? 100 : 210, d, -w/2 + 2, 0, 0, 'door'); break;
     case 'door2': { const dh = V3.low ? 100 : 210; box3(g, 4, dh, d, -w/2 + 2, 0, 0, 'door'); box3(g, 4, dh, d, w/2 - 2, 0, 0, 'door'); break; }
     default: box3(g, w, H, d, 0, 0, 0, itemMat(it));
