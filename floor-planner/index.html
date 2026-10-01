@@ -124,8 +124,18 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 #v3 canvas{display:block;width:100%!important;height:100%!important}
 .stage.is-3d #v3{display:block}
 .stage.is-3d #plan,.stage.is-3d .tools,.stage.is-3d .zoom,.stage.is-3d .scalebar,.stage.is-3d #hint{display:none!important}
-.v3tools{position:absolute;right:10px;bottom:10px;display:none}
+.v3tools{position:absolute;right:10px;bottom:10px}
+.stage .v3tools,.stage .v3undo{display:none}
 .stage.is-3d .v3tools{display:inline-flex}
+.v3undo{position:absolute;top:10px;left:10px}
+.stage.is-3d .v3undo{display:inline-flex}
+.selbar{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);max-width:calc(100% - 20px);flex-wrap:wrap;justify-content:center;align-items:center;z-index:2}
+.selinfo{font:12px var(--f-mono);color:var(--muted);padding:0 8px;white-space:nowrap}
+.selbar button svg{width:15px;height:15px}
+#sb-lock[aria-pressed="true"]{background:var(--warn-soft);color:var(--warn)}
+#sb-del{color:var(--danger)}
+.lockrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:12.5px;color:var(--muted)}
+.lockrow.on{border-color:var(--select);background:var(--warn-soft);color:var(--warn)}
 .v3hint{position:absolute;left:12px;bottom:14px;font-size:12px;color:var(--muted);display:none;pointer-events:none;max-width:calc(100% - 260px)}
 .stage.is-3d .v3hint{display:block}
 .v3load{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;pointer-events:none}
@@ -178,6 +188,7 @@ ol.steps b{color:var(--ink);font-weight:600}
   #inspector{order:2} #side{order:3}
   .kbd-only{display:none}
 }
+@media (max-width: 760px){.stage.is-3d .v3hint{display:none}}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -257,7 +268,18 @@ ol.steps b{color:var(--ink);font-weight:600}
       <button type="button" id="v3-top" title="由上面望落去">俯視</button>
       <button type="button" id="v3-reset" title="返回預設視角">重設視角</button>
     </div>
-    <p class="v3hint">拖動：旋轉 · 右鍵或兩指拖：移動 · 滾輪或捏：縮放</p>
+    <p class="v3hint">拖傢俬：移動（已固定嘅只會選取） · 拖空位：旋轉視角 · 右鍵或兩指拖：移動畫面 · 滾輪或捏：縮放</p>
+    <div class="seg v3undo" role="group" aria-label="復原">
+      <button type="button" id="v3-undo" title="復原 (Ctrl+Z)" aria-label="復原"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3 2 6l3 3"/><path d="M2.5 6H10a4 4 0 0 1 0 8H7"/></svg></button>
+      <button type="button" id="v3-redo" title="重做 (Ctrl+Shift+Z)" aria-label="重做"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m11 3 3 3-3 3"/><path d="M13.5 6H6a4 4 0 0 0 0 8h3"/></svg></button>
+    </div>
+    <div class="seg selbar" id="selbar" role="toolbar" aria-label="選取傢俬操作" hidden>
+      <span class="selinfo" id="selbar-info"></span>
+      <button type="button" id="sb-lock" aria-pressed="false" title="固定／解除固定（L）：固定咗嘅傢俬唔會被拖郁、轉向或刪除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" fill-opacity=".18"/><path id="sb-lock-d" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span id="sb-lock-t">固定</span></button>
+      <button type="button" id="sb-rot" title="轉 90° (R)">轉 90°</button>
+      <button type="button" id="sb-dup" title="複製 (Ctrl+D)">複製</button>
+      <button type="button" id="sb-del" title="刪除 (Delete)">刪除</button>
+    </div>
     <div class="seg zoom" role="group" aria-label="縮放">
       <button type="button" id="z-out" aria-label="縮細"><svg viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.8"><path d="M3 8h10"/></svg></button>
       <output id="z-val" title="螢幕上嘅大約比例">1:100</output>
@@ -322,11 +344,11 @@ const CATALOG = {
   roomsupply:{g:'roomcab', name:'房物資櫃', s:'物資櫃', w:100, d:40, ht:200, qty:2, sym:'cabinet'},
   chair:{g:'other', name:'椅', s:'', w:50, d:50, ht:90, qty:null, sym:'chair'},
   meeting:{g:'other', name:'會議枱', s:'會議枱', w:240, d:110, ht:75, qty:null, sym:'meeting'},
-  door:{g:'other', name:'門', s:'', w:90, d:90, ht:210, qty:null, sym:'door', round:true},
-  door2:{g:'other', name:'雙門', s:'', w:140, d:70, ht:210, qty:null, sym:'door2'},
-  column:{g:'other', name:'柱／固定位', s:'', w:40, d:40, ht:0, qty:null, sym:'column'},
+  door:{g:'other', name:'門', s:'', w:90, d:90, ht:210, qty:null, sym:'door', round:true, fixed:true},
+  door2:{g:'other', name:'雙門', s:'', w:140, d:70, ht:210, qty:null, sym:'door2', fixed:true},
+  column:{g:'other', name:'柱／固定位', s:'', w:40, d:40, ht:0, qty:null, sym:'column', fixed:true},
   plant:{g:'other', name:'植物', s:'', w:50, d:50, ht:0, qty:null, sym:'plant', round:true},
-  window:{g:'other', name:'窗', s:'', w:120, d:10, ht:0, qty:null, sym:'window'},
+  window:{g:'other', name:'窗', s:'', w:120, d:10, ht:0, qty:null, sym:'window', fixed:true},
 };
 const TALL = 180;
 const TEMPLATES = {
@@ -363,7 +385,10 @@ const PLAN_CSS = `
 .sel-box{fill:none;stroke:var(--select);stroke-width:1.5;stroke-dasharray:5 4}
 .sel-all{fill:var(--accent-soft);fill-opacity:.4;stroke:var(--accent);stroke-width:1.25;stroke-dasharray:6 4}
 .marquee{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
-.sel-box,.sel-all,.marquee{pointer-events:none}
+.sel-box,.sel-all,.marquee,.lock-bg,.lock-fg,.lock-sh{pointer-events:none}
+.lock-bg{fill:var(--surface);stroke:var(--select);stroke-width:1}
+.lock-fg{fill:var(--select)}
+.lock-sh{fill:none;stroke:var(--select);stroke-width:1.6}
 .handle{fill:var(--surface);stroke:var(--select);stroke-width:1.5}
 .handle-v{fill:var(--surface);stroke:var(--accent);stroke-width:1.75}
 .handle-m{fill:var(--accent);opacity:.55;stroke:none}
@@ -371,7 +396,7 @@ const PLAN_CSS = `
 .draft-text{fill:var(--accent);font-family:var(--f-mono)}
 .grid-minor{stroke:var(--grid);fill:none}
 .grid-major{stroke:var(--grid-major);fill:none}
-.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-win,.f-solid,.f-plant,.f-board,.f-gap,.sel-box,.sel-all,.marquee,.handle,.handle-v,.draft,.hit-line{vector-effect:non-scaling-stroke}
+.room,.wall,.dim-line,.f-body,.f-line,.f-tall,.f-panel,.f-win,.f-solid,.f-plant,.f-board,.f-gap,.sel-box,.sel-all,.marquee,.handle,.handle-v,.draft,.hit-line,.lock-bg,.lock-sh{vector-effect:non-scaling-stroke}
 `;
 const EXPORT_VARS = {
   sheet:'#FFFFFF', surface:'#FFFFFF', ink:'#15202A', muted:'#5A6875', accent:'#1D5BC9', 'accent-soft':'rgba(29,91,201,.10)',
@@ -402,6 +427,8 @@ const room = id => S.layout.rooms.find(r => r.id === id);
 const wall = id => S.layout.walls.find(w => w.id === id);
 const snapV = (v, step) => S.snap ? Math.round(v / step) * step : r2(v);
 const heightOf = it => it.ht ?? CATALOG[it.type]?.ht ?? 0;
+const isLocked = it => !!(it && (it.lock ?? CATALOG[it.type]?.fixed));
+const movableIds = ids => ids.filter(id => S.items[id] && !isLocked(S.items[id]));
 
 /* ---------- geometry ---------- */
 function polyArea(pts){ let a = 0; for (let i = 0; i < pts.length; i++){ const p = pts[i], q = pts[(i+1) % pts.length]; a += p.x*q.y - q.x*p.y; } return a / 2; }
@@ -490,6 +517,7 @@ function renderWorld(o){
     }
     h += '</g>';
   }
+  if (o.interactive) for (const it of items){ if (it.lock === true){ const cs = corners(it)[1]; h += lockGlyph(cs.x, cs.y, k, 0); } }
   for (const r of S.layout.rooms){
     const c = labelPos(r);
     h += `<g data-h="label" data-room="${r.id}" data-id="${r.id}">`;
@@ -542,6 +570,9 @@ function roomDims(r, k){
   }
   return h;
 }
+function lockGlyph(x, y, k, rot){
+  return `<g transform="translate(${r2(x)} ${r2(y)}) rotate(${rot || 0}) scale(${r2(1 / k * 1000) / 1000})"><circle class="lock-bg" r="9"/><rect class="lock-fg" x="-4.5" y="-1" width="9" height="6.5" rx="1"/><path class="lock-sh" d="M-3 -1V-3a3 3 0 0 1 6 0V-1"/></g>`;
+}
 function selectionOverlay(k){
   const s = S.sel; if (!s) return '';
   const px = n => r2(n / k);
@@ -549,7 +580,7 @@ function selectionOverlay(k){
     const ids = s.ids.filter(id => S.items[id]); if (!ids.length) return '';
     const pad = px(4), P = px(10), b = selBox(ids);
     let h = `<rect class="sel-all" x="${r2(b.x0-P)}" y="${r2(b.y0-P)}" width="${r2(b.x1-b.x0+2*P)}" height="${r2(b.y1-b.y0+2*P)}"/>`;
-    if (!S.readOnly && !S.preview){
+    if (!S.readOnly && !S.preview && movableIds(ids).length){
       const cx = r2((b.x0 + b.x1)/2), top = r2(b.y0 - P), hy = r2(b.y0 - P - px(24));
       h += `<line class="sel-box" x1="${cx}" y1="${top}" x2="${cx}" y2="${hy}"/><circle class="handle" data-h="mrot" cx="${cx}" cy="${hy}" r="${px(7)}"/>`;
     }
@@ -560,7 +591,8 @@ function selectionOverlay(k){
     const it = S.items[s.id]; if (!it) return '';
     const pad = px(5), X = -it.w/2 - pad, Y = -it.h/2 - pad;
     let h = `<g transform="translate(${r2(it.x)} ${r2(it.y)}) rotate(${it.r||0})"><rect class="sel-box" x="${r2(X)}" y="${r2(Y)}" width="${r2(it.w+2*pad)}" height="${r2(it.h+2*pad)}"/>`;
-    if (!S.readOnly){
+    if (isLocked(it)) h += lockGlyph(0, Y - px(14), k, -(it.r || 0));
+    else if (!S.readOnly){
       h += `<line class="sel-box" x1="0" y1="${r2(Y)}" x2="0" y2="${r2(Y - px(20))}"/>`;
       h += `<circle class="handle" data-h="rot" cx="0" cy="${r2(Y - px(20))}" r="${px(6)}"/>`;
       h += `<rect class="handle" data-h="res" x="${r2(it.w/2 + pad - px(5))}" y="${r2(it.h/2 + pad - px(5))}" width="${px(10)}" height="${px(10)}"/>`;
@@ -610,6 +642,8 @@ function render(){
   $('#loading').hidden = S.loaded;
   $('#empty').hidden = !S.loaded || S.layout.rooms.length > 0 || Object.keys(S.items).length > 0 || S.readOnly;
   $('#undo').disabled = !undoStack.length || S.readOnly;
+  $('#v3-undo').disabled = !undoStack.length || S.readOnly; $('#v3-redo').disabled = !redoStack.length || S.readOnly;
+  renderSelbar();
   $('#redo').disabled = !redoStack.length || S.readOnly;
   const hint = $('#hint');
   if (S.mode === 'wall'){ hint.hidden = false; hint.textContent = '拖動畫牆。㩒住 Shift 鎖 45°。Esc 完成。'; }
@@ -667,11 +701,12 @@ svg.addEventListener('pointerdown', e => {
   if (h && canEdit()){
     const kind = h.dataset.h;
     if (kind === 'mrot' && S.sel?.kind === 'multi'){
-      const ids = selIds().filter(id => S.items[id]), b = selBox(ids), c = {x:(b.x0 + b.x1)/2, y:(b.y0 + b.y1)/2};
+      const ids = movableIds(selIds()); if (!ids.length) return;
+      const b = selBox(ids), c = {x:(b.x0 + b.x1)/2, y:(b.y0 + b.y1)/2};
       drag = {kind:'mrot', ids, c, a0:Math.atan2(w.y - c.y, w.x - c.x), orig:ids.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y, r:S.items[i].r || 0})), edit:true, moved:false, deg:0};
       return;
     }
-    if ((kind === 'rot' || kind === 'res') && S.sel?.kind === 'item'){
+    if ((kind === 'rot' || kind === 'res') && S.sel?.kind === 'item' && !isLocked(S.items[S.sel.id])){
       const it = S.items[S.sel.id];
       drag = {kind, id:it.id, edit:true, moved:false};
       if (kind === 'res') drag.p0 = toWorldFrom(it, -it.w/2, -it.h/2);
@@ -709,9 +744,9 @@ svg.addEventListener('pointerdown', e => {
     }
     const already = members.every(m => cur.includes(m));
     if (!already) selectItems(members);
-    const ids = selIds();
-    drag = canEdit()
-      ? {kind:'move', anchor:id, ids, w0:w, orig:ids.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), edit:true, moved:false, start:p, reselect: already && cur.length > members.length ? members : null}
+    const mv = movableIds(selIds());
+    drag = canEdit() && mv.length
+      ? {kind:'move', anchor:mv.includes(id) ? id : mv[0], ids:mv, w0:w, orig:mv.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), edit:true, moved:false, start:p, reselect: already && cur.length > members.length ? members : null}
       : {kind:'pan', start:p, v0:{...S.view}, keep:true};
     return;
   }
@@ -925,18 +960,24 @@ function addRoom(key){
 }
 function deleteSel(){
   const s = S.sel; if (!s || !canEdit()) return;
-  if (s.kind === 'item') delete S.items[s.id];
-  if (s.kind === 'multi') s.ids.forEach(id => delete S.items[id]);
+  let note = '已刪除。';
+  if (s.kind === 'item' || s.kind === 'multi'){
+    const ids = selIds().filter(id => S.items[id]), del = movableIds(ids);
+    if (!del.length){ toast('呢啲傢俬已固定，要先解除固定先刪到。'); return; }
+    del.forEach(id => delete S.items[id]);
+    if (del.length < ids.length) note = `已刪除 ${del.length} 件，${ids.length - del.length} 件已固定所以保留。`;
+  }
   if (s.kind === 'room') S.layout.rooms = S.layout.rooms.filter(r => r.id !== s.id);
   if (s.kind === 'wall') S.layout.walls = S.layout.walls.filter(w => w.id !== s.id);
   S.sel = null; commit(); requestRender();
-  toast('已刪除。', true);
+  toast(note, true);
 }
 function duplicateSel(){
   const ids = selIds().filter(id => S.items[id]); if (!ids.length || !canEdit()) return;
   const gmap = {}, out = [];
   ids.forEach(id => {
     const src = S.items[id], it = {...clone(src), id:uid(), x:r2(src.x + 20), y:r2(src.y + 20)};
+    delete it.lock;
     if (src.g) it.g = gmap[src.g] || (gmap[src.g] = uid());
     S.items[it.id] = it; out.push(it.id);
   });
@@ -944,7 +985,9 @@ function duplicateSel(){
   commit(); selectItems(out);
 }
 function rotateSel(deg){
-  const ids = selIds().filter(id => S.items[id]); if (!ids.length || !canEdit()) return;
+  const all = selIds().filter(id => S.items[id]); if (!all.length || !canEdit()) return;
+  const ids = movableIds(all);
+  if (!ids.length){ toast('呢啲傢俬已固定，要先解除固定先轉到。'); return; }
   if (ids.length === 1){ const it = S.items[ids[0]]; it.r = normDeg((it.r||0) + deg); }
   else {
     const b = selBox(ids), cx = (b.x0 + b.x1)/2, cy = (b.y0 + b.y1)/2, a = rad(deg), c = Math.cos(a), s = Math.sin(a);
@@ -954,11 +997,32 @@ function rotateSel(deg){
 }
 function nudge(dx, dy){
   const s = S.sel; if (!s || !canEdit()) return;
-  if (s.kind === 'item' || s.kind === 'multi') selIds().forEach(id => { const it = S.items[id]; if (it){ it.x = r2(it.x + dx); it.y = r2(it.y + dy); } });
+  if (s.kind === 'item' || s.kind === 'multi'){ const mv = movableIds(selIds()); if (!mv.length) return; mv.forEach(id => { const it = S.items[id]; it.x = r2(it.x + dx); it.y = r2(it.y + dy); }); }
   else if (s.kind === 'room'){ const r = room(s.id); r.pts = r.pts.map(p => ({x:r2(p.x+dx), y:r2(p.y+dy)})); if (r.lp) r.lp = {x:r2(r.lp.x+dx), y:r2(r.lp.y+dy)}; }
   else if (s.kind === 'wall'){ const w = wall(s.id); w.a = {x:r2(w.a.x+dx), y:r2(w.a.y+dy)}; w.b = {x:r2(w.b.x+dx), y:r2(w.b.y+dy)}; }
   scheduleCommit(); requestRender();
 }
+function toggleLock(){
+  const ids = selIds().filter(id => S.items[id]); if (!ids.length || !canEdit()) return;
+  const all = ids.every(id => isLocked(S.items[id]));
+  ids.forEach(id => { S.items[id].lock = !all; });
+  commit(); renderInspector(); requestRender();
+  toast(all ? `已解除固定（${ids.length} 件）。` : `已固定 ${ids.length} 件，唔會被拖郁。`, true);
+}
+function renderSelbar(){
+  const bar = $('#selbar'), ids = S.preview ? [] : selIds().filter(id => S.items[id]);
+  bar.hidden = !ids.length || !S.loaded; if (bar.hidden) return;
+  const n = ids.filter(id => isLocked(S.items[id])).length, all = n === ids.length, ed = canEdit();
+  $('#selbar-info').textContent = ids.length > 1 ? `已選 ${ids.length} 件` : (CATALOG[S.items[ids[0]].type]?.name || '');
+  const lk = $('#sb-lock'); lk.setAttribute('aria-pressed', all);
+  $('#sb-lock-t').textContent = all ? '已固定' : n ? `固定（${n}/${ids.length}）` : '固定';
+  $('#sb-lock-d').setAttribute('d', all ? 'M5.5 7V5a2.5 2.5 0 0 1 5 0v2' : 'M5.5 7V5a2.5 2.5 0 0 1 4.9-.7');
+  lk.disabled = !ed; $('#sb-rot').disabled = !ed || all; $('#sb-dup').disabled = !ed; $('#sb-del').disabled = !ed || all;
+}
+$('#sb-lock').onclick = toggleLock;
+$('#sb-rot').onclick = () => rotateSel(90);
+$('#sb-dup').onclick = duplicateSel;
+$('#sb-del').onclick = deleteSel;
 let commitTimer = 0;
 function scheduleCommit(){ clearTimeout(commitTimer); commitTimer = setTimeout(commit, 400); }
 function rescalePlan(f){
@@ -1094,7 +1158,7 @@ async function start(){
     gotItems = true;
     if (stable(m) !== stable(base.items)){
       base.items = clone(m);
-      const keep = drag && ['move','rot','res','mrot'].includes(drag.kind) ? (drag.ids || [drag.id]) : [];
+      const keep = (drag && ['move','rot','res','mrot'].includes(drag.kind) ? (drag.ids || [drag.id]) : []).concat(V3.drag ? V3.drag.ids : []);
       const next = clone(m);
       keep.forEach(k => { if (S.items[k]) next[k] = S.items[k]; });
       S.items = next;
@@ -1242,39 +1306,41 @@ function renderInspector(){
     ids.forEach(id => { const t = S.items[id].type; counts[t] = (counts[t] || 0) + 1; });
     const groups = new Set(ids.map(id => S.items[id].g).filter(Boolean));
     const oneGroup = groups.size === 1 && ids.every(id => S.items[id].g);
-    const b = selBox(ids);
+    const b = selBox(ids), mv = movableIds(ids), lockedN = ids.length - mv.length, rm = ro || !mv.length ? ' disabled' : '', rdel = ro || !mv.length ? ' disabled' : '';
     el.innerHTML = `<section class="sec"><p class="eyebrow">${oneGroup ? '組合' : '多選'}</p><h3>已選 ${ids.length} 件</h3>
       <p class="muted">${Object.entries(counts).map(([t, n]) => `${esc(CATALOG[t]?.name || t)} × ${n}`).join('、')}</p>
+      <div class="lockrow${lockedN ? ' on' : ''}"><span>${lockedN ? `${lockedN}/${ids.length} 件已固定` : '未固定'}</span><button class="btn${lockedN === ids.length ? ' primary' : ''}" type="button" data-act="lock"${ro}>${lockedN === ids.length ? '解除固定' : '固定全部'}</button></div>
       <dl><dt>範圍</dt><dd>${Math.round(b.x1 - b.x0)} × ${Math.round(b.y1 - b.y0)} cm</dd></dl>
       <div class="btns">${oneGroup ? '' : `<button class="btn primary" type="button" data-act="group"${ro}>組合</button>`}${groups.size ? `<button class="btn" type="button" data-act="ungroup"${ro}>解散組合</button>` : ''}</div>
       <div class="grid2" style="align-items:end">
-        <label class="field">轉動角度（°，正數順時針）<input id="multi-rot" type="number" step="15" placeholder="例如 45"${ro}></label>
-        <div class="btns"><button class="btn" type="button" data-act="rotm15"${ro}>−15°</button><button class="btn" type="button" data-act="rotp15"${ro}>+15°</button></div>
+        <label class="field">轉動角度（°，正數順時針）<input id="multi-rot" type="number" step="15" placeholder="例如 45"${rm}></label>
+        <div class="btns"><button class="btn" type="button" data-act="rotm15"${rm}>−15°</button><button class="btn" type="button" data-act="rotp15"${rm}>+15°</button></div>
       </div>
-      <div class="btns"><button class="btn" type="button" data-act="rot90"${ro}>轉 90°</button><button class="btn" type="button" data-act="dup"${ro}>複製</button><button class="btn danger" type="button" data-act="del"${ro}>刪除</button></div>
+      <div class="btns"><button class="btn" type="button" data-act="rot90"${rm}>轉 90°</button><button class="btn" type="button" data-act="dup"${ro}>複製</button><button class="btn danger" type="button" data-act="del"${rdel}>刪除</button></div>
     </section>
     <section class="sec"><p class="muted">拖頂部圓形手柄可以成組任意轉（每 15° 一格，㩒住 Shift 可以逐度轉）。拖其中一件，全部會一齊移動。組合之後，撳一下就會揀晒成組；㩒住 Alt 再撳可以只揀組合入面一件。</p></section>`;
     return;
   }
   if (s?.kind === 'item' && S.items[s.id]){
     const it = S.items[s.id], c = CATALOG[it.type];
-    const orig = it.w !== c.w || it.h !== c.d;
+    const orig = it.w !== c.w || it.h !== c.d, locked = isLocked(it), rg = ro || locked ? ' disabled' : '';
     el.innerHTML = `<section class="sec"><p class="eyebrow">傢俬</p><h3>${esc(c.name)}</h3>
       ${c.note ? `<p class="note">${esc(c.note)}</p>` : ''}
+      <div class="lockrow${locked ? ' on' : ''}"><span>${locked ? '已固定：唔會被拖郁、轉向或刪除' : '未固定'}</span><button class="btn${locked ? ' primary' : ''}" type="button" data-act="lock"${ro}>${locked ? '解除固定' : '固定'}</button></div>
       ${it.g ? `<p class="muted">呢件屬於一個組合（${groupOf(it.id).length} 件）。</p><div class="btns"><button class="btn" type="button" data-act="selgroup">揀晒成個組合</button><button class="btn" type="button" data-act="leave"${ro}>移出組合</button></div>` : ''}
       <label class="field">標籤（例如同事名）<input id="in-label" maxlength="40" value="${esc(it.label)}"${ro}></label>
       <div class="grid3">
-        <label class="field">闊 (cm)<input id="in-w" type="number" min="3" step="1" value="${r2(it.w)}"${ro}></label>
-        <label class="field">深 (cm)<input id="in-h" type="number" min="3" step="1" value="${r2(it.h)}"${ro}></label>
-        <label class="field">高 (cm)<input id="in-ht" type="number" min="0" step="1" value="${heightOf(it)}"${ro}></label>
+        <label class="field">闊 (cm)<input id="in-w" type="number" min="3" step="1" value="${r2(it.w)}"${rg}></label>
+        <label class="field">深 (cm)<input id="in-h" type="number" min="3" step="1" value="${r2(it.h)}"${rg}></label>
+        <label class="field">高 (cm)<input id="in-ht" type="number" min="0" step="1" value="${heightOf(it)}"${rg}></label>
       </div>
       <div class="grid3">
-        <label class="field">X (cm)<input id="in-x" type="number" step="5" value="${r2(it.x)}"${ro}></label>
-        <label class="field">Y (cm)<input id="in-y" type="number" step="5" value="${r2(it.y)}"${ro}></label>
-        <label class="field">角度 (°)<input id="in-r" type="number" step="15" value="${it.r||0}"${ro}></label>
+        <label class="field">X (cm)<input id="in-x" type="number" step="5" value="${r2(it.x)}"${rg}></label>
+        <label class="field">Y (cm)<input id="in-y" type="number" step="5" value="${r2(it.y)}"${rg}></label>
+        <label class="field">角度 (°)<input id="in-r" type="number" step="15" value="${it.r||0}"${rg}></label>
       </div>
       ${orig ? `<p class="muted">清單尺寸：${c.w} 闊 × ${c.d} 深 × ${c.ht} 高</p>` : ''}
-      <div class="btns"><button class="btn" type="button" data-act="rot90"${ro}>轉 90°</button><button class="btn" type="button" data-act="dup"${ro}>複製</button><button class="btn danger" type="button" data-act="del"${ro}>刪除</button></div>
+      <div class="btns"><button class="btn" type="button" data-act="rot90"${rg}>轉 90°</button><button class="btn" type="button" data-act="dup"${ro}>複製</button><button class="btn danger" type="button" data-act="del"${rg}>刪除</button></div>
     </section>
     <section class="sec"><p class="muted">拖動可以移位。拖圓形手柄旋轉（㩒住 Shift 可以任意角度），拖方形手柄改大細。高過 ${TALL} cm 嘅櫃會打交叉，方便睇邊度會擋光或者擋視線。</p></section>`;
     return;
@@ -1316,11 +1382,11 @@ function renderInspector(){
       <li><b>加標籤。</b>喺同事枱寫上名，搬之前大家都知坐邊。</li>
     </ol></section>
     <section class="sec kbd-only"><p class="eyebrow">快捷鍵</p>
-    <dl class="keys"><dt>V / W</dt><dd>選取／畫牆</dd><dt>方向鍵</dt><dd>移 1 cm（Shift：10 cm）</dd><dt>R</dt><dd>轉 90°</dd><dt>Shift 撳</dt><dd>加入／移除選取</dd><dt>Shift 拖</dt><dd>喺空白位拉框選多件</dd><dt>Ctrl A</dt><dd>全選傢俬</dd><dt>Ctrl G</dt><dd>組合（Shift：解散）</dd><dt>Ctrl D</dt><dd>複製</dd><dt>Delete</dt><dd>刪除</dd><dt>Ctrl Z</dt><dd>復原</dd><dt>F</dt><dd>全圖</dd><dt>滾輪</dt><dd>縮放 · 拖空白位移動畫面</dd></dl></section>`;
+    <dl class="keys"><dt>V / W</dt><dd>選取／畫牆</dd><dt>方向鍵</dt><dd>移 1 cm（Shift：10 cm）</dd><dt>R</dt><dd>轉 90°</dd><dt>Shift 撳</dt><dd>加入／移除選取</dd><dt>Shift 拖</dt><dd>喺空白位拉框選多件</dd><dt>Ctrl A</dt><dd>全選傢俬</dd><dt>Ctrl G</dt><dd>組合（Shift：解散）</dd><dt>L</dt><dd>固定／解除固定</dd><dt>Ctrl D</dt><dd>複製</dd><dt>Delete</dt><dd>刪除</dd><dt>Ctrl Z</dt><dd>復原</dd><dt>F</dt><dd>全圖</dd><dt>滾輪</dt><dd>縮放 · 拖空白位移動畫面</dd></dl></section>`;
 }
 $('#inspector').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  ({rot90:() => rotateSel(90), rotm15:() => rotateSel(-15), rotp15:() => rotateSel(15), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
+  ({lock:toggleLock, rot90:() => rotateSel(90), rotm15:() => rotateSel(-15), rotp15:() => rotateSel(15), dup:duplicateSel, del:deleteSel, group:groupSel, ungroup:ungroupSel, leave:leaveGroup, selgroup:() => S.sel?.kind === 'item' && selectItems(groupOf(S.sel.id))})[b.dataset.act]?.();
 });
 $('#inspector').addEventListener('change', e => {
   if (!canEdit()) return;
@@ -1366,7 +1432,7 @@ $('#inspector').addEventListener('input', e => {
 });
 
 /* ---------- 3D view ---------- */
-const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0, light:'office'};
+const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0, light:'office', groups:{}, marks:[], selSet:new Set(), drag:null, tap:null};
 const WALL_H = 270;
 function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src)); document.head.appendChild(el); }); }
 function load3D(){
@@ -1376,7 +1442,7 @@ function load3D(){
   return V3.ready;
 }
 async function set3D(on){
-  V3.on = on;
+  V3.on = on; V3.drag = null; if (V3.controls){ V3.controls.enabled = true; endDrag3D(); }
   $('#stage').classList.toggle('is-3d', on);
   $('#t-3d').setAttribute('aria-pressed', on); $('#t-2d').setAttribute('aria-pressed', !on);
   if (!on){ requestRender(); return; }
@@ -1406,7 +1472,7 @@ function init3D(){
   Object.assign(sun.shadow.camera, {left:-1200, right:1200, top:1200, bottom:-1200, near:10, far:6000});
   sun.shadow.bias = -0.0005;
   scene.add(sun, sun.target);
-  Object.assign(V3, {renderer:r, scene, camera:cam, controls:ctl, sun, hemi, amb});
+  Object.assign(V3, {renderer:r, scene, camera:cam, controls:ctl, sun, hemi, amb, ray:new T.Raycaster(), ndc:new T.Vector2(), tmp:new T.Vector3()});
   new ResizeObserver(() => { if (V3.on){ size3D(); draw3D(); } }).observe(host);
   size3D();
 }
@@ -1521,9 +1587,33 @@ function furniture3D(it, list){
     case 'door2': { const dh = V3.low ? 100 : 210; box3(g, 4, dh, d, -w/2 + 2, 0, 0, 'door'); box3(g, 4, dh, d, w/2 - 2, 0, 0, 'door'); break; }
     default: box3(g, w, H, d, 0, 0, 0, itemMat(it));
   }
+  const bb = new T.Box3().setFromObject(g);
+  if (!bb.isEmpty()){
+    const sz = bb.getSize(new T.Vector3()), ct = bb.getCenter(new T.Vector3());
+    if (V3.selSet.has(it.id)){
+      const col = isLocked(it) ? 0xC9740F : 0x1D5BC9, geo = new T.BoxGeometry(sz.x + 6, sz.y + 6, sz.z + 6);
+      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({color:col, transparent:true, opacity:.16, depthWrite:false}));
+      const edge = new T.LineSegments(new T.EdgesGeometry(geo), new T.LineBasicMaterial({color:col}));
+      [fill, edge].forEach(m => { m.position.copy(ct); m.userData.noPick = true; m.userData.own = true; V3.marks.push(m); g.add(m); });
+    }
+    if (it.lock === true){
+      const sp = new T.Sprite(lockSpriteMat()); sp.scale.set(24, 24, 1); sp.position.set(ct.x, bb.max.y + 20, ct.z);
+      sp.userData.noPick = true; V3.marks.push(sp); g.add(sp);
+    }
+  }
+  g.userData.itemId = it.id; V3.groups[it.id] = g;
   g.position.set(it.x, baseOf(it, list), it.y);
   g.rotation.y = -rad(it.r || 0);
   return g;
+}
+function lockSpriteMat(){
+  if (M3.lockSprite) return M3.lockSprite;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.beginPath(); x.arc(32, 32, 30, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = '#C9740F'; x.lineWidth = 3; x.stroke();
+  x.fillStyle = '#C9740F'; x.fillRect(20, 31, 24, 17);
+  x.lineWidth = 5; x.beginPath(); x.moveTo(25, 31); x.lineTo(25, 25); x.arc(32, 25, 7, Math.PI, 0); x.lineTo(39, 31); x.stroke();
+  return (M3.lockSprite = new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
 }
 function walls3D(parent, list){
   const H = V3.low ? 110 : WALL_H;
@@ -1571,7 +1661,7 @@ function lighting3D(root){
     const m = new T.Mesh(new T.ShapeGeometry(new T.Shape(r.pts.map(q => new T.Vector2(q.x, -q.y)))), mat('ceiling'));
     m.rotation.x = -Math.PI / 2; m.position.y = WALL_H; ceil.add(m);
   });
-  root.add(ceil); V3.ceiling = ceil;
+  ceil.userData.noPick = true; root.add(ceil); V3.ceiling = ceil;
   if (!office) return;
   const step = 240, spots = [];
   S.layout.rooms.forEach(r => {
@@ -1581,13 +1671,14 @@ function lighting3D(root){
         if (inside({x, y}, r.pts)) spots.push({x, y});
   });
   const geo = new T.PlaneGeometry(60, 60);
-  spots.forEach(q => { const m = new T.Mesh(geo, mat('panel')); m.rotation.x = Math.PI / 2; m.position.set(q.x, WALL_H - 1, q.y); root.add(m); });
+  spots.forEach(q => { const m = new T.Mesh(geo, mat('panel')); m.rotation.x = Math.PI / 2; m.position.set(q.x, WALL_H - 1, q.y); m.userData.noPick = true; root.add(m); });
   const every = Math.max(1, Math.ceil(spots.length / 12));
   spots.filter((q, i) => i % every === 0).forEach(q => { const l = new T.PointLight(0xf4f7ff, 0.32, 700, 2); l.position.set(q.x, WALL_H - 25, q.y); root.add(l); });
 }
 function build3D(){
   const T = THREE;
-  if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.userData?.own && o.material) o.material.dispose(); }); }
+  V3.groups = {}; V3.marks = []; V3.selSet = new Set(S.preview ? [] : selIds());
   const root = new T.Group(), list = Object.values(shown());
   S.layout.rooms.forEach(r => {
     const shape = new T.Shape(r.pts.map(p => new T.Vector2(p.x, -p.y)));
@@ -1601,6 +1692,65 @@ function build3D(){
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim() || '#fbfcfd';
   V3.scene.background = new T.Color(bg);
 }
+function ray3D(e){
+  const r = V3.renderer.domElement.getBoundingClientRect();
+  V3.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  V3.ray.setFromCamera(V3.ndc, V3.camera);
+}
+function pick3D(e){
+  if (!V3.group || !V3.ray) return null;
+  ray3D(e);
+  for (const h of V3.ray.intersectObject(V3.group, true)){
+    let id = null, skip = false;
+    for (let q = h.object; q; q = q.parent){ if (q.userData?.noPick){ skip = true; break; } if (q.userData?.itemId){ id = q.userData.itemId; break; } }
+    if (skip || h.object.material === M3.glass) continue;
+    return {id, point:h.point};
+  }
+  return null;
+}
+function endDrag3D(){
+  window.removeEventListener('pointermove', onMove3); window.removeEventListener('pointerup', onUp3); window.removeEventListener('pointercancel', onUp3);
+  if (V3.controls) V3.controls.enabled = true;
+}
+function onMove3(e){
+  const d = V3.drag; if (!d || e.pointerId !== d.pid) return;
+  if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
+  ray3D(e);
+  const pt = V3.ray.ray.intersectPlane(d.plane, V3.tmp); if (!pt || pt.distanceTo(d.p0) > 4000) return;
+  const a = d.orig.find(o => o.id === d.anchor); if (!a || !S.items[d.anchor]) return;
+  const dx = snapV(a.x + pt.x - d.p0.x, 5) - a.x, dy = snapV(a.y + pt.z - d.p0.z, 5) - a.y;
+  d.orig.forEach(o => { const it = S.items[o.id]; if (!it) return; it.x = r2(o.x + dx); it.y = r2(o.y + dy); const g = V3.groups[o.id]; if (g){ g.position.x = it.x; g.position.z = it.y; } });
+  d.moved = true; draw3D();
+}
+function onUp3(e){
+  const d = V3.drag; if (!d || e.pointerId !== d.pid) return;
+  V3.drag = null; endDrag3D();
+  if (d.moved) commit();
+}
+$('#v3').addEventListener('pointerdown', e => {
+  if (!V3.on || !V3.controls || e.button !== 0 || !e.isPrimary) return;
+  V3.controls.enabled = true; V3.tap = {x:e.clientX, y:e.clientY, handled:false};
+  const h = pick3D(e), hid = h?.id && S.items[h.id] ? h.id : null;
+  if (!hid) return;
+  V3.tap.handled = true;
+  const members = e.altKey ? [hid] : groupOf(hid), cur = selIds();
+  if (e.shiftKey || e.ctrlKey || e.metaKey){
+    const allIn = members.every(m => cur.includes(m));
+    selectItems(allIn ? cur.filter(x => !members.includes(x)) : cur.concat(members)); return;
+  }
+  if (!members.every(m => cur.includes(m))) selectItems(members);
+  const mv = movableIds(selIds());
+  if (!canEdit() || !mv.length) return;
+  V3.controls.enabled = false;
+  V3.drag = {pid:e.pointerId, ids:mv, anchor:mv.includes(hid) ? hid : mv[0], p0:h.point.clone(), plane:new THREE.Plane(new THREE.Vector3(0, 1, 0), -h.point.y), orig:mv.map(i => ({id:i, x:S.items[i].x, y:S.items[i].y})), sx:e.clientX, sy:e.clientY, moved:false};
+  window.addEventListener('pointermove', onMove3); window.addEventListener('pointerup', onUp3); window.addEventListener('pointercancel', onUp3);
+}, true);
+$('#v3').addEventListener('pointerup', e => {
+  const t = V3.tap; V3.tap = null;
+  if (!t || t.handled || e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (Math.hypot(e.clientX - t.x, e.clientY - t.y) < 5 && S.sel) select(null);
+});
+$('#v3-undo').onclick = undo; $('#v3-redo').onclick = redo;
 $('#t-3d').onclick = () => set3D(true);
 $('#t-2d').onclick = () => set3D(false);
 $('#v3-low').onclick = e => { V3.low = !V3.low; e.currentTarget.setAttribute('aria-pressed', V3.low); build3D(); draw3D(); };
@@ -1623,8 +1773,8 @@ $('#z-out').onclick = () => zoomAt({x:svg.clientWidth/2, y:svg.clientHeight/2}, 
 $('#z-fit').onclick = () => fit();
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea, select')) return;
-  if (V3.on && e.key !== 'Escape') return;
   const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+  if (V3.on && !mod && ['v','w','m','f'].includes(k)) return;
   if (mod && k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && k === 'y'){ e.preventDefault(); redo(); return; }
   if (mod && k === 'd'){ e.preventDefault(); duplicateSel(); return; }
@@ -1634,6 +1784,7 @@ window.addEventListener('keydown', e => {
   if (k === 'delete' || k === 'backspace'){ e.preventDefault(); deleteSel(); }
   else if (k === 'escape'){ if (S.mode !== 'select') setMode('select'); else select(null); }
   else if (k === 'm') setMode(S.mode === 'box' ? 'select' : 'box');
+  else if (k === 'l') toggleLock();
   else if (k === 'v') setMode('select');
   else if (k === 'w' && canEdit()) setMode('wall');
   else if (k === 'f') fit();
@@ -1687,8 +1838,10 @@ async function offerFile(filename, data){
 const stamp = () => new Date().toISOString().slice(0, 10);
 $('#exp-png').onclick = async () => {
   if (V3.on && V3.renderer){
-    draw3D();
-    const blob = await new Promise(r => V3.renderer.domElement.toBlob(r, 'image/png'));
+    V3.marks.forEach(m => { m.visible = false; }); draw3D();
+    const pending = new Promise(r => V3.renderer.domElement.toBlob(r, 'image/png'));
+    V3.marks.forEach(m => { m.visible = true; }); draw3D();
+    const blob = await pending;
     if (blob){ await offerFile(`office-3d-${stamp()}.png`, blob); return; }
   }
   try {
