@@ -251,7 +251,9 @@ ol.steps b{color:var(--ink);font-weight:600}
       <button type="button" id="t-3d" aria-pressed="false" title="3D 模型"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5z"/><path d="M2 5l6 3.2L14 5M8 8.2v6"/></svg>3D</button>
     </div>
     <div class="seg v3tools" role="group" aria-label="3D 設定">
+      <button type="button" id="v3-light" aria-pressed="true" title="切換辦公室天花燈／日光">辦公室燈</button>
       <button type="button" id="v3-low" aria-pressed="false" title="將牆身降低，方便睇入去">矮牆</button>
+      <button type="button" id="v3-eye" title="企喺辦公室入面嘅高度">人視角</button>
       <button type="button" id="v3-top" title="由上面望落去">俯視</button>
       <button type="button" id="v3-reset" title="返回預設視角">重設視角</button>
     </div>
@@ -1364,7 +1366,7 @@ $('#inspector').addEventListener('input', e => {
 });
 
 /* ---------- 3D view ---------- */
-const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0};
+const V3 = {on:false, ready:null, renderer:null, scene:null, camera:null, controls:null, group:null, low:false, built:false, timer:0, light:'office'};
 const WALL_H = 270;
 function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src)); document.head.appendChild(el); }); }
 function load3D(){
@@ -1397,13 +1399,14 @@ function init3D(){
   const ctl = new T.OrbitControls(cam, r.domElement);
   ctl.maxPolarAngle = Math.PI / 2 - 0.02; ctl.minDistance = 100; ctl.maxDistance = 6000;
   ctl.addEventListener('change', draw3D);
-  scene.add(new T.HemisphereLight(0xffffff, 0xb8b2a6, 0.75));
+  const hemi = new T.HemisphereLight(0xffffff, 0xb8b2a6, 0.75), amb = new T.AmbientLight(0xf2f5ff, 0);
+  scene.add(hemi, amb);
   const sun = new T.DirectionalLight(0xffffff, 0.55);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, {left:-1200, right:1200, top:1200, bottom:-1200, near:10, far:6000});
   sun.shadow.bias = -0.0005;
   scene.add(sun, sun.target);
-  Object.assign(V3, {renderer:r, scene, camera:cam, controls:ctl, sun});
+  Object.assign(V3, {renderer:r, scene, camera:cam, controls:ctl, sun, hemi, amb});
   new ResizeObserver(() => { if (V3.on){ size3D(); draw3D(); } }).observe(host);
   size3D();
 }
@@ -1411,25 +1414,50 @@ function size3D(){
   const host = $('#v3'), w = host.clientWidth || 1, h = host.clientHeight || 1;
   V3.renderer.setSize(w, h, false); V3.camera.aspect = w / h; V3.camera.updateProjectionMatrix();
 }
-function draw3D(){ if (V3.on && V3.renderer) V3.renderer.render(V3.scene, V3.camera); }
+function draw3D(){ if (!V3.on || !V3.renderer) return; if (V3.ceiling) V3.ceiling.visible = V3.camera.position.y < WALL_H - 5; V3.renderer.render(V3.scene, V3.camera); }
 function schedule3D(){ if (!V3.on || !V3.renderer) return; clearTimeout(V3.timer); V3.timer = setTimeout(() => { build3D(); draw3D(); }, 120); }
+function eyeSpot(){
+  const r0 = S.layout.rooms[0]; if (!r0) return null;
+  const c = centroid(r0.pts), list = Object.values(shown()).filter(i => !['window','door','door2'].includes(i.type));
+  const segs = r0.pts.map((p, i) => [p, r0.pts[(i+1) % r0.pts.length], false]).concat(S.layout.walls.map(w => [w.a, w.b, !!w.glass]));
+  const side = (p, q, r) => Math.sign((q.x - p.x)*(r.y - p.y) - (q.y - p.y)*(r.x - p.x));
+  const crosses = (a, b, c2, d) => side(a, b, c2) * side(a, b, d) < 0 && side(c2, d, a) * side(c2, d, b) < 0;
+  const dseg = (p, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, L2 = dx*dx + dy*dy || 1, t = Math.max(0, Math.min(1, ((p.x - a.x)*dx + (p.y - a.y)*dy) / L2)); return Math.hypot(p.x - a.x - t*dx, p.y - a.y - t*dy); };
+  const xs = r0.pts.map(q => q.x), ys = r0.pts.map(q => q.y);
+  let best = null, score = -1;
+  for (let x = Math.min(...xs) + 20; x < Math.max(...xs); x += 40) for (let y = Math.min(...ys) + 20; y < Math.max(...ys); y += 40){
+    const p = {x, y};
+    if (!inside(p, r0.pts) || segs.some(([a, b]) => dseg(p, a, b) < 60)) continue;
+    if (list.some(it => Math.hypot(it.x - x, it.y - y) < Math.max(it.w, it.h)/2 + 45)) continue;
+    if (segs.some(([a, b, glass]) => !glass && crosses(p, c, a, b))) continue;
+    const d = Math.hypot(x - c.x, y - c.y); if (d > score){ score = d; best = p; }
+  }
+  return best && {p:best, c};
+}
 function view3D(kind){
   const b = bounds(), cx = b.x + b.w/2, cz = b.y + b.h/2, sz = Math.max(b.w, b.h);
   V3.controls.target.set(cx, 60, cz);
   if (kind === 'top') V3.camera.position.set(cx, sz * 1.55, cz + 1);
+  else if (kind === 'eye'){
+    const spot = eyeSpot();
+    if (spot){ V3.camera.position.set(spot.p.x, 160, spot.p.y); V3.controls.target.set(spot.c.x, 130, spot.c.y); }
+    else { V3.camera.position.set(b.x + b.w * .12, 160, b.y + b.h * .78); V3.controls.target.set(cx, 130, cz); }
+  }
   else V3.camera.position.set(cx - sz * 0.45, sz * 0.85, cz + sz * 0.95);
+  V3.camera.fov = kind === 'eye' ? 62 : 45; V3.camera.updateProjectionMatrix();
   V3.controls.update(); draw3D();
 }
 const M3 = {};
 function mat(key){
   if (M3[key]) return M3[key];
+  if (key === 'panel') return (M3.panel = new THREE.MeshBasicMaterial({color:0xffffff}));
   const T = THREE, spec = {
-    floor:[0xdedad2], wall:[0xf3f1ec], wallcut:[0xc9c4ba], glass:[0x9fcbe8, .35], wood:[0xcaa57c], light:[0xeef0f2],
+    floor:[0xdedad2], ceiling:[0xeef0f2], wall:[0xf3f1ec], wallcut:[0xc9c4ba], glass:[0x9fcbe8, .35], wood:[0xcaa57c], light:[0xeef0f2],
     top:[0xdcc7a6], steel:[0x9aa3ab], dark:[0x39434d], fabric:[0x8ea3b6, .92], door:[0xb89574], column:[0x6f777e],
     card:[0xb88b58], screen:[0x1c2127], plant:[0x4f9a63], pot:[0x9a8f84], machine:[0xe3e5e8], edge:[0x55606a]
   }[key] || [0xcccccc];
   const m = key === 'edge' ? new T.LineBasicMaterial({color:spec[0], transparent:true, opacity:.35})
-    : new T.MeshStandardMaterial({color:spec[0], roughness:.85, metalness:key === 'steel' ? .35 : 0, transparent:spec[1] !== undefined, opacity:spec[1] ?? 1, side:key === 'floor' ? T.DoubleSide : T.FrontSide});
+    : new T.MeshStandardMaterial({color:spec[0], roughness:.85, metalness:key === 'steel' ? .35 : 0, transparent:spec[1] !== undefined, opacity:spec[1] ?? 1, side:key === 'floor' || key === 'ceiling' ? T.DoubleSide : T.FrontSide});
   return (M3[key] = m);
 }
 function box3(parent, w, h, d, x, y, z, m, edges = true){
@@ -1530,6 +1558,33 @@ function walls3D(parent, list){
     parent.add(g);
   });
 }
+function lighting3D(root){
+  const T = THREE, office = V3.light === 'office', b = bounds(), cx = b.x + b.w/2, cz = b.y + b.h/2;
+  V3.hemi.color.set(office ? 0xf1f5ff : 0xffffff); V3.hemi.groundColor.set(office ? 0xc9ced6 : 0xb8b2a6); V3.hemi.intensity = office ? 0.42 : 0.75;
+  V3.amb.intensity = office ? 0.2 : 0;
+  V3.sun.color.set(office ? 0xf3f6ff : 0xffffff); V3.sun.intensity = office ? 0.3 : 0.55;
+  V3.sun.position.set(office ? cx + 40 : cx - 600, office ? 2600 : 1400, office ? cz + 70 : cz - 400);
+  V3.sun.target.position.set(cx, 0, cz);
+  mat('floor').color.set(office ? 0xa9afb6 : 0xdedad2);
+  const ceil = new T.Group();
+  S.layout.rooms.forEach(r => {
+    const m = new T.Mesh(new T.ShapeGeometry(new T.Shape(r.pts.map(q => new T.Vector2(q.x, -q.y)))), mat('ceiling'));
+    m.rotation.x = -Math.PI / 2; m.position.y = WALL_H; ceil.add(m);
+  });
+  root.add(ceil); V3.ceiling = ceil;
+  if (!office) return;
+  const step = 240, spots = [];
+  S.layout.rooms.forEach(r => {
+    const xs = r.pts.map(q => q.x), ys = r.pts.map(q => q.y);
+    for (let x = Math.min(...xs) + step/2; x < Math.max(...xs); x += step)
+      for (let y = Math.min(...ys) + step/2; y < Math.max(...ys); y += step)
+        if (inside({x, y}, r.pts)) spots.push({x, y});
+  });
+  const geo = new T.PlaneGeometry(60, 60);
+  spots.forEach(q => { const m = new T.Mesh(geo, mat('panel')); m.rotation.x = Math.PI / 2; m.position.set(q.x, WALL_H - 1, q.y); root.add(m); });
+  const every = Math.max(1, Math.ceil(spots.length / 12));
+  spots.filter((q, i) => i % every === 0).forEach(q => { const l = new T.PointLight(0xf4f7ff, 0.32, 700, 2); l.position.set(q.x, WALL_H - 25, q.y); root.add(l); });
+}
 function build3D(){
   const T = THREE;
   if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -1541,17 +1596,18 @@ function build3D(){
   });
   walls3D(root, list);
   list.forEach(it => { const f = furniture3D(it, list); if (f){ f.traverse(o => { if (o.isMesh){ o.castShadow = o.material !== mat('glass'); o.receiveShadow = true; } }); root.add(f); } });
+  lighting3D(root);
   V3.scene.add(root); V3.group = root;
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim() || '#fbfcfd';
   V3.scene.background = new T.Color(bg);
-  const b = bounds(), cx = b.x + b.w/2, cz = b.y + b.h/2;
-  V3.sun.position.set(cx - 600, 1400, cz - 400); V3.sun.target.position.set(cx, 0, cz);
 }
 $('#t-3d').onclick = () => set3D(true);
 $('#t-2d').onclick = () => set3D(false);
 $('#v3-low').onclick = e => { V3.low = !V3.low; e.currentTarget.setAttribute('aria-pressed', V3.low); build3D(); draw3D(); };
 $('#v3-reset').onclick = () => view3D('iso');
+$('#v3-light').onclick = e => { V3.light = V3.light === 'office' ? 'day' : 'office'; e.currentTarget.setAttribute('aria-pressed', V3.light === 'office'); build3D(); draw3D(); };
 $('#v3-top').onclick = () => view3D('top');
+$('#v3-eye').onclick = () => view3D('eye');
 
 /* ---------- toolbar & keys ---------- */
 function setMode(m){ S.mode = m; ['select','wall','box'].forEach(x => { svg.classList.toggle('mode-' + x, m === x); $('#t-' + x).setAttribute('aria-pressed', m === x); }); requestRender(); }
