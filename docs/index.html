@@ -80,6 +80,7 @@ h3{font:700 17px/1.25 var(--f-display);margin:0}
 .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
 .field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 .field input{height:32px;padding:0 9px;border:1px solid var(--rule);border-radius:7px;background:var(--sheet);color:var(--ink);font-size:13.5px;width:100%;min-width:0}
+.field textarea{padding:7px 9px;border:1px solid var(--rule);border-radius:7px;background:var(--sheet);color:var(--ink);font:13.5px/1.45 var(--f-ui);width:100%;min-width:0;resize:vertical}
 .field input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -237,8 +238,8 @@ ol.steps b{color:var(--ink);font-weight:600}
 <div class="app">
   <aside class="panel" id="side" aria-label="清單同傢俬">
     <section class="sec" id="schemes-sec" hidden>
-      <p class="eyebrow">建議方案</p>
-      <p class="muted">撳一個方案可以喺平面圖預覽；滿意先套用。</p>
+      <p class="eyebrow">方案</p>
+      <p class="muted">每個方案都係一張獨立平面圖：揀咗就可以直接拖、改、加、刪，會自動儲存，唔會影響其他方案同目前平面圖。</p>
       <div class="schemes" id="schemes"></div>
     </section>
     <section class="sec">
@@ -280,7 +281,7 @@ ol.steps b{color:var(--ink);font-weight:600}
       </div>
     </div>
     <div class="hint" id="hint" hidden></div>
-    <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span><button class="btn primary" type="button" id="pv-apply">套用呢個方案</button><button class="btn" type="button" id="pv-exit">返回目前平面圖</button></div>
+    <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span><button class="btn" type="button" id="pv-apply" title="用呢個方案取代目前平面圖（可以復原）">套用到目前平面圖</button><button class="btn" type="button" id="pv-exit">返回目前平面圖</button></div>
     <div class="scalebar" id="scalebar"><span id="sb-label">100 cm</span><i id="sb-bar" style="width:80px"></i></div>
     <div id="v3" aria-label="3D 模型"></div>
     <div class="v3load" id="v3load" hidden>載入緊 3D 模型…</div>
@@ -370,7 +371,7 @@ const CATALOG = {
   microwave:{g:'hw', name:'微波爐', s:'微波爐', w:49, d:34, ht:27, qty:1, sym:'appliance'},
   oven:{g:'hw', name:'焗爐', s:'焗爐', w:53, d:45, ht:37, qty:1, sym:'appliance'},
   supplybox:{g:'hw', name:'後備物資箱', s:'物資箱', w:59, d:45, ht:40, qty:3, sym:'box'},
-  signin:{g:'cab', name:'簽到文具櫃', s:'簽到櫃', w:100, d:46, ht:85, qty:2, sym:'cabinet'},
+  signin:{g:'cab', name:'簽到文具櫃', s:'簽到櫃', w:100, d:46, ht:85, qty:3, sym:'cabinet'},
   pantry:{g:'cab', name:'Pantry櫃', s:'Pantry櫃', w:120, d:41, ht:216, qty:1, sym:'cabinet'},
   incentive:{g:'cab', name:'Incentive櫃桶', s:'Incentive', w:33, d:46, ht:89, qty:1, sym:'drawers'},
   window1:{g:'cab', name:'窗邊置物木櫃（candy後方）高 105', s:'窗邊櫃', w:42, d:40, ht:105, qty:1, sym:'cabinet'},
@@ -454,11 +455,15 @@ const S = {
   view:{x:-100, y:-100, k:0.5},
   sel:null, mode:'select', snap:true, dims:true, names:true,
   loaded:false, sync:'loading', readOnly:false, fitted:false,
-  schemes:[], preview:null,
+  schemes:[], ws:null,
 };
-let previewItems = {};
-const shown = () => S.preview ? previewItems : S.items;
+const shown = () => S.items;
 const schemeById = id => S.schemes.find(s => s.id === id);
+const curScheme = () => S.ws ? schemeById(S.ws) || null : null;
+const itemsMap = arr => Object.fromEntries((arr || []).filter(it => it && it.id && CATALOG[it.type]).map(it => [String(it.id), {...clone(it), id:String(it.id)}]));
+const schemeDoc = sc => { const {id, edited, ...d} = sc; return clone(d); };
+let mainItems = {};
+const wsHist = new Map();
 let base = {layout:clone(S.layout), items:{}};
 const undoStack = [], redoStack = [];
 let db = null, drag = null;
@@ -671,7 +676,7 @@ function selectionOverlay(k){
     const ids = s.ids.filter(id => S.items[id]); if (!ids.length) return '';
     const pad = px(4), P = px(10), b = selBox(ids);
     let h = `<rect class="sel-all" x="${r2(b.x0-P)}" y="${r2(b.y0-P)}" width="${r2(b.x1-b.x0+2*P)}" height="${r2(b.y1-b.y0+2*P)}"/>`;
-    if (!S.readOnly && !S.preview && movableIds(ids).length){
+    if (!S.readOnly && movableIds(ids).length){
       const cx = r2((b.x0 + b.x1)/2), top = r2(b.y0 - P), hy = r2(b.y0 - P - px(24));
       h += `<line class="sel-box" x1="${cx}" y1="${top}" x2="${cx}" y2="${hy}"/><circle class="handle" data-h="mrot" cx="${cx}" cy="${hy}" r="${px(7)}"/>`;
     }
@@ -772,7 +777,7 @@ function angleSnap(a, q){
 }
 
 /* ---------- pointer interaction ---------- */
-const canEdit = () => S.loaded && !S.readOnly && !S.preview;
+const canEdit = () => S.loaded && !S.readOnly;
 let lastVtx = null;
 svg.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
@@ -1124,7 +1129,7 @@ function toggleLock(){
   toast(all ? `已解除固定（${ids.length} 件）。` : `已固定 ${ids.length} 件，唔會被拖郁。`, true);
 }
 function renderSelbar(){
-  const bar = $('#selbar'), ids = S.preview ? [] : selIds().filter(id => S.items[id]);
+  const bar = $('#selbar'), ids = selIds().filter(id => S.items[id]);
   bar.hidden = !ids.length || !S.loaded; if (bar.hidden) return;
   const n = ids.filter(id => isLocked(S.items[id])).length, all = n === ids.length, ed = canEdit();
   $('#selbar-info').textContent = ids.length > 1 ? `已選 ${ids.length} 件` : (CATALOG[S.items[ids[0]].type]?.name || '');
@@ -1162,8 +1167,13 @@ function commit(opts = {}){
   const next = {layout:clone(S.layout), items:clone(S.items)};
   const changes = [];
   if (stable(next.layout) !== stable(base.layout)) changes.push(['plan/layout', next.layout]);
-  for (const id in next.items) if (stable(next.items[id]) !== stable(base.items[id])) changes.push(['items/' + id, next.items[id]]);
-  for (const id in base.items) if (!next.items[id]) changes.push(['items/' + id, null]);
+  const sc = curScheme();
+  if (sc){
+    if (stable(next.items) !== stable(base.items)){ sc.items = Object.values(clone(next.items)); changes.push(['schemes/' + sc.id, schemeDoc(sc)]); }
+  } else if (!S.ws){
+    for (const id in next.items) if (stable(next.items[id]) !== stable(base.items[id])) changes.push(['items/' + id, next.items[id]]);
+    for (const id in base.items) if (!next.items[id]) changes.push(['items/' + id, null]);
+  }
   if (!changes.length) return;
   if (!opts.history){ undoStack.push(base); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
   base = next;
@@ -1186,7 +1196,10 @@ function setSync(s){
 }
 function persist(changes){
   if (!db){
-    try { localStorage.setItem(LS_KEY, JSON.stringify({layout:S.layout, items:S.items})); } catch (e) {}
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({layout:S.layout, items:S.ws ? mainItems : S.items}));
+      for (const [path, data] of changes) if (path.startsWith('schemes/')) localStorage.setItem(LS_KEY + ':' + path, JSON.stringify(data));
+    } catch (e) {}
     return;
   }
   for (const [path, data] of changes) queueWrite(path, data);
@@ -1246,7 +1259,11 @@ async function start(){
     if (src) loadPlan(src);
     base = {layout:clone(S.layout), items:clone(S.items)};
     if (Array.isArray(preset?.schemes)){
-      S.schemes = preset.schemes.filter(sc => sc && sc.id && Array.isArray(sc.items)).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+      S.schemes = preset.schemes.filter(sc => sc && sc.id && Array.isArray(sc.items)).map(sc => {
+        let mine = null;
+        try { mine = JSON.parse(localStorage.getItem(LS_KEY + ':schemes/' + sc.id) || 'null'); } catch (e) {}
+        return Array.isArray(mine?.items) ? {...clone(sc), ...mine, id:sc.id, edited:true} : clone(sc);
+      }).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
       renderSchemes();
     }
     $('#reset-plan').hidden = !preset?.layout;
@@ -1273,24 +1290,29 @@ async function start(){
     const m = {};
     snap.docs.forEach(d => { const v = d.data(); if (v && CATALOG[v.type]) m[d.id] = {...clone(v), id:d.id}; });
     gotItems = true;
-    if (stable(m) !== stable(base.items)){
-      base.items = clone(m);
-      const keep = (drag && ['move','rot','res','mrot'].includes(drag.kind) ? (drag.ids || [drag.id]) : []).concat(V3.drag ? V3.drag.ids : []);
-      const next = clone(m);
-      keep.forEach(k => { if (S.items[k]) next[k] = S.items[k]; });
-      S.items = next;
-      validateSel(); renderSide(); renderInspector(); requestRender();
-    }
+    if (S.ws) mainItems = m; else applyRemoteItems(m);
     ready();
   }, e => { onWriteError(e); gotItems = true; ready(); });
   db.collection('schemes').onSnapshot(snap => {
+    const mine = curScheme(), busy = S.ws && writers.get('schemes/' + S.ws)?.running;
     S.schemes = snap.docs.map(d => ({...clone(d.data() || {}), id:d.id})).filter(sc => Array.isArray(sc.items)).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-    if (S.preview){
-      const sc = schemeById(S.preview);
-      if (!sc) setPreview(null); else { loadPreviewItems(sc); renderSide(); renderInspector(); requestRender(); }
+    if (S.ws){
+      const sc = curScheme();
+      if (!sc) setWs(null, true);
+      else if (busy && mine) Object.assign(sc, {items:mine.items});
+      else { applyRemoteItems(itemsMap(sc.items)); renderInspector(); }
     }
     renderSchemes();
   }, () => {});
+}
+function applyRemoteItems(m){
+  if (stable(m) === stable(base.items)) return;
+  base.items = clone(m);
+  const keep = (drag && ['move','rot','res','mrot'].includes(drag.kind) ? (drag.ids || [drag.id]) : []).concat(V3.drag ? V3.drag.ids : []);
+  const next = clone(m);
+  keep.forEach(k => { if (S.items[k]) next[k] = S.items[k]; });
+  S.items = next;
+  validateSel(); renderSide(); renderInspector(); requestRender();
 }
 function applyPlanUpdate(){
   let U = null;
@@ -1315,36 +1337,39 @@ function applyReadOnly(){
   renderInspector(); requestRender();
 }
 
-/* ---------- suggested layouts ---------- */
-function loadPreviewItems(sc){
-  previewItems = {};
-  (sc?.items || []).forEach(it => { if (it && it.id && CATALOG[it.type]) previewItems[String(it.id)] = {...it, id:String(it.id)}; });
-}
+/* ---------- schemes: each one is its own editable plan ---------- */
 function renderSchemes(){
   $('#schemes-sec').hidden = !S.schemes.length;
-  $('#schemes').innerHTML = [`<button type="button" class="scheme" data-scheme="" aria-pressed="${!S.preview}"><b>目前平面圖</b><span>同事一齊編輯緊嘅版本</span></button>`]
-    .concat(S.schemes.map(sc => `<button type="button" class="scheme" data-scheme="${esc(sc.id)}" aria-pressed="${S.preview === sc.id}"><b>${esc(sc.name)}</b><span>${esc(sc.summary || '')}</span></button>`)).join('');
-  $('#pvbar').hidden = !S.preview;
-  if (S.preview){ $('#pv-name').textContent = '預覽緊：' + (schemeById(S.preview)?.name || ''); $('#pv-apply').disabled = S.readOnly; }
+  const btn = (id, name, sum) => `<button type="button" class="scheme" data-scheme="${esc(id)}" aria-pressed="${(S.ws || '') === id}"><b>${esc(name)}</b><span>${esc(sum || '')}</span></button>`;
+  $('#schemes').innerHTML = [btn('', '目前平面圖', '同事一齊用嘅正式版本')].concat(S.schemes.map(sc => btn(sc.id, sc.name, sc.summary))).join('');
+  $('#pvbar').hidden = !S.ws;
+  if (S.ws){ $('#pv-name').textContent = '編輯緊：' + (curScheme()?.name || ''); $('#pv-apply').disabled = S.readOnly; }
 }
-function setPreview(id){
-  if (drag) return;
-  const sc = id ? schemeById(id) : null;
-  S.preview = sc ? sc.id : null;
-  loadPreviewItems(sc);
-  S.sel = null;
-  if (S.mode === 'wall') setMode('select');
-  renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); fit();
+function setWs(id, force){
+  if (!force && (drag || V3.drag)) return;
+  const sc = id ? schemeById(id) : null, next = sc ? sc.id : null;
+  if (next === S.ws) return;
+  if (!S.ws || curScheme()) commit();
+  wsHist.set(S.ws || '', {u:undoStack.splice(0), r:redoStack.splice(0)});
+  if (!S.ws) mainItems = clone(S.items);
+  S.ws = next;
+  S.items = sc ? itemsMap(sc.items) : clone(mainItems);
+  base = {layout:clone(S.layout), items:clone(S.items)};
+  const h = wsHist.get(S.ws || '');
+  if (h){ undoStack.push(...h.u); redoStack.push(...h.r); }
+  S.sel = null; $('#toast').hidden = true;
+  renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); requestRender();
 }
-$('#schemes').addEventListener('click', e => { const b = e.target.closest('[data-scheme]'); if (b) setPreview(b.dataset.scheme || null); });
-$('#pv-exit').onclick = () => setPreview(null);
+function saveSchemeMeta(sc){ if (canEdit()) persist([['schemes/' + sc.id, schemeDoc(sc)]]); }
+$('#schemes').addEventListener('click', e => { const b = e.target.closest('[data-scheme]'); if (b) setWs(b.dataset.scheme || null); });
+$('#pv-exit').onclick = () => setWs(null);
 $('#pv-apply').onclick = () => {
-  if (!S.preview || S.readOnly) return;
-  const sc = schemeById(S.preview), next = clone(previewItems);
-  S.preview = null; previewItems = {};
+  const sc = curScheme(); if (!sc || !canEdit()) return;
+  const next = clone(S.items);
+  setWs(null);
   S.items = next; S.sel = null;
-  commit(); renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); requestRender();
-  toast(`已套用「${sc?.name || ''}」。`, true);
+  commit(); renderSide(); renderInspector(); requestRender();
+  toast(`已將「${sc.name}」套用到目前平面圖。`, true);
 };
 
 /* ---------- side panel ---------- */
@@ -1408,14 +1433,16 @@ $('#lib').addEventListener('dragstart', e => { const b = e.target.closest('[data
 /* ---------- inspector ---------- */
 function renderInspector(){
   const el = $('#inspector');
-  if (el.contains(document.activeElement) && document.activeElement.matches('input')) return;
+  if (el.contains(document.activeElement) && document.activeElement.matches('input,textarea')) return;
   const s = S.sel, ro = S.readOnly ? ' disabled' : '';
-  const pv = S.preview && schemeById(S.preview);
-  if (pv){
+  const pv = curScheme();
+  if (pv && !s){
     const list = (title, arr) => arr?.length ? `<section class="sec"><p class="eyebrow">${title}</p><ul class="pts">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>` : '';
-    el.innerHTML = `<section class="sec"><p class="eyebrow">建議方案（預覽）</p><h3>${esc(pv.name)}</h3><p class="muted">${esc(pv.summary || '')}</p></section>`
+    el.innerHTML = `<section class="sec"><p class="eyebrow">方案 · 獨立平面圖</p>
+        <label class="field">名稱<input id="sc-name" maxlength="60" value="${esc(pv.name)}"${ro}></label>
+        <label class="field">簡介<textarea id="sc-sum" rows="4" maxlength="400"${ro}>${esc(pv.summary || '')}</textarea></label></section>`
       + list('分區', pv.zones) + list('好處', pv.pros) + list('要留意', pv.cons)
-      + `<section class="sec"><p class="muted">預覽唔會改動目前平面圖。撳「套用呢個方案」會用呢個方案取代目前嘅傢俬位置，之後仍然可以復原。</p></section>`;
+      + `<section class="sec"><p class="muted">喺呢度拖、改、加、刪傢俬，只會改到「${esc(pv.name)}」，並會自動儲存。撳上面「備份」可以將呢個方案下載做一個獨立檔案；「套用到目前平面圖」會用呢個方案取代目前平面圖（可以復原）。</p></section>`;
     return;
   }
   if (s?.kind === 'multi'){
@@ -1509,6 +1536,11 @@ $('#inspector').addEventListener('click', e => {
 });
 $('#inspector').addEventListener('change', e => {
   if (!canEdit()) return;
+  if (e.target.id === 'sc-name' || e.target.id === 'sc-sum'){
+    const sc = curScheme(), v = e.target.value.trim(); if (!sc) return;
+    if (e.target.id === 'sc-name'){ if (!v){ e.target.value = sc.name; return; } sc.name = v.slice(0, 60); } else sc.summary = v.slice(0, 400);
+    saveSchemeMeta(sc); renderSchemes(); return;
+  }
   const t = e.target, s = S.sel; if (!s) return;
   const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
   if (t.id === 'multi-rot'){ const v = num(t.value); t.value = ''; t.blur(); if (v) rotateSel(v); renderInspector(); return; }
@@ -1797,7 +1829,7 @@ function lighting3D(root){
 function build3D(){
   const T = THREE;
   if (V3.group){ V3.scene.remove(V3.group); V3.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.userData?.own && o.material) o.material.dispose(); }); }
-  V3.groups = {}; V3.marks = []; V3.selSet = new Set(S.preview || V3.walk ? [] : selIds());
+  V3.groups = {}; V3.marks = []; V3.selSet = new Set(V3.walk ? [] : selIds());
   const root = new T.Group(), list = Object.values(shown());
   S.layout.rooms.forEach(r => {
     const shape = new T.Shape(r.pts.map(p => new T.Vector2(p.x, -p.y)));
@@ -2087,7 +2119,7 @@ window.addEventListener('keydown', e => {
   if (mod && k === 'y'){ e.preventDefault(); redo(); return; }
   if (mod && k === 'd'){ e.preventDefault(); duplicateSel(); return; }
   if (mod && k === 'g'){ e.preventDefault(); e.shiftKey ? ungroupSel() : groupSel(); return; }
-  if (mod && k === 'a'){ e.preventDefault(); if (!S.preview) selectItems(Object.keys(S.items).filter(id => !['column','window','door','door2'].includes(S.items[id].type))); return; }
+  if (mod && k === 'a'){ e.preventDefault(); selectItems(Object.keys(S.items).filter(id => !['column','window','door','door2'].includes(S.items[id].type))); return; }
   if (mod) return;
   if (k === 'delete' || k === 'backspace'){ e.preventDefault(); deleteSel(); }
   else if (k === 'escape'){ if (S.mode !== 'select') setMode('select'); else select(null); }
@@ -2124,7 +2156,7 @@ function exportSvg(){
   const x0 = b.x - pad, y0 = b.y - pad, fy = y0 + H - 80/px;
   let bar = 100; while (bar * px < 90) bar *= 2;
   const foot = `<g font-family='${EXPORT_VARS['f-ui']}' fill="#5A6875" font-size="${r2(13/sizeK)}">
-    <text x="${r2(x0 + 24/sizeK)}" y="${r2(fy)}">新辦公室平面圖 · ${esc(date)} · ${S.preview ? esc(schemeById(S.preview)?.name || '') + ' · ' : ''}共 ${Object.keys(shown()).length} 件 · 單位 cm</text>
+    <text x="${r2(x0 + 24/sizeK)}" y="${r2(fy)}">新辦公室平面圖 · ${esc(date)} · ${curScheme() ? esc(curScheme().name) + ' · ' : ''}共 ${Object.keys(shown()).length} 件 · 單位 cm</text>
     <rect x="${r2(x0 + W - bar - 24/sizeK)}" y="${r2(fy - 6/sizeK)}" width="${bar}" height="${r2(5/sizeK)}" fill="#15202A"/>
     <text x="${r2(x0 + W - 24/sizeK)}" y="${r2(fy - 12/sizeK)}" text-anchor="end">${bar} cm</text></g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${pw}" height="${ph}" viewBox="${r2(x0)} ${r2(y0)} ${r2(W)} ${r2(H)}"><style>${css}</style><rect x="${r2(x0)}" y="${r2(y0)}" width="${r2(W)}" height="${r2(H)}" fill="#FFFFFF"/>${renderWorld({k:sizeK, interactive:false, names:S.names})}${foot}</svg>`;
@@ -2164,10 +2196,22 @@ $('#exp-png').onclick = async () => {
     await offerFile(`office-floor-plan-${stamp()}.png`, blob);
   } catch (e){ offerFile(`office-floor-plan-${stamp()}.svg`, exportSvg()); }
 };
-$('#exp-json').onclick = () => offerFile(`office-floor-plan-${stamp()}.json`, JSON.stringify({format:'office-floor-plan', version:2, layout:S.layout, items:Object.values(S.items)}, null, 2));
+$('#exp-json').onclick = () => {
+  commit();
+  const sc = curScheme(), meta = sc ? (({name, summary, zones, pros, cons}) => ({id:sc.id, name, summary:summary || '', zones:zones || [], pros:pros || [], cons:cons || []}))(sc) : null;
+  offerFile(`office-floor-plan-${sc ? 'scheme-' + sc.id + '-' : ''}${stamp()}.json`, JSON.stringify({format:'office-floor-plan', version:2, ...(meta ? {scheme:meta} : {}), layout:S.layout, items:Object.values(S.items)}, null, 2));
+};
 $('#imp-json').onclick = () => { if (canEdit()) $('#imp-file').click(); };
 $('#reset-plan').onclick = () => {
   if (!preset?.layout || !canEdit()) return;
+  const sc = curScheme();
+  if (sc){
+    const p = (preset.schemes || []).find(x => x.id === sc.id); if (!p) return;
+    Object.assign(sc, clone(p)); delete sc.edited;
+    S.items = itemsMap(p.items); S.sel = null;
+    commit(); try { localStorage.removeItem(LS_KEY + ':schemes/' + sc.id); } catch (e) {}
+    renderSchemes(); renderInspector(); toast(`已將「${sc.name}」還原做網上版發佈嘅版本。`, true); return;
+  }
   const d = presetPlan(); S.layout = d.layout; S.items = d.items; S.sel = null;
   commit(); fit(); toast('已返回網上版發佈嘅平面圖。', true);
 };
@@ -2183,11 +2227,16 @@ $('#imp-file').addEventListener('change', async e => {
     (Array.isArray(d.items) ? d.items : Object.values(d.items || {})).forEach(it => {
       const c = CATALOG[it?.type]; if (!c) return;
       const id = String(it.id || uid()).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || uid();
-      items[id] = {id, type:it.type, x:+it.x || 0, y:+it.y || 0, w:Math.max(3, +it.w || c.w), h:Math.max(3, +it.h || c.d), ht:Number.isFinite(+it.ht) ? +it.ht : c.ht, r:+it.r || 0, label:String(it.label ?? '').slice(0, 40), ...(it.g ? {g:String(it.g).slice(0, 40)} : {}), ...(it.on ? {on:String(it.on).slice(0, 40)} : {}), ...(it.lay === 1 || it.lay === 2 ? {lay:it.lay} : {})};
+      items[id] = {id, type:it.type, x:+it.x || 0, y:+it.y || 0, w:Math.max(3, +it.w || c.w), h:Math.max(3, +it.h || c.d), ht:Number.isFinite(+it.ht) ? +it.ht : c.ht, r:+it.r || 0, label:String(it.label ?? '').slice(0, 40), ...(it.g ? {g:String(it.g).slice(0, 40)} : {}), ...(it.on ? {on:String(it.on).slice(0, 40)} : it.on === null ? {on:null} : {}), ...(it.lay === 1 || it.lay === 2 ? {lay:it.lay} : {}), ...(typeof it.lock === 'boolean' ? {lock:it.lock} : {})};
     });
     if (!rooms.length && !walls.length && !Object.keys(items).length) throw new Error('empty');
-    S.layout = {rooms, walls, team:null}; S.items = items; S.sel = null;
-    commit(); fit(); toast(`已匯入 ${f.name}。`, true);
+    S.layout = {...S.layout, rooms, walls, team:null}; S.items = items; S.sel = null;
+    const sc = curScheme();
+    if (sc && d.scheme && typeof d.scheme === 'object'){
+      ['summary'].forEach(k => { if (typeof d.scheme[k] === 'string') sc[k] = d.scheme[k].slice(0, 400); });
+      ['zones', 'pros', 'cons'].forEach(k => { if (Array.isArray(d.scheme[k])) sc[k] = d.scheme[k].map(x => String(x).slice(0, 200)).slice(0, 20); });
+    }
+    commit(); if (sc){ saveSchemeMeta(sc); renderSchemes(); } fit(); toast(`已匯入 ${f.name}${sc ? `到「${sc.name}」` : ''}。`, true);
   } catch (err){ toast('呢個檔案唔係由呢個工具備份嘅平面圖。'); }
 });
 
