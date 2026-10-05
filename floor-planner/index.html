@@ -231,7 +231,7 @@ ol.steps b{color:var(--ink);font-weight:600}
   <aside class="panel" id="side" aria-label="清單同傢俬">
     <section class="sec" id="schemes-sec" hidden>
       <p class="eyebrow">方案</p>
-      <p class="muted">每個方案都係一張獨立平面圖：揀咗就可以直接拖、改、加、刪，會自動儲存，唔會影響其他方案同目前平面圖。</p>
+      <p class="muted">每個方案都係一張獨立平面圖：揀咗就可以直接拖、改、加、刪，會自動儲存，唔會影響其他方案。</p>
       <div class="schemes" id="schemes"></div>
     </section>
     <section class="sec">
@@ -273,7 +273,7 @@ ol.steps b{color:var(--ink);font-weight:600}
       </div>
     </div>
     <div class="hint" id="hint" hidden></div>
-    <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span><button class="btn" type="button" id="pv-apply" title="用呢個方案取代目前平面圖（可以復原）">套用到目前平面圖</button><button class="btn" type="button" id="pv-exit">返回目前平面圖</button></div>
+    <div class="pvbar" id="pvbar" hidden><span id="pv-name"></span></div>
     <div class="scalebar" id="scalebar"><span id="sb-label">100 cm</span><i id="sb-bar" style="width:80px"></i></div>
     <div id="v3" aria-label="3D 模型"></div>
     <div class="v3load" id="v3load" hidden>載入緊 3D 模型…</div>
@@ -1290,11 +1290,11 @@ async function start(){
     S.schemes = snap.docs.map(d => ({...clone(d.data() || {}), id:d.id})).filter(sc => Array.isArray(sc.items)).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
     if (S.ws){
       const sc = curScheme();
-      if (!sc) setWs(null, true);
+      if (!sc){ setWs(null, true); ensureWs(); }
       else if (busy && mine) Object.assign(sc, {items:mine.items});
       else { applyRemoteItems(itemsMap(sc.items)); renderInspector(); }
     }
-    renderSchemes();
+    renderSchemes(); ensureWs();
   }, () => {});
 }
 function applyRemoteItems(m){
@@ -1319,6 +1319,7 @@ function applyPlanUpdate(){
   toast('已按最新草圖更新平面圖同三個方案。');
 }
 function afterLoad(){
+  ensureWs();
   applyReadOnly(); renderSide(); renderInspector();
   if (svg.clientWidth){ S.fitted = true; fit(); }
   requestRender();
@@ -1333,9 +1334,18 @@ function applyReadOnly(){
 function renderSchemes(){
   $('#schemes-sec').hidden = !S.schemes.length;
   const btn = (id, name, sum) => `<button type="button" class="scheme" data-scheme="${esc(id)}" aria-pressed="${(S.ws || '') === id}"><b>${esc(name)}</b><span>${esc(sum || '')}</span></button>`;
-  $('#schemes').innerHTML = [btn('', '目前平面圖', '同事一齊用嘅正式版本')].concat(S.schemes.map(sc => btn(sc.id, sc.name, sc.summary))).join('');
+  $('#schemes').innerHTML = S.schemes.map(sc => btn(sc.id, sc.name, sc.summary)).join('');
   $('#pvbar').hidden = !S.ws;
-  if (S.ws){ $('#pv-name').textContent = '編輯緊：' + (curScheme()?.name || ''); $('#pv-apply').disabled = S.readOnly; }
+  if (S.ws) $('#pv-name').textContent = '編輯緊：' + (curScheme()?.name || '');
+}
+const WS_KEY = LS_KEY + ':ws';
+function ensureWs(){
+  if (!S.loaded || !S.schemes.length || curScheme()) return;
+  let want = null;
+  try { want = localStorage.getItem(WS_KEY); } catch (e) {}
+  const pick = schemeById(want) || schemeById('B') || S.schemes[0];
+  if (S.ws) setWs(null, true);
+  setWs(pick.id, true);
 }
 function setWs(id, force){
   if (!force && (drag || V3.drag)) return;
@@ -1350,19 +1360,11 @@ function setWs(id, force){
   const h = wsHist.get(S.ws || '');
   if (h){ undoStack.push(...h.u); redoStack.push(...h.r); }
   S.sel = null; $('#toast').hidden = true;
+  if (S.ws) try { localStorage.setItem(WS_KEY, S.ws); } catch (e) {}
   renderSchemes(); applyReadOnly(); renderSide(); renderInspector(); requestRender();
 }
 function saveSchemeMeta(sc){ if (canEdit()) persist([['schemes/' + sc.id, schemeDoc(sc)]]); }
-$('#schemes').addEventListener('click', e => { const b = e.target.closest('[data-scheme]'); if (b) setWs(b.dataset.scheme || null); });
-$('#pv-exit').onclick = () => setWs(null);
-$('#pv-apply').onclick = () => {
-  const sc = curScheme(); if (!sc || !canEdit()) return;
-  const next = clone(S.items);
-  setWs(null);
-  S.items = next; S.sel = null;
-  commit(); renderSide(); renderInspector(); requestRender();
-  toast(`已將「${sc.name}」套用到目前平面圖。`, true);
-};
+$('#schemes').addEventListener('click', e => { const b = e.target.closest('[data-scheme]'); if (b && b.dataset.scheme) setWs(b.dataset.scheme); });
 
 /* ---------- side panel ---------- */
 function libIcon(key){
@@ -1434,7 +1436,7 @@ function renderInspector(){
         <label class="field">名稱<input id="sc-name" maxlength="60" value="${esc(pv.name)}"${ro}></label>
         <label class="field">簡介<textarea id="sc-sum" rows="4" maxlength="400"${ro}>${esc(pv.summary || '')}</textarea></label></section>`
       + list('分區', pv.zones) + list('好處', pv.pros) + list('要留意', pv.cons)
-      + `<section class="sec"><p class="muted">喺呢度拖、改、加、刪傢俬，只會改到「${esc(pv.name)}」，並會自動儲存。撳上面「備份」可以將呢個方案下載做一個獨立檔案；「套用到目前平面圖」會用呢個方案取代目前平面圖（可以復原）。</p></section>`;
+      + `<section class="sec"><p class="muted">喺呢度拖、改、加、刪傢俬，只會改到「${esc(pv.name)}」，並會自動儲存。撳上面「備份」可以將呢個方案下載做一個獨立檔案。</p></section>`;
     return;
   }
   if (s?.kind === 'multi'){
