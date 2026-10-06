@@ -9,6 +9,7 @@
 | `floor-planner/index.html` | 工具本體（亦係 Claude Artifact 嗰個版本） |
 | `docs/index.html` | 網上版（GitHub Pages），由 `floor-planner/build_pages.py` 產生 |
 | `docs/plan-data.json` | 網上版一打開就載入嘅平面圖同建議方案 |
+| `docs/cat/index.html` | 桌面貓貓：陪你做嘢，定時提你飲水、休息、去廁所（見下面） |
 
 ## 放上網（GitHub Pages）
 
@@ -38,3 +39,13 @@ python3 floor-planner/build_pages.py
 ```
 
 會重新產生 `docs/index.html`。
+
+## 桌面貓貓（Desktop Cat）
+
+網址：`https://<帳戶>.github.io/<repo>/cat/`（要先照上面開咗 GitHub Pages）。
+
+- 撳 **Start ▶**，隻貓會每 30 分鐘（可以改 15–90 分鐘）輪流提你：飲水 → 休息伸展 → 飲水 → 去廁所。
+- 提醒時貓貓會跳、喵兩聲、出對話框，加桌面通知（要允許通知）。撳「Done ✓」記一次，「Later」遲 5 分鐘再提；唔理佢就每 5 分鐘再喵，最多 3 次。
+- **Float on top**：用 Chrome / Edge 會開一個細窗，永遠浮喺其他程式上面。個分頁要保持開住。其他瀏覽器會開一個普通細窗。
+- 撳隻貓可以摸佢；佢會眨眼、郁尾、四圍望，耐咗會瞓覺。可以改名、揀毛色（橙、灰、黑、白）。
+- 設定同今日紀錄只會儲喺自己部機嘅瀏覽器。

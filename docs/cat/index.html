@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop Cat</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>">
+<style>
+:root{
+  --bg:#fbf6ef; --card:#ffffff; --ink:#3b302a; --muted:#8a7a6e; --soft:#efe5da;
+  --accent:#e9875b; --accent-ink:#ffffff; --good:#3f9e6e;
+  --bubble:#ffffff; --bubble-ink:#3b302a; --shadow:0 6px 24px rgba(80,50,30,.10);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1f1b19; --card:#2a2522; --ink:#f3ebe3; --muted:#b3a497; --soft:#3b3430;
+    --accent:#f09a6e; --accent-ink:#2a1a12; --good:#6cc797;
+    --bubble:#fffaf3; --bubble-ink:#3b302a; --shadow:0 6px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:15px/1.5 ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--soft);background:var(--card);border-radius:999px;padding:7px 14px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 48px}
+header h1{margin:0 0 4px;font-size:26px}
+header p{margin:0 0 20px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:720px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:18px}
+.stage-card{display:flex;flex-direction:column;gap:12px}
+.home{height:400px;display:flex;flex-direction:column}
+.stage-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.tip{margin:0;color:var(--muted);font-size:13px;text-align:center}
+
+/* ---------- the pet ---------- */
+.pet{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none;-webkit-user-select:none}
+.stage{position:relative;flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.cat{flex:1 1 auto;min-height:80px;max-height:240px;width:100%;cursor:pointer;overflow:visible;filter:drop-shadow(0 6px 6px rgba(0,0,0,.12))}
+.pet-bar{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.pet-bar .next{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.pet-bar button.icon{padding:2px 9px;font-size:13px}
+
+.bubble{position:relative;flex:none;max-width:260px;margin:0 8px 14px;padding:10px 14px;background:var(--bubble);color:var(--bubble-ink);
+  border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.14);text-align:center;font-size:14px;animation:pop .25s ease-out}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-9px;margin-left:-9px;border:9px solid transparent;border-bottom:0;border-top-color:var(--bubble)}
+.bubble-actions{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.bubble-actions button{background:#f6efe7;border-color:#e7d9ca;color:#3b302a;padding:5px 12px;font-size:13px}
+.bubble-actions .b-done{background:#3f9e6e;border-color:#3f9e6e;color:#fff;font-weight:600}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+
+.fx{position:absolute;bottom:45%;font-size:20px;pointer-events:none;animation:floatup 1.5s ease-out forwards}
+@keyframes floatup{from{transform:translateY(0) scale(.6);opacity:0}20%{opacity:1}to{transform:translateY(-70px) scale(1.1);opacity:0}}
+.zzz{display:none;position:absolute;left:62%;top:28%;font-weight:700;color:var(--muted);pointer-events:none}
+.zzz span{position:absolute;animation:zz 3s ease-in-out infinite;opacity:0}
+.zzz span:nth-child(2){animation-delay:1s;font-size:1.2em}
+.zzz span:nth-child(3){animation-delay:2s;font-size:1.45em}
+@keyframes zz{0%{transform:translate(0,0);opacity:0}30%{opacity:1}100%{transform:translate(22px,-40px);opacity:0}}
+.pet.sleeping .zzz{display:block}
+
+/* cat colours */
+.pet{--fur:#f4a259;--stripe:#d9822b;--belly:#fde9cf;--inner:#ffb3a7;--line:#4a3328;--eye:#2a211d}
+.pet[data-coat=grey]{--fur:#a7b1bc;--stripe:#7c8794;--belly:#eef1f4;--inner:#f7b6bf;--line:#3a3f47;--eye:#2a2d33}
+.pet[data-coat=black]{--fur:#3b3a42;--stripe:transparent;--belly:#57565f;--inner:#d98a99;--line:#141318;--eye:#f3cf4a}
+.pet[data-coat=white]{--fur:#fbf7f2;--stripe:transparent;--belly:#ffffff;--inner:#ffc2c8;--line:#5a4b43;--eye:#4a90c8}
+
+.cat .f{fill:var(--fur);stroke:var(--line);stroke-width:3;stroke-linejoin:round}
+.cat .belly{fill:var(--belly)}
+.cat .inner{fill:var(--inner)}
+.cat .stripe{stroke:var(--stripe);stroke-width:4;stroke-linecap:round;fill:none}
+.cat .ln{stroke:var(--line);stroke-width:2.2;stroke-linecap:round;fill:none}
+.cat .thick{stroke-width:3.4}
+.cat .iris{fill:var(--eye)}
+.cat .pupil{fill:#1b1715}
+.cat .hl{fill:#fff}
+.cat .blush{fill:#ff8fa3;opacity:.45}
+.cat .nose{fill:#ff7f96;stroke:var(--line);stroke-width:1.5;stroke-linejoin:round}
+.cat .mouth-open{fill:#c4415c;stroke:var(--line);stroke-width:2;display:none}
+.cat .whisk{opacity:.55;stroke-width:1.8}
+.cat .eyes-closed,.cat .eyes-happy{display:none}
+
+/* idle motion */
+.cat .tail{transform-origin:138px 170px;animation:tail 2.6s ease-in-out infinite}
+@keyframes tail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(9deg)}}
+.cat .body{transform-origin:100px 194px;animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.015,1.03)}}
+.cat .head{transform-origin:100px 132px;transition:transform .5s ease}
+.cat .eyes-open{transform-origin:100px 94px;animation:blink 5.5s infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+.cat .look{transition:transform .4s ease}
+.cat .ear{transition:transform .15s ease}
+.cat .ear-l{transform-origin:74px 64px}
+.cat .ear-r{transform-origin:126px 64px}
+
+/* moods */
+.pet.look-l .look{transform:translateX(-5px)}
+.pet.look-r .look{transform:translateX(5px)}
+.pet.twitch .ear-l{transform:rotate(-14deg)}
+.pet.twitch-r .ear-r{transform:rotate(14deg)}
+.pet.sleeping .eyes-open{display:none}
+.pet.sleeping .eyes-closed{display:inline}
+.pet.sleeping .head{transform:translateY(6px) rotate(-5deg)}
+.pet.sleeping .body{animation-duration:5s}
+.pet.sleeping .tail{animation-duration:6s}
+.pet.happy .eyes-open{display:none}
+.pet.happy .eyes-happy{display:inline}
+.pet.happy .head{transform:rotate(6deg)}
+.pet.meowing .mouth{display:none}
+.pet.meowing .mouth-open{display:inline}
+.pet.alert .tail{animation-duration:.7s}
+.pet.alert .ear-l{transform:rotate(6deg)}
+.pet.alert .ear-r{transform:rotate(-6deg)}
+.pet.hop .bob{animation:hop .6s ease-in-out 5}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px)}}
+
+@media (prefers-reduced-motion: reduce){
+  .cat .tail,.cat .body,.pet.hop .bob,.fx,.zzz span{animation:none!important}
+  .zzz span{opacity:1}
+}
+
+.away{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;color:var(--muted)}
+.away .big{font-size:48px}
+
+/* ---------- settings ---------- */
+.settings h2{font-size:16px;margin:0 0 10px}
+.settings section+section{margin-top:18px;padding-top:16px;border-top:1px solid var(--soft)}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0}
+.field label{flex:1}
+.field input[type=text],.field select{background:var(--bg);border:1px solid var(--soft);border-radius:10px;padding:6px 10px;max-width:150px}
+.checks label{display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer}
+.checks input,.field input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+input[type=range]{accent-color:var(--accent);width:130px}
+.coats{display:flex;gap:10px}
+.coats button{width:34px;height:34px;padding:0;border-radius:50%;background:var(--c);border:3px solid var(--card);box-shadow:0 0 0 1px var(--soft)}
+.coats button[aria-checked=true]{box-shadow:0 0 0 3px var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;text-align:center}
+.stats div{background:var(--bg);border-radius:12px;padding:8px 4px}
+.stats b{display:block;font-size:20px}
+.stats small{color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.ok{color:var(--good)}
+
+/* ---------- floating / mini window ---------- */
+body.pip{height:100vh;margin:0;padding:8px;overflow:hidden;display:flex}
+body.mini .wrap{padding:0;max-width:none}
+body.mini header,body.mini .settings,body.mini .stage-actions,body.mini .tip{display:none}
+body.mini .grid{display:block}
+body.mini .stage-card{height:100vh;border-radius:0;box-shadow:none;padding:8px;background:var(--bg)}
+body.mini .home{height:auto;flex:1;min-height:0}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>🐾 Desktop Cat</h1>
+    <p>A little companion that sits with you while you work and reminds you to drink water, rest and take toilet breaks.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card stage-card" aria-label="Your cat">
+      <div class="home" id="home">
+        <div class="pet" id="pet" data-coat="orange">
+          <div class="stage" id="stage">
+            <div class="bubble" id="bubble" role="status" aria-live="polite">
+              <div id="bubbleText"></div>
+              <div class="bubble-actions" id="bubbleActions" hidden>
+                <button class="b-done" id="btnDone" type="button">Done ✓</button>
+                <button class="b-snooze" id="btnSnooze" type="button">Later (5 min)</button>
+              </div>
+            </div>
+            <svg class="cat" id="cat" viewBox="0 0 200 210" role="img" aria-label="Your cat — click to pet">
+              <g class="bob">
+                <g class="tail"><path class="f" d="M138 178 C186 174 194 122 172 104 C163 97 152 106 160 114 C174 128 170 158 136 160 Z"/></g>
+                <g class="body">
+                  <ellipse class="f" cx="100" cy="150" rx="50" ry="44"/>
+                  <ellipse class="belly" cx="100" cy="160" rx="28" ry="28"/>
+                  <ellipse class="f" cx="80" cy="192" rx="15" ry="10"/>
+                  <ellipse class="f" cx="120" cy="192" rx="15" ry="10"/>
+                  <path class="ln" d="M76 189 v5 M84 189 v5 M116 189 v5 M124 189 v5"/>
+                </g>
+                <g class="head">
+                  <g class="ear ear-l"><path class="f" d="M50 82 L57 26 L98 54 Z"/><path class="inner" d="M60 70 L63 40 L86 56 Z"/></g>
+                  <g class="ear ear-r"><path class="f" d="M150 82 L143 26 L102 54 Z"/><path class="inner" d="M140 70 L137 40 L114 56 Z"/></g>
+                  <ellipse class="f" cx="100" cy="92" rx="57" ry="46"/>
+                  <path class="stripe" d="M100 50 v12 M88 52 l2 9 M112 52 l-2 9"/>
+                  <g class="look">
+                    <g class="eyes-open">
+                      <ellipse class="iris" cx="77" cy="94" rx="10" ry="12"/>
+                      <ellipse class="pupil" cx="77" cy="95" rx="5" ry="9"/>
+                      <circle class="hl" cx="81" cy="89" r="3.5"/><circle class="hl" cx="73" cy="99" r="1.6"/>
+                      <ellipse class="iris" cx="123" cy="94" rx="10" ry="12"/>
+                      <ellipse class="pupil" cx="123" cy="95" rx="5" ry="9"/>
+                      <circle class="hl" cx="127" cy="89" r="3.5"/><circle class="hl" cx="119" cy="99" r="1.6"/>
+                    </g>
+                    <g class="eyes-closed"><path class="ln thick" d="M67 95 Q77 103 87 95 M113 95 Q123 103 133 95"/></g>
+                    <g class="eyes-happy"><path class="ln thick" d="M67 98 Q77 86 87 98 M113 98 Q123 86 133 98"/></g>
+                  </g>
+                  <ellipse class="blush" cx="63" cy="111" rx="9" ry="5"/>
+                  <ellipse class="blush" cx="137" cy="111" rx="9" ry="5"/>
+                  <path class="nose" d="M95 105 h10 l-5 6 z"/>
+                  <path class="ln mouth" d="M90 113 Q95 119 100 113 Q105 119 110 113"/>
+                  <ellipse class="mouth-open" cx="100" cy="118" rx="6" ry="7"/>
+                  <path class="ln whisk" d="M58 106 L32 101 M58 113 L31 115 M142 106 L168 101 M142 113 L169 115"/>
+                </g>
+              </g>
+            </svg>
+            <div class="zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
+          </div>
+          <div class="pet-bar">
+            <span class="next" id="nextLabel">Press Start ▶</span>
+            <button class="icon" id="btnRunPet" type="button" title="Start">▶</button>
+            <span id="miniStats" title="Today">💧0 🙆0 🚽0</span>
+          </div>
+        </div>
+        <div class="away" id="away" hidden>
+          <div class="big">🪟🐱</div>
+          <div><b id="awayName">Mochi</b> is floating in a little window.<br>Keep this tab open — closing it sends your cat home.</div>
+          <button id="btnBack" type="button">Bring back</button>
+        </div>
+      </div>
+      <div class="stage-actions">
+        <button class="primary" id="btnRun" type="button">Start ▶</button>
+        <button id="btnFloat" type="button">🪟 Float on top</button>
+        <button id="btnTest" type="button">Test reminder</button>
+      </div>
+      <p class="tip" id="floatTip">“Float on top” opens a tiny window that stays above your other apps (Chrome / Edge).</p>
+    </section>
+
+    <section class="card settings" aria-label="Settings">
+      <section>
+        <h2>Your cat</h2>
+        <div class="field"><label for="catName">Name</label><input type="text" id="catName" maxlength="20" autocomplete="off"></div>
+        <div class="field"><span>Coat</span>
+          <div class="coats" id="coats" role="radiogroup" aria-label="Coat colour">
+            <button type="button" role="radio" data-coat="orange" style="--c:#f4a259" aria-label="Orange tabby"></button>
+            <button type="button" role="radio" data-coat="grey" style="--c:#a7b1bc" aria-label="Grey tabby"></button>
+            <button type="button" role="radio" data-coat="black" style="--c:#3b3a42" aria-label="Black"></button>
+            <button type="button" role="radio" data-coat="white" style="--c:#fbf7f2" aria-label="White"></button>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Reminders</h2>
+        <div class="field"><label for="every">Remind me every</label>
+          <select id="every">
+            <option value="15">15 minutes</option><option value="20">20 minutes</option>
+            <option value="30">30 minutes</option><option value="45">45 minutes</option>
+            <option value="60">60 minutes</option><option value="90">90 minutes</option>
+          </select>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" data-type="water"> 💧 Drink water</label>
+          <label><input type="checkbox" data-type="rest"> 🙆 Rest &amp; stretch</label>
+          <label><input type="checkbox" data-type="toilet"> 🚽 Toilet break</label>
+          <label><input type="checkbox" id="chatty"> 💬 Say something nice now and then</label>
+        </div>
+        <p class="muted">Reminders take turns: water → rest → water → toilet. If you ignore one, the cat meows again every 5 minutes (up to 3 times).</p>
+      </section>
+      <section>
+        <h2>Sound &amp; alerts</h2>
+        <div class="field"><label for="sound">Meow sound</label><input type="checkbox" id="sound"></div>
+        <div class="field"><label for="volume">Volume</label><input type="range" id="volume" min="0.05" max="1" step="0.05"></div>
+        <div class="field"><span>Desktop notifications <span id="notifState" class="muted"></span></span><button id="btnNotif" type="button">Enable</button></div>
+      </section>
+      <section>
+        <h2>Today</h2>
+        <div class="stats">
+          <div><b id="stWater">0</b><small>💧 water</small></div>
+          <div><b id="stRest">0</b><small>🙆 breaks</small></div>
+          <div><b id="stToilet">0</b><small>🚽 toilet</small></div>
+          <div><b id="stPets">0</b><small>🐾 pets</small></div>
+        </div>
+        <p class="muted" style="text-align:right;margin:8px 0 0"><button id="btnReset" type="button">Reset today</button></p>
+      </section>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const MIN = 60 * 1000;
+const isMini = new URLSearchParams(location.search).has('mini');
+const byId = id => document.getElementById(id);
+// Cache every element up front: once the pet moves into the floating window,
+// document.getElementById can no longer find it.
+const el = {};
+['home','pet','stage','bubble','bubbleText','bubbleActions','btnDone','btnSnooze','cat','nextLabel','btnRunPet','miniStats',
+ 'away','awayName','btnBack','btnRun','btnFloat','btnTest','floatTip','catName','coats','every','chatty','sound','volume',
+ 'notifState','btnNotif','stWater','stRest','stToilet','stPets','btnReset'].forEach(id => el[id] = byId(id));
+
+const TYPES = {
+  water: {emoji:'💧', title:'Water time!', msgs:[
+    'Meow~ time for some water! 💧 飲啖水啦',
+    'Sip sip! Your body will thank you 💧',
+    'Hydration check! I’m having a drink too 🥛']},
+  rest: {emoji:'🙆', title:'Break time!', msgs:[
+    'Stretch with me! 🙆 伸個懶腰',
+    'Rest your eyes — look far away for 20 seconds 👀',
+    'Stand up and walk around a little 🚶 起身郁下',
+    'Roll your shoulders and take a deep breath 🌿']},
+  toilet: {emoji:'🚽', title:'Toilet break!', msgs:[
+    'Toilet break! Don’t hold it in 🚽 去個廁所先',
+    'Go pee~ I’ll guard your desk 🐱']},
+};
+const ORDER = ['water', 'rest', 'water', 'toilet'];
+const CHAT = [
+  'You’re doing great! 加油 💪', 'I’m right here with you 🐾', 'Purrr… 呼嚕呼嚕',
+  'One thing at a time. You’ve got this ✨', 'Don’t forget to breathe 🌿', '*stretches paws* 😺',
+  'I believe in you 💛', 'Proud of you for showing up today 🌼'];
+const THANKS = {
+  water: n => `Good job! That’s ${n} cup${n === 1 ? '' : 's'} today 💧`,
+  rest: () => 'Feels better, right? 😸',
+  toilet: () => 'Welcome back! I kept your seat warm 🐾',
+};
+
+// ---------- storage (best-effort; the page works without it) ----------
+const KEY = 'desktop-cat:settings', SKEY = 'desktop-cat:stats', TKEY = 'desktop-cat:timer';
+function load(k, fallback) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? fallback : v; } catch { return fallback; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+const DEFAULTS = {name:'Mochi', every:30, types:{water:true, rest:true, toilet:true}, chatty:true, sound:true, volume:0.6, coat:'orange'};
+function loadSettings() { const s = Object.assign({}, DEFAULTS, load(KEY, {})); s.types = Object.assign({}, DEFAULTS.types, s.types); return s; }
+let S = loadSettings();
+const today = () => new Date().toLocaleDateString('en-CA');
+function loadStats() { const s = load(SKEY, null); return s && s.date === today() ? s : {date:today(), water:0, rest:0, toilet:0, pets:0}; }
+let stats = loadStats();
+
+const st = {started:false, running:false, nextAt:0, remaining:0, orderIdx:0, pending:null, nagAt:0, nags:0,
+            mood:'awake', moodSince:Date.now(), napFor:0, chatAt:0, idleN:0, away:false};
+
+// ---------- helpers ----------
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const rand = (a, b) => a + Math.random() * (b - a);
+let pipWin = null, miniWin = null;
+// Timers run on the floating window when it exists: it stays visible, so the
+// browser doesn't throttle it like a background tab.
+const host = () => pipWin || window;
+const later = (fn, ms) => { const h = host(); return {h, id:h.setTimeout(fn, ms)}; };
+const cancel = t => { try { if (t) t.h.clearTimeout(t.id); } catch {} };
+function flag(cls, ms) { el.pet.classList.add(cls); later(() => el.pet.classList.remove(cls), ms); }
+const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+// ---------- sound ----------
+let actx = null;
+function audio() {
+  try {
+    if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; actx = new C(); }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch { return null; }
+}
+function meow(times = 1) {
+  showMeowFace(times);
+  if (!S.sound) return;
+  const ctx = audio(); if (!ctx) return;
+  for (let i = 0; i < times; i++) {
+    const t = ctx.currentTime + i * 0.7, p = rand(0.9, 1.15), v = S.volume * 0.35;
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(520 * p, t);
+    o.frequency.linearRampToValueAtTime(820 * p, t + 0.15);
+    o.frequency.linearRampToValueAtTime(600 * p, t + 0.5);
+    f.type = 'bandpass'; f.Q.value = 3;
+    f.frequency.setValueAtTime(1200, t);
+    f.frequency.linearRampToValueAtTime(2100, t + 0.15);
+    f.frequency.linearRampToValueAtTime(900, t + 0.5);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    o.connect(f).connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + 0.6);
+  }
+}
+function purr() {
+  if (!S.sound) return;
+  const ctx = audio(); if (!ctx) return;
+  const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),
+        f = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = 'sawtooth'; o.frequency.value = 55;
+  lfo.frequency.value = 24; lg.gain.value = 0.5;
+  f.type = 'lowpass'; f.frequency.value = 320;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(S.volume * 0.18, t + 0.15);
+  g.gain.linearRampToValueAtTime(0.0001, t + 1.3);
+  const am = ctx.createGain(); am.gain.value = 0.5;
+  lfo.connect(lg).connect(am.gain);
+  o.connect(f).connect(am).connect(g).connect(ctx.destination);
+  o.start(t); lfo.start(t); o.stop(t + 1.35); lfo.stop(t + 1.35);
+}
+function showMeowFace(times) {
+  for (let i = 0; i < times; i++) later(() => flag('meowing', 450), i * 700);
+}
+
+// ---------- notifications ----------
+function notifyState() {
+  if (!('Notification' in window)) { el.notifState.textContent = '(not supported)'; el.btnNotif.hidden = true; return; }
+  const p = Notification.permission;
+  el.notifState.textContent = p === 'granted' ? '✓ on' : p === 'denied' ? '(blocked in browser settings)' : '';
+  el.notifState.className = p === 'granted' ? 'ok' : 'muted';
+  el.btnNotif.hidden = p !== 'default';
+}
+function askNotify() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  try { Notification.requestPermission().then(notifyState, notifyState); } catch { notifyState(); }
+}
+function notify(title, body) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const n = new Notification(title, {body, tag:'desktop-cat', renotify:true});
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch {}
+}
+let titleTimer = null;
+function flashTitle(text) {
+  stopFlash();
+  let on = false;
+  titleTimer = setInterval(() => { on = !on; document.title = on ? text : 'Desktop Cat'; }, 1000);
+}
+function stopFlash() { clearInterval(titleTimer); titleTimer = null; document.title = 'Desktop Cat'; }
+
+// ---------- bubble ----------
+let bubbleTimer = null;
+function say(text, ms) {
+  if (st.pending) return;
+  cancel(bubbleTimer);
+  el.bubbleText.textContent = text;
+  el.bubbleActions.hidden = true;
+  el.bubble.hidden = false;
+  if (ms) bubbleTimer = later(() => { el.bubble.hidden = true; }, ms);
+}
+function ask(text) {
+  cancel(bubbleTimer);
+  el.bubbleText.textContent = text;
+  el.bubbleActions.hidden = false;
+  el.bubble.hidden = false;
+}
+
+// ---------- moods ----------
+function sleep() { st.mood = 'sleeping'; st.moodSince = Date.now(); st.napFor = rand(2, 5) * MIN; el.pet.classList.add('sleeping'); }
+function wake() {
+  if (st.mood !== 'sleeping') return;
+  st.mood = 'awake'; st.moodSince = Date.now(); el.pet.classList.remove('sleeping');
+}
+function lookAround() { const c = Math.random() < 0.5 ? 'look-l' : 'look-r'; flag(c, 1600); }
+function twitch() { flag(Math.random() < 0.5 ? 'twitch' : 'twitch-r', 260); }
+function hearts(n = 3) {
+  const doc = el.pet.ownerDocument;
+  for (let i = 0; i < n; i++) {
+    const h = doc.createElement('span');
+    h.className = 'fx';
+    h.textContent = pick(['💗', '💕', '✨', '💗']);
+    h.style.left = rand(35, 60) + '%';
+    h.style.animationDelay = (i * 140) + 'ms';
+    el.stage.append(h);
+    later(() => h.remove(), 1800);
+  }
+}
+function petCat() {
+  audio();
+  if (st.mood === 'sleeping') { wake(); say('Mrrp? Oh, hi! 😺', 2500); meow(); return; }
+  hearts(); purr(); flag('happy', 1600);
+  stats.pets++; saveStats();
+  if (!st.started && !st.pending) say(`Purr… press Start and I’ll keep you company 🐾`, 4000);
+}
+
+// ---------- timer ----------
+function upcoming() {
+  for (let i = 0; i < ORDER.length; i++) {
+    const idx = (st.orderIdx + i) % ORDER.length;
+    if (S.types[ORDER[idx]]) return {type:ORDER[idx], idx};
+  }
+  return null;
+}
+function start() {
+  audio(); askNotify();
+  st.started = true; st.running = true;
+  st.nextAt = Date.now() + S.every * MIN;
+  st.chatAt = Date.now() + rand(8, 14) * MIN;
+  wake(); meow(); flag('happy', 1500);
+  say(`Let’s work together! I’ll remind you every ${S.every} min 🐾`, 6000);
+  render();
+}
+function toggleRun() {
+  if (!st.started) return start();
+  audio();
+  if (st.running) {
+    st.remaining = st.nextAt - Date.now(); st.running = false;
+    say('Taking a pause. I’ll wait right here 😺', 4000);
+  } else {
+    st.nextAt = Date.now() + Math.max(st.remaining, 5000); st.running = true;
+    say('Back to it! 🐾', 3000);
+  }
+  render();
+}
+function fire(test) {
+  const u = upcoming();
+  if (!u) { if (test) say('Turn on at least one reminder type first 🙂', 4000); st.nextAt = Date.now() + S.every * MIN; return; }
+  const T = TYPES[u.type], msg = pick(T.msgs);
+  st.pending = u; st.nags = 0; st.nagAt = Date.now() + 5 * MIN;
+  wake();
+  el.pet.classList.add('alert');
+  flag('hop', 3000);
+  ask(msg);
+  meow(2);
+  notify(`${S.name}: ${T.title}`, msg);
+  flashTitle(`${T.emoji} ${T.title}`);
+  render();
+}
+function finish(done) {
+  const u = st.pending; if (!u) return;
+  st.pending = null;
+  el.pet.classList.remove('alert');
+  stopFlash();
+  if (done) {
+    stats[u.type]++; saveStats();
+    st.orderIdx = (u.idx + 1) % ORDER.length;
+    st.nextAt = Date.now() + S.every * MIN;
+    hearts(2); flag('happy', 1600); purr();
+    say(THANKS[u.type](stats[u.type]), 5000);
+  } else {
+    st.nextAt = Date.now() + 5 * MIN;
+    say('Okay, 5 more minutes ⏰', 3000);
+  }
+  if (!st.started) { st.started = true; st.running = true; }
+  render();
+}
+function tick() {
+  const now = Date.now();
+  if (st.away) return;
+  if (stats.date !== today()) { stats = loadStats(); renderStats(); }
+  if (st.running) {
+    if (!st.pending && now >= st.nextAt) fire();
+    else if (st.pending && now >= st.nagAt && st.nags < 3) { st.nags++; st.nagAt = now + 5 * MIN; meow(2); flag('hop', 3000); }
+    if (!st.pending && S.chatty && now >= st.chatAt) {
+      st.chatAt = now + rand(10, 18) * MIN;
+      if (el.bubble.hidden && st.mood !== 'sleeping') { say(pick(CHAT), 6000); flag('happy', 1200); }
+    }
+  }
+  idle(now);
+  renderNext(now);
+  if (isMini) save(TKEY, timerState());
+}
+function idle(now) {
+  if (st.pending || ++st.idleN % 6) return;
+  if (st.mood === 'sleeping') { if (now - st.moodSince > st.napFor) wake(); return; }
+  const r = Math.random();
+  if (now - st.moodSince > 4 * MIN && el.bubble.hidden && r < 0.12) return sleep();
+  if (r < 0.35) lookAround(); else if (r < 0.55) twitch();
+}
+let tickId = null, tickHost = null;
+function startTicker() {
+  try { if (tickId) tickHost.clearInterval(tickId); } catch {}
+  tickHost = host();
+  tickId = tickHost.setInterval(tick, 1000);
+}
+
+// ---------- render ----------
+function renderNext(now = Date.now()) {
+  const u = st.pending || upcoming();
+  const emoji = u ? TYPES[u.type].emoji : '🐾';
+  let text;
+  if (!st.started) text = 'Press Start ▶';
+  else if (st.pending) text = `${emoji} now!`;
+  else if (!u) text = 'No reminders on';
+  else if (!st.running) text = `⏸ ${emoji} in ${fmt(st.remaining)}`;
+  else text = `${emoji} in ${fmt(st.nextAt - now)}`;
+  if (el.nextLabel.textContent !== text) el.nextLabel.textContent = text;
+}
+function render() {
+  renderNext();
+  el.btnRun.textContent = !st.started ? 'Start ▶' : st.running ? 'Pause ⏸' : 'Resume ▶';
+  el.btnRunPet.textContent = st.running ? '⏸' : '▶';
+  el.btnRunPet.title = !st.started ? 'Start' : st.running ? 'Pause' : 'Resume';
+}
+function renderStats() {
+  el.stWater.textContent = stats.water; el.stRest.textContent = stats.rest;
+  el.stToilet.textContent = stats.toilet; el.stPets.textContent = stats.pets;
+  el.miniStats.textContent = `💧${stats.water} 🙆${stats.rest} 🚽${stats.toilet}`;
+}
+function saveStats() { save(SKEY, stats); renderStats(); }
+function applySettings() {
+  el.pet.dataset.coat = S.coat;
+  el.coats.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.coat === S.coat)));
+  if (document.activeElement !== el.catName) el.catName.value = S.name;
+  el.every.value = String(S.every);
+  document.querySelectorAll('[data-type]').forEach(c => c.checked = !!S.types[c.dataset.type]);
+  el.chatty.checked = S.chatty; el.sound.checked = S.sound; el.volume.value = S.volume;
+  el.awayName.textContent = S.name;
+  if (pipWin) pipWin.document.title = S.name;
+  renderNext();
+}
+function saveSettings() { save(KEY, S); applySettings(); }
+
+// ---------- floating window ----------
+function showAway(on) { el.away.hidden = !on; el.pet.hidden = on && !pipWin; }
+async function float() {
+  if (pipWin) { try { pipWin.focus(); } catch {} return; }
+  if (miniWin && !miniWin.closed) { miniWin.focus(); return; }
+  audio(); askNotify();
+  if ('documentPictureInPicture' in window) {
+    try {
+      pipWin = await documentPictureInPicture.requestWindow({width:260, height:330});
+    } catch { pipWin = null; }
+    if (pipWin) {
+      const d = pipWin.document;
+      document.querySelectorAll('style').forEach(s => d.head.append(s.cloneNode(true)));
+      d.title = S.name;
+      d.body.className = 'pip';
+      d.body.append(el.pet);
+      showAway(true);
+      startTicker();
+      pipWin.addEventListener('pagehide', () => {
+        pipWin = null;
+        // Timeouts scheduled on the closed window never run; clear what they would have.
+        el.pet.classList.remove('look-l', 'look-r', 'twitch', 'twitch-r', 'happy', 'meowing', 'hop');
+        if (!st.pending) el.bubble.hidden = true;
+        el.home.prepend(el.pet);
+        showAway(false);
+        startTicker();
+      });
+      return;
+    }
+  }
+  openMini();
+}
+// Fallback for browsers without Document Picture-in-Picture: a small popup
+// running its own copy of the page, handing the timer back and forth via storage.
+function timerState() { return {started:st.started, running:st.running, nextAt:st.nextAt, remaining:st.remaining, orderIdx:st.orderIdx}; }
+function applyTimer(t) {
+  if (!t) return;
+  Object.assign(st, {started:t.started, running:t.running, nextAt:t.nextAt, remaining:t.remaining, orderIdx:t.orderIdx});
+  if (st.running && st.nextAt < Date.now()) st.nextAt = Date.now() + 5000;
+}
+function openMini() {
+  save(TKEY, timerState());
+  const w = window.open(location.pathname + '?mini=1', 'desktop-cat-mini', 'width=260,height=340');
+  if (!w) { say('Your browser blocked the pop-up window 😿 Allow pop-ups for this page and try again.', 7000); return; }
+  miniWin = w;
+  st.away = true;
+  if (st.pending) finish(false);
+  showAway(true);
+  const poll = setInterval(() => {
+    if (!w.closed) return;
+    clearInterval(poll);
+    miniWin = null; st.away = false;
+    applyTimer(load(TKEY, null));
+    stats = loadStats(); renderStats();
+    showAway(false); render();
+  }, 1000);
+}
+function bringBack() {
+  if (pipWin) pipWin.close();
+  else if (miniWin) miniWin.close();
+}
+
+// ---------- wire up ----------
+el.cat.addEventListener('click', petCat);
+el.btnDone.addEventListener('click', () => finish(true));
+el.btnSnooze.addEventListener('click', () => finish(false));
+el.btnRun.addEventListener('click', toggleRun);
+el.btnRunPet.addEventListener('click', toggleRun);
+el.btnFloat.addEventListener('click', float);
+el.btnBack.addEventListener('click', bringBack);
+el.btnTest.addEventListener('click', () => { audio(); if (st.pending) return; fire(true); });
+el.btnNotif.addEventListener('click', askNotify);
+el.btnReset.addEventListener('click', () => { stats = {date:today(), water:0, rest:0, toilet:0, pets:0}; saveStats(); });
+el.catName.addEventListener('input', () => { S.name = el.catName.value.trim() || 'Mochi'; saveSettings(); });
+el.coats.addEventListener('click', e => { const b = e.target.closest('button[data-coat]'); if (b) { S.coat = b.dataset.coat; saveSettings(); flag('happy', 1000); } });
+el.every.addEventListener('change', () => {
+  S.every = Number(el.every.value); saveSettings();
+  if (st.started && !st.pending) {
+    if (st.running) st.nextAt = Date.now() + S.every * MIN; else st.remaining = S.every * MIN;
+    say(`Okay! Every ${S.every} minutes from now ⏰`, 4000);
+  }
+  render();
+});
+document.querySelectorAll('[data-type]').forEach(c => c.addEventListener('change', () => { S.types[c.dataset.type] = c.checked; saveSettings(); }));
+el.chatty.addEventListener('change', () => { S.chatty = el.chatty.checked; saveSettings(); });
+el.sound.addEventListener('change', () => { S.sound = el.sound.checked; saveSettings(); if (S.sound) meow(); });
+el.volume.addEventListener('change', () => { S.volume = Number(el.volume.value); saveSettings(); meow(); });
+window.addEventListener('storage', e => {
+  if (e.key === KEY) { S = loadSettings(); applySettings(); }
+  if (e.key === SKEY) { stats = loadStats(); renderStats(); }
+});
+
+if (!('documentPictureInPicture' in window)) {
+  el.floatTip.textContent = '“Float on top” opens a small window for your cat. For an always-on-top window, use Chrome or Edge.';
+}
+
+if (isMini) {
+  document.body.classList.add('mini');
+  document.title = S.name;
+  applyTimer(load(TKEY, null));
+  say(st.started ? 'Click me once so I can meow 🐾' : `Hi, I’m ${S.name}! Press ▶ to start 🐾`, 6000);
+} else {
+  say(`Hi, I’m ${S.name}! Press Start and I’ll stay with you while you work 🐾`);
+}
+applySettings(); renderStats(); notifyState(); render(); startTicker();
+})();
+</script>
+</body>
+</html>
