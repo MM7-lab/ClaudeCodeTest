@@ -68,6 +68,11 @@ const tree = new CatTree(cat.ramp);
 scene.add(tree.group);
 let treeOn = false;
 
+// The toys' frames are drawn on these two 2D layers, behind and in front of the cat's canvas.
+const toyBack = document.createElement('canvas'), toyFront = document.createElement('canvas');
+toyBack.className = 'toy-layer'; toyFront.className = 'toy-layer front';
+document.body.append(toyBack, toyFront);
+const toyBackCtx = toyBack.getContext('2d'), toyFrontCtx = toyFront.getContext('2d');
 const failedToys = [];
 const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
   api.toyStatus?.(t.id, state, msg);
@@ -79,7 +84,13 @@ const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
 });
 // keep the main process up to date with where each toy is drawn (for the diagnostics report)
 setInterval(() => {
-  for (const t of toys.live()) api.toyStatus?.(t.id, 'ready', '', { l: t.state.l, r: t.state.r, t: t.state.t, b: t.state.b });
+  for (const t of toys.live()) {
+    const s = t.state;
+    const info = [t.adapter && `顯示卡：${t.adapter}`, t.mode ? `第 ${t.mode + 1} 次試` : '',
+      s.drawn === true ? '有畫到 ✓' : s.drawn === false ? '畫唔到嘢' : '', t.frame ? '經貓貓畫布顯示' : '直接顯示',
+      s.errors ? `${s.errors} 個錯誤：${s.error}` : ''].filter(Boolean).join('；');
+    api.toyStatus?.(t.id, 'ready', info, { l: s.l, r: s.r, t: s.t, b: s.b });
+  }
 }, 5000);
 function tellFailedToys() {
   if (!failedToys.length) return;
@@ -803,10 +814,9 @@ function placeOverlays() {
   }
   if (!zzz.hidden) zzz.style.transform = `translate(${anchor.x + 14}px, ${anchor.y + 6}px)`;
   // a toy closer to the screen than the cat (or in its mouth) draws in front of it
-  for (const t of toys.toys.values()) {
-    const front = t.state && (t.state.carried || t.state.z > ai.z + 10);
-    t.el.style.zIndex = front ? 3 : 1;
-  }
+  const inFront = t => !!(t.state && (t.state.carried || t.state.z > ai.z + 10));
+  for (const t of toys.toys.values()) t.el.style.zIndex = inFront(t) ? 3 : 1;
+  toys.draw(toyBackCtx, toyFrontCtx, inFront);
 }
 
 let last = performance.now(), acc = 0, shownOnce = false, frameStarted = false;
@@ -860,6 +870,7 @@ function resize() {
   Object.assign(camera, { left: -W / 2, right: W / 2, top: H - BOTTOM, bottom: -BOTTOM });
   camera.updateProjectionMatrix();
   renderer.setSize(W, H, false);
+  for (const c of [toyBack, toyFront]) { c.width = W; c.height = H; }
   placeTree();
   const [x0, x1] = screenBounds();
   if (!ai.surface) ai.x = clamp(ai.x, x0, x1);

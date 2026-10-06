@@ -35,6 +35,7 @@ const HEAD = `<script>
 // Runs inside main(), after the toy's own interaction code: lets the cat push,
 // pounce on and carry the toy, and reports where the toy is on screen.
 const API = `  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and carry the toy
+  var catSnap = null; // called after each frame is submitted (see the frame loop)
   if (params.has('embed')) {
     const TOY = params.get('id') || '';
     const send = (m) => parent.postMessage({ toy: TOY, ...m }, '*');
@@ -85,9 +86,53 @@ const API = `  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and ca
       for (let j = 0; j < BODY_N; j++) { vx += V[j * 3]; vy += V[j * 3 + 1]; }
       if (catGrab && !grab.active) catGrab = false;
       send({ type: 'state', l, r, t, b, z: bodyOrigin([0, 0, 0])[2] / UPX,
-        held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX });
+        held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX,
+        drawn, errors: errCount, error: firstError });
     }, 100);
-    send({ type: 'ready' });
+
+    // WebGPU errors don't stop the frame loop, so count them for the diagnostics report
+    let errCount = 0, firstError = '';
+    device.addEventListener('uncapturederror', (e) => { errCount++; if (!firstError) firstError = String(e.error && e.error.message).slice(0, 200); });
+
+    // Every frame, copy the toy's corner of the canvas and hand it to the cat app, which draws it
+    // on its own canvas: some Windows setups never show a WebGPU canvas in a see-through window.
+    // Also check now and then that the copy actually has the toy in it.
+    let snapBusy = false, drawn = null, lastCheck = 0;
+    const sp = [0, 0, 0];
+    const checkDrawn = (bmp) => {
+      const oc = new OffscreenCanvas(bmp.width, bmp.height), g = oc.getContext('2d');
+      g.drawImage(bmp, 0, 0);
+      const px = g.getImageData(0, 0, bmp.width, bmp.height).data;
+      let n = 0;
+      for (let i = 3; i < px.length; i += 16) if (px[i] > 24) n++;
+      drawn = n > 20;
+    };
+    catSnap = () => {
+      if (snapBusy || !lastVP) return;
+      let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+      for (let i = 0; i < NP; i++) {
+        projectParticle(i, sp);
+        l = Math.min(l, sp[0]); r = Math.max(r, sp[0]); t = Math.min(t, sp[1]); b = Math.max(b, sp[1]);
+      }
+      const cw = canvas.clientWidth, ch = canvas.clientHeight, m = Math.max(r - l, b - t) * 0.5 + 8;
+      const x0 = Math.max(0, Math.floor(l - m)), y0 = Math.max(0, Math.floor(t - m));
+      const x1 = Math.min(cw, Math.ceil(r + m * 1.4)), y1 = Math.min(ch, Math.ceil(b + m * 0.5));
+      if (x1 - x0 < 2 || y1 - y0 < 2) return;
+      const kx = canvas.width / cw, ky = canvas.height / ch;
+      snapBusy = true;
+      createImageBitmap(canvas, Math.round(x0 * kx), Math.round(y0 * ky), Math.round((x1 - x0) * kx), Math.round((y1 - y0) * ky),
+        { resizeWidth: x1 - x0, resizeHeight: y1 - y0 })
+        .then((bmp) => {
+          snapBusy = false;
+          const now = performance.now();
+          if (now - lastCheck > 2000) { lastCheck = now; checkDrawn(bmp); }
+          parent.postMessage({ toy: TOY, type: 'frame', x: x0, y: y0, w: x1 - x0, h: y1 - y0, bmp }, '*', [bmp]);
+        })
+        .catch((e) => { snapBusy = false; if (!firstError) firstError = 'snapshot: ' + e.message; catSnap = null; });
+    };
+
+    const ai = adapter && adapter.info;
+    send({ type: 'ready', adapter: ai ? [ai.vendor, ai.architecture, ai.device, ai.description].filter(Boolean).join(' ') : '' });
   }
 
 `;
@@ -103,8 +148,13 @@ const EDITS = [
   ['const dpr = Math.min(window.devicePixelRatio || 1, PET ? 1.5 : 2);', () => "const dpr = Math.min(window.devicePixelRatio || 1, params.has('embed') ? 1 : PET ? 1.5 : 2);"],
   // use the same graphics chip that shows the window: on laptops with two GPUs a toy drawn on
   // the other one can come out invisible in a see-through window
+  // (?adapter=hp|lp lets the cat app try the other chip if nothing gets drawn)
   ["adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });",
-    () => "adapter = await navigator.gpu.requestAdapter(params.has('embed') ? {} : { powerPreference: 'high-performance' });"],
+    () => "adapter = await navigator.gpu.requestAdapter(!params.has('embed') ? { powerPreference: 'high-performance' } : ({ hp: { powerPreference: 'high-performance' }, lp: { powerPreference: 'low-power' } }[params.get('adapter')] || {}));"],
+  // the cat app copies frames out of the canvas
+  ["ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque' });",
+    () => "ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });"],
+  ['device.queue.submit([enc.finish()]);', (m) => m + '\n    if (catSnap) catSnap();'],
   // no WebGPU: tell the cat app instead of showing the English fallback card
   ['function fail(msg) {', (m) => m + "\n  if (params.has('embed')) { parent.postMessage({ toy: params.get('id'), type: 'failed', msg }, '*'); return; }"],
   ['  statParticles.textContent', (m) => API + m],

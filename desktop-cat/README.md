@@ -10,7 +10,7 @@
 
 1. 去呢個 repo 嘅 **Actions** → **Build Desktop Cat** → 揀最新一次（有綠色剔嗰次）。
 2. 喺頁面底部 **Artifacts** 下載：
-   - **Windows**：`DesktopCat-Windows`。解壓後得一個 `DesktopCat-1.1.2.exe`，**撳兩下就開，唔使安裝**。唔要嘅時候直接刪咗個檔案就得。
+   - **Windows**：`DesktopCat-Windows`。解壓後得一個 `DesktopCat-1.1.3.exe`，**撳兩下就開，唔使安裝**。唔要嘅時候直接刪咗個檔案就得。
    - **Mac**：`DesktopCat-macOS`。解壓後再解壓入面嘅 zip，得到 `DesktopCat.app`，撳兩下就開。
 3. 第一次開：
    - **Windows**：因為冇數碼簽署，可能會彈「Windows 已保護您的電腦」。撳「其他資訊」→「仍要執行」。每次開都要等幾秒，因為佢會先自己解壓。

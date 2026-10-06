@@ -1337,7 +1337,7 @@ async function main() {
     return;
   }
   let adapter = null;
-  try { adapter = await navigator.gpu.requestAdapter(params.has('embed') ? {} : { powerPreference: 'high-performance' }); } catch (e) { /* handled below */ }
+  try { adapter = await navigator.gpu.requestAdapter(!params.has('embed') ? { powerPreference: 'high-performance' } : ({ hp: { powerPreference: 'high-performance' }, lp: { powerPreference: 'low-power' } }[params.get('adapter')] || {})); } catch (e) { /* handled below */ }
   if (!adapter) { fail('WebGPU is present, but no compatible GPU adapter was found. Check that hardware acceleration is enabled.'); return; }
   const device = await adapter.requestDevice();
   device.lost.then((info) => { if (info.reason !== 'destroyed') fail('The GPU device was lost (' + info.message + '). Reload to try again.'); });
@@ -1345,7 +1345,7 @@ async function main() {
 
   const ctx = canvas.getContext('webgpu');
   const format = navigator.gpu.getPreferredCanvasFormat();
-  ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque' });
+  ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
 
   async function compile(code, label) {
     const m = device.createShaderModule({ code, label });
@@ -1776,6 +1776,7 @@ async function main() {
   });
 
   // ---- 桌面貓貓 (?embed): the cat can push, pounce on and carry the toy
+  var catSnap = null; // called after each frame is submitted (see the frame loop)
   if (params.has('embed')) {
     const TOY = params.get('id') || '';
     const send = (m) => parent.postMessage({ toy: TOY, ...m }, '*');
@@ -1826,9 +1827,53 @@ async function main() {
       for (let j = 0; j < BODY_N; j++) { vx += V[j * 3]; vy += V[j * 3 + 1]; }
       if (catGrab && !grab.active) catGrab = false;
       send({ type: 'state', l, r, t, b, z: bodyOrigin([0, 0, 0])[2] / UPX,
-        held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX });
+        held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX,
+        drawn, errors: errCount, error: firstError });
     }, 100);
-    send({ type: 'ready' });
+
+    // WebGPU errors don't stop the frame loop, so count them for the diagnostics report
+    let errCount = 0, firstError = '';
+    device.addEventListener('uncapturederror', (e) => { errCount++; if (!firstError) firstError = String(e.error && e.error.message).slice(0, 200); });
+
+    // Every frame, copy the toy's corner of the canvas and hand it to the cat app, which draws it
+    // on its own canvas: some Windows setups never show a WebGPU canvas in a see-through window.
+    // Also check now and then that the copy actually has the toy in it.
+    let snapBusy = false, drawn = null, lastCheck = 0;
+    const sp = [0, 0, 0];
+    const checkDrawn = (bmp) => {
+      const oc = new OffscreenCanvas(bmp.width, bmp.height), g = oc.getContext('2d');
+      g.drawImage(bmp, 0, 0);
+      const px = g.getImageData(0, 0, bmp.width, bmp.height).data;
+      let n = 0;
+      for (let i = 3; i < px.length; i += 16) if (px[i] > 24) n++;
+      drawn = n > 20;
+    };
+    catSnap = () => {
+      if (snapBusy || !lastVP) return;
+      let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+      for (let i = 0; i < NP; i++) {
+        projectParticle(i, sp);
+        l = Math.min(l, sp[0]); r = Math.max(r, sp[0]); t = Math.min(t, sp[1]); b = Math.max(b, sp[1]);
+      }
+      const cw = canvas.clientWidth, ch = canvas.clientHeight, m = Math.max(r - l, b - t) * 0.5 + 8;
+      const x0 = Math.max(0, Math.floor(l - m)), y0 = Math.max(0, Math.floor(t - m));
+      const x1 = Math.min(cw, Math.ceil(r + m * 1.4)), y1 = Math.min(ch, Math.ceil(b + m * 0.5));
+      if (x1 - x0 < 2 || y1 - y0 < 2) return;
+      const kx = canvas.width / cw, ky = canvas.height / ch;
+      snapBusy = true;
+      createImageBitmap(canvas, Math.round(x0 * kx), Math.round(y0 * ky), Math.round((x1 - x0) * kx), Math.round((y1 - y0) * ky),
+        { resizeWidth: x1 - x0, resizeHeight: y1 - y0 })
+        .then((bmp) => {
+          snapBusy = false;
+          const now = performance.now();
+          if (now - lastCheck > 2000) { lastCheck = now; checkDrawn(bmp); }
+          parent.postMessage({ toy: TOY, type: 'frame', x: x0, y: y0, w: x1 - x0, h: y1 - y0, bmp }, '*', [bmp]);
+        })
+        .catch((e) => { snapBusy = false; if (!firstError) firstError = 'snapshot: ' + e.message; catSnap = null; });
+    };
+
+    const ai = adapter && adapter.info;
+    send({ type: 'ready', adapter: ai ? [ai.vendor, ai.architecture, ai.device, ai.description].filter(Boolean).join(' ') : '' });
   }
 
   statParticles.textContent = `${NP} particles`;
@@ -1944,6 +1989,7 @@ async function main() {
       pass.end();
     }
     device.queue.submit([enc.finish()]);
+    if (catSnap) catSnap();
 
     if (!started) { started = true; canvas.classList.add('ready'); }
     fpsT += dt; fpsN++;

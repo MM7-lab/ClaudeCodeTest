@@ -7,6 +7,8 @@ html, body {
 html { color-scheme: light; }
 canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; z-index: 2; }
 /* each plush toy is its own see-through page stacked over the window; z-index 1 or 3 puts it behind or in front of the cat */
+canvas.toy-layer { pointer-events: none; z-index: 1; }
+canvas.toy-layer.front { z-index: 3; }
 iframe.toy { position: fixed; inset: 0; width: 100vw; height: 100vh; border: 0; background: transparent; pointer-events: none; z-index: 1; }
 [hidden] { display: none !important; }
 
