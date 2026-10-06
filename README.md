@@ -10,6 +10,7 @@
 | `docs/index.html` | 網上版（GitHub Pages），由 `floor-planner/build_pages.py` 產生 |
 | `docs/plan-data.json` | 網上版一打開就載入嘅平面圖同建議方案 |
 | `plush-octopus/index.html` | 獨立 WebGPU 示範：可以拉、揸、掟嘅 3D 毛公仔八爪魚（直接用 Chrome／Edge／Safari 26+ 開） |
+| `turbo-granny/index.html` | 同一個引擎嘅「高速婆婆」毛公仔版本：拉、揸、掟、壓扁都得 |
 
 ## 放上網（GitHub Pages）
 
