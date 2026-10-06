@@ -13,6 +13,7 @@
 | `turbo-granny/index.html` | 同一個引擎嘅「高速婆婆」毛公仔版本：拉、揸、掟、壓扁都得 |
 | `moomin/index.html` | 同一個引擎嘅姆明毛公仔（非官方 fan art）：拉、揸、掟、壓扁，條尾會擺 |
 | `baby-bear/index.html` | 同一個引擎嘅「熊啤啤」原創 BB 熊毛公仔：口水肩、縫線鼻、肉球腳掌 |
+| `desktop/` | Windows 桌面版「Plush Toy Box」：四隻毛公仔放埋一個視窗。`npm run pack:edge` 出細 zip（用 Edge 開獨立視窗）；`npm run pack:win` 出完整 Electron 版 |
 
 ## 放上網（GitHub Pages）
 

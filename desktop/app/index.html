@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8">
+<title>Plush Toy Box</title>
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --ink: #2c1d1a;
+    --ink-2: #745a53;
+    --rule: rgba(44, 29, 26, .14);
+    --paper: #f3e8e2;
+    --chip: rgba(255, 255, 255, .55);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif TC", "Microsoft JhengHei", "PMingLiU", Georgia, serif;
+    --sans: "Segoe UI", ui-sans-serif, system-ui, "Microsoft JhengHei", Arial, sans-serif;
+    --bar: 46px;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .bar { position: fixed; inset: 0 0 auto 0; height: var(--bar); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--rule); background: var(--paper); z-index: 2; }
+  .brand { font: 600 10.5px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .toys { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--rule); border-radius: 999px; background: var(--chip); }
+  .toys button { font: 500 14px/1 var(--serif); color: var(--ink-2); background: transparent; border: 0; border-radius: 999px;
+    padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .toys button:hover { color: var(--ink); background: rgba(255, 255, 255, .6); }
+  .toys button[aria-pressed="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 2px rgba(44, 29, 26, .12); }
+  .toys button:focus-visible { outline: 2px solid #b5651f; outline-offset: 1px; }
+  .keys { justify-self: end; font: 400 11.5px/1 var(--sans); color: var(--ink-2); white-space: nowrap; }
+  html:not(.electron) .desk-only { display: none; }
+  .keys kbd { font: 600 10.5px/1 var(--sans); padding: 3px 5px; border: 1px solid var(--rule); border-radius: 4px; background: var(--chip); }
+  iframe { position: fixed; top: var(--bar); left: 0; width: 100%; height: calc(100% - var(--bar)); border: 0; display: block; background: var(--paper); }
+  @media (max-width: 860px) { .keys { display: none; } .bar { grid-template-columns: auto 1fr; } .toys { justify-self: end; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Plush Toy Box</div>
+  <nav class="toys" aria-label="Choose a toy">
+    <button type="button" data-toy="baby-bear">熊啤啤</button>
+    <button type="button" data-toy="moomin">姆明</button>
+    <button type="button" data-toy="turbo-granny">高速婆婆</button>
+    <button type="button" data-toy="plush-octopus">Plush Octopus</button>
+  </nav>
+  <div class="keys"><span class="desk-only"><kbd>Ctrl</kbd> <kbd>1</kbd>–<kbd>4</kbd> switch &nbsp; </span><kbd>F11</kbd> full screen</div>
+</header>
+<iframe id="stage" title="Toy" allow="fullscreen"></iframe>
+<script>
+(() => {
+  // Ctrl+1–4 come from the Electron menu; the Edge launcher has no app menu.
+  if (/Electron/.test(navigator.userAgent)) document.documentElement.classList.add('electron');
+  const stage = document.getElementById('stage');
+  const buttons = [...document.querySelectorAll('.toys button')];
+  const ids = buttons.map((b) => b.dataset.toy);
+
+  function showToy(id) {
+    if (!ids.includes(id)) id = ids[0];
+    for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.toy === id));
+    stage.src = `toys/${id}.html`;
+    document.title = `${buttons[ids.indexOf(id)].textContent} · Plush Toy Box`;
+    try { localStorage.setItem('toy', id); } catch (e) { /* storage unavailable: start on the first toy next time */ }
+  }
+  window.showToy = showToy;
+
+  for (const b of buttons) b.addEventListener('click', () => showToy(b.dataset.toy));
+  // Give the toy keyboard focus once it loads, so R / D / W work straight away.
+  stage.addEventListener('load', () => stage.focus());
+
+  let last = null;
+  try { last = localStorage.getItem('toy'); } catch (e) { /* ignore */ }
+  showToy(last || ids[0]);
+})();
+</script>
+</body>
+</html>
