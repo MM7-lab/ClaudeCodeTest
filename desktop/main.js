@@ -10,6 +10,7 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 const TOYS = [
   { id: 'baby-bear', label: '熊啤啤' },
+  { id: 'hello-kitty', label: 'Hello Kitty' },
   { id: 'moomin', label: '姆明' },
   { id: 'turbo-granny', label: '高速婆婆' },
   { id: 'plush-octopus', label: 'Plush Octopus' },

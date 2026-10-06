@@ -13,6 +13,7 @@
 | `turbo-granny/index.html` | 同一個引擎嘅「高速婆婆」毛公仔版本：拉、揸、掟、壓扁都得 |
 | `moomin/index.html` | 同一個引擎嘅姆明毛公仔（非官方 fan art）：拉、揸、掟、壓扁，條尾會擺 |
 | `baby-bear/index.html` | 同一個引擎嘅「熊啤啤」原創 BB 熊毛公仔：口水肩、縫線鼻、肉球腳掌 |
+| `hello-kitty/index.html` | 同一個引擎嘅 Hello Kitty 毛公仔（非官方 fan art）：左耳紅色蝴蝶結、黃色鼻、鬚，冇口 |
 | `desktop/` | Windows 桌面版「Plush Toy Box」：預設係透明「桌面寵物」（毛公仔企喺桌面、可以掟到撞螢幕邊，右下角 tray icon 揀公仔／大細／置頂），亦可以開返有切換列嘅玩具箱視窗。`npm run pack:win` 出完整 Electron 版（GitHub Actions「Desktop app (Windows)」會自動 build）；`npm run pack:edge` 出細 zip（只有視窗版，用 Edge 開） |
 
 ## 放上網（GitHub Pages）

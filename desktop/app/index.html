@@ -29,7 +29,7 @@
   html:not(.electron) .desk-only { display: none; }
   .keys kbd { font: 600 10.5px/1 var(--sans); padding: 3px 5px; border: 1px solid var(--rule); border-radius: 4px; background: var(--chip); }
   iframe { position: fixed; top: var(--bar); left: 0; width: 100%; height: calc(100% - var(--bar)); border: 0; display: block; background: var(--paper); }
-  @media (max-width: 860px) { .keys { display: none; } .bar { grid-template-columns: auto 1fr; } .toys { justify-self: end; } }
+  @media (max-width: 980px) { .keys { display: none; } .bar { grid-template-columns: auto 1fr; } .toys { justify-self: end; } }
 </style>
 </head>
 <body>
@@ -37,16 +37,17 @@
   <div class="brand">Plush Toy Box</div>
   <nav class="toys" aria-label="Choose a toy">
     <button type="button" data-toy="baby-bear">熊啤啤</button>
+    <button type="button" data-toy="hello-kitty">Hello Kitty</button>
     <button type="button" data-toy="moomin">姆明</button>
     <button type="button" data-toy="turbo-granny">高速婆婆</button>
     <button type="button" data-toy="plush-octopus">Plush Octopus</button>
   </nav>
-  <div class="keys"><span class="desk-only"><kbd>Ctrl</kbd> <kbd>1</kbd>–<kbd>4</kbd> switch &nbsp; </span><kbd>F11</kbd> full screen</div>
+  <div class="keys"><span class="desk-only"><kbd>Ctrl</kbd> <kbd>1</kbd>–<kbd>5</kbd> switch &nbsp; </span><kbd>F11</kbd> full screen</div>
 </header>
 <iframe id="stage" title="Toy" allow="fullscreen"></iframe>
 <script>
 (() => {
-  // Ctrl+1–4 come from the Electron menu; the Edge launcher has no app menu.
+  // Ctrl+1–5 come from the Electron menu; the Edge launcher has no app menu.
   if (/Electron/.test(navigator.userAgent)) document.documentElement.classList.add('electron');
   const stage = document.getElementById('stage');
   const buttons = [...document.querySelectorAll('.toys button')];
