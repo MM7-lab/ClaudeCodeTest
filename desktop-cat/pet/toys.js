@@ -4,8 +4,13 @@ export const TOY_NAMES = {
   'baby-bear': '熊啤啤', 'hello-kitty': 'Hello Kitty', moomin: '姆明', 'turbo-granny': '高速婆婆', 'plush-octopus': '八爪魚',
 };
 
-// Which graphics chip a toy asks WebGPU for: default, then high-performance, then low-power.
-const ADAPTERS = ['', 'hp', 'lp'];
+// How a toy draws: WebGL first (works on almost every PC, like the cat), then real WebGPU
+// on the default and the high-performance graphics chip if WebGL draws nothing.
+const MODES = [
+  { name: 'WebGL', query: '' },
+  { name: 'WebGPU', query: '&gpu=webgpu' },
+  { name: 'WebGPU（高效能顯示卡）', query: '&gpu=webgpu&adapter=hp' },
+];
 
 export class ToyBox {
   // layer: element to hold the iframes; floorPx: floor height above the window bottom;
@@ -31,11 +36,11 @@ export class ToyBox {
     el.className = 'toy';
     el.title = TOY_NAMES[id];
     el.tabIndex = -1;
-    el.src = `../toys/${id}.html?pet=1&embed=1&id=${id}&size=${size}&floor=${this.floorPx}&adapter=${ADAPTERS[mode]}`;
+    el.src = `../toys/${id}.html?pet=1&embed=1&id=${id}&size=${size}&floor=${this.floorPx}${MODES[mode].query}`;
     this.layer.append(el);
-    const t = { id, name: TOY_NAMES[id], el, size, mode, ready: false, state: null, interactive: false, frame: null };
+    const t = { id, name: TOY_NAMES[id], el, size, mode, modeName: MODES[mode].name, ready: false, state: null, interactive: false, frame: null };
     this.toys.set(id, t);
-    this.onStatus(t, 'loading', mode ? `試緊另一張顯示卡（${ADAPTERS[mode]}）` : '');
+    this.onStatus(t, 'loading', mode ? `改用 ${MODES[mode].name} 再試` : '');
     // a toy that never says hello (e.g. its graphics hang) counts as failed
     setTimeout(() => { if (this.toys.get(id) === t && !t.ready) this.fail(t, '30 秒都未出到嚟'); }, 30000);
     return t;
@@ -43,7 +48,7 @@ export class ToyBox {
   // Nothing has been drawn for a while: try the next graphics chip, or give up.
   retry(t) {
     this.drop(t);
-    if (t.mode + 1 < ADAPTERS.length) this.create(t.id, t.size, t.mode + 1);
+    if (t.mode + 1 < MODES.length) this.create(t.id, t.size, t.mode + 1);
     else this.fail(t, '畫唔到嘢（顯示卡驅動程式可能太舊）');
   }
   drop(t) {
@@ -81,17 +86,37 @@ export class ToyBox {
     }
   }
   fail(t, msg) {
+    // couldn't start this way: try the next way before giving up
+    if (t.mode + 1 < MODES.length && this.toys.get(t.id) === t) { this.retry(t); return; }
     this.failed.add(t.id);
     this.drop(t);
     this.onStatus(t, 'failed', msg);
   }
-  // Draw each toy's latest frame on the layer behind or in front of the cat.
+  // Draw each toy's latest frame on the layer behind or in front of the cat. The copy is a
+  // rectangle cut out of the toy's canvas; its soft floor shadow would show that edge, so the
+  // copy fades out towards its sides first.
   draw(back, front, inFront) {
     back.clearRect(0, 0, back.canvas.width, back.canvas.height);
     front.clearRect(0, 0, front.canvas.width, front.canvas.height);
     for (const t of this.toys.values()) {
       const f = t.frame;
-      if (f) (inFront(t) ? front : back).drawImage(f.bmp, f.x, f.y, f.w, f.h);
+      if (!f) continue;
+      const c = t.fade || (t.fade = document.createElement('canvas'));
+      if (c.width !== f.w || c.height !== f.h) { c.width = f.w; c.height = f.h; }
+      const g = c.getContext('2d');
+      g.globalCompositeOperation = 'copy';
+      g.drawImage(f.bmp, 0, 0, f.w, f.h);
+      g.globalCompositeOperation = 'destination-in';
+      g.save();
+      g.translate(f.w / 2, f.h / 2);
+      g.scale(f.w / 2, f.h / 2);
+      const grad = g.createRadialGradient(0, 0, 0.7, 0, 0, 1);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(-1, -1, 2, 2);
+      g.restore();
+      (inFront(t) ? front : back).drawImage(c, f.x, f.y);
     }
   }
 

@@ -10,7 +10,7 @@
 
 1. 去呢個 repo 嘅 **Actions** → **Build Desktop Cat** → 揀最新一次（有綠色剔嗰次）。
 2. 喺頁面底部 **Artifacts** 下載：
-   - **Windows**：`DesktopCat-Windows`。解壓後得一個 `DesktopCat-1.1.3.exe`，**撳兩下就開，唔使安裝**。唔要嘅時候直接刪咗個檔案就得。
+   - **Windows**：`DesktopCat-Windows`。解壓後得一個 `DesktopCat-1.2.0.exe`，**撳兩下就開，唔使安裝**。唔要嘅時候直接刪咗個檔案就得。
    - **Mac**：`DesktopCat-macOS`。解壓後再解壓入面嘅 zip，得到 `DesktopCat.app`，撳兩下就開。
 3. 第一次開：
    - **Windows**：因為冇數碼簽署，可能會彈「Windows 已保護您的電腦」。撳「其他資訊」→「仍要執行」。每次開都要等幾秒，因為佢會先自己解壓。
@@ -37,18 +37,12 @@
 
 - 貓貓會行埋去用手撥佢、伏低擰兩擰屁股再撲上去壓扁佢、咬住佢拖去第二度（間中仲會拖嚟送俾你 🎁），攰咗就攬住佢瞓。
 - 你都可以拖公仔、掟公仔；掟得快，貓貓見到會追過去。
-- 公仔用 WebGPU 畫。公仔越多，部電腦越辛苦。
+- 公仔原本用 WebGPU 畫；喺貓貓 app 入面，佢哋同貓貓一樣用 WebGL 畫（WebGL 差唔多所有電腦都得），個樣同原本一樣。WebGL 畫唔到先會試 WebGPU。
+- 公仔越多，部電腦越辛苦。
 
 ### 見唔到公仔？
 
-有啲電腦預設唔俾用 WebGPU（例如顯示卡未喺 Chrome 嘅認可名單）。咁樣貓貓會話你知，仲會彈個視窗問你要唔要「強制開 WebGPU」。撳「試吓」，貓貓會自己重新開過，公仔就會出嚟。
-
-亦可以自己去設定 →「貓跳臺同公仔」：
-- 「公仔狀態」會寫每隻公仔「出咗嚟 ✓」定「出唔到」。
-- 剔「強制開 WebGPU」，再撳「重新開貓貓」。
-- 如果開咗之後部電腦變慢或者唔穩定，熄返佢就得。
-
-都係唔得？右撳貓貓 →「複製診斷資料」，貼俾幫你整貓貓嘅人。入面有你部電腦嘅顯示卡、WebGPU 狀態，同每隻公仔出咗嚟未、喺畫面邊度。
+右撳貓貓 →「複製診斷資料」，貼俾幫你整貓貓嘅人。入面有你部電腦嘅顯示卡，同每隻公仔用咩畫、有冇畫到、喺畫面邊度。
 
 ## 提醒
 
@@ -82,7 +76,7 @@ npm run dist     # 整免安裝版，放喺 dist/
 
 每次 push 改動 `desktop-cat/` 入面嘅檔案，GitHub Actions 都會自動重新整 Windows 同 Mac 版本。
 
-改完公仔之後，用下面呢句將佢哋重新抄入嚟（指向放住 `baby-bear/`、`hello-kitty/` 等資料夾嘅位置，預設係 repo 最頂層）：
+改完公仔之後，用下面呢句將佢哋重新抄入嚟（指向放住 `baby-bear/`、`hello-kitty/` 等資料夾嘅位置，預設係 repo 最頂層）。佢會順便將公仔嘅 WGSL 材質程式翻譯成 WebGL 用嘅 GLSL，所以要先裝 [naga](https://github.com/gfx-rs/wgpu/tree/trunk/naga)（`cargo install naga-cli`）：
 
 ```
 node scripts/sync-toys.mjs [公仔資料夾]
@@ -99,6 +93,7 @@ node scripts/sync-toys.mjs [公仔資料夾]
 | `pet/sound.js` | 喵喵聲、呼嚕聲、抓柱聲（即場合成，唔使聲音檔） |
 | `pet/tree.js` | 貓跳臺 |
 | `pet/toys.js` | 將公仔放入貓貓個視窗，同佢哋傳訊息 |
-| `toys/` | 公仔頁面（由 `scripts/sync-toys.mjs` 抄入嚟，加咗同貓貓溝通嘅橋） |
+| `toys/` | 公仔頁面（由 `scripts/sync-toys.mjs` 抄入嚟，加咗同貓貓溝通嘅橋，同翻譯好嘅 WebGL 材質程式） |
+| `toys/webgpu-gl.js` | 轉接器：等公仔原本嘅 WebGPU 程式用 WebGL 畫 |
 | `settings/` | 設定視窗 |
 | `assets/` | 圖示 |

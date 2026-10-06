@@ -86,7 +86,7 @@ const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
 setInterval(() => {
   for (const t of toys.live()) {
     const s = t.state;
-    const info = [t.adapter && `顯示卡：${t.adapter}`, t.mode ? `第 ${t.mode + 1} 次試` : '',
+    const info = [`用 ${t.modeName} 畫`, t.adapter && `顯示卡：${t.adapter}`,
       s.drawn === true ? '有畫到 ✓' : s.drawn === false ? '畫唔到嘢' : '', t.frame ? '經貓貓畫布顯示' : '直接顯示',
       s.errors ? `${s.errors} 個錯誤：${s.error}` : ''].filter(Boolean).join('；');
     api.toyStatus?.(t.id, 'ready', info, { l: s.l, r: s.r, t: s.t, b: s.b });
@@ -94,7 +94,7 @@ setInterval(() => {
 }, 5000);
 function tellFailedToys() {
   if (!failedToys.length) return;
-  say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 部電腦可能唔俾用 WebGPU，設定入面有得試`, 9000);
+  say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 右撳我揀「複製診斷資料」，貼俾幫你整貓貓嘅人`, 9000);
 }
 function placeToy(i, n) {
   // spread the toys out, away from the cat tree

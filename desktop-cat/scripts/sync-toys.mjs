@@ -5,7 +5,13 @@
 //
 // The folder defaults to the repo root, where the toy pages live as <toy>/index.html.
 // The pages stay the single source of truth: re-run this after changing a toy.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+//
+// Inside the cat app the toys draw with WebGL (toys/webgpu-gl.js stands in for WebGPU),
+// so their WGSL shaders are translated to GLSL ES 3.0 here. That needs naga:
+//   cargo install naga-cli
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +28,7 @@ const HEAD = `<script>
   const q = new URLSearchParams(location.search);
   if (!q.has('embed')) return;
   const id = q.get('id') || '';
+  if (q.get('gpu') !== 'webgpu') document.write('<script src="webgpu-gl.js"><\\/script>');
   let onCursor = null;
   window.petBridge = {
     onCursor: (cb) => { onCursor = cb; },
@@ -118,6 +125,7 @@ const API = `  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and ca
       const x0 = Math.max(0, Math.floor(l - m)), y0 = Math.max(0, Math.floor(t - m));
       const x1 = Math.min(cw, Math.ceil(r + m * 1.4)), y1 = Math.min(ch, Math.ceil(b + m * 0.5));
       if (x1 - x0 < 2 || y1 - y0 < 2) return;
+      window.__toyRect = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; // the WebGL stand-in draws only around here
       const kx = canvas.width / cw, ky = canvas.height / ch;
       snapBusy = true;
       createImageBitmap(canvas, Math.round(x0 * kx), Math.round(y0 * ky), Math.round((x1 - x0) * kx), Math.round((y1 - y0) * ky),
@@ -151,6 +159,8 @@ const EDITS = [
   // (?adapter=hp|lp lets the cat app try the other chip if nothing gets drawn)
   ["adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });",
     () => "adapter = await navigator.gpu.requestAdapter(!params.has('embed') ? { powerPreference: 'high-performance' } : ({ hp: { powerPreference: 'high-performance' }, lp: { powerPreference: 'low-power' } }[params.get('adapter')] || {}));"],
+  // smaller shadow map inside the cat app: the toys are small there, and laptops thank us
+  ['const SHADOW_SIZE = 2048;', () => "const SHADOW_SIZE = params.has('embed') ? 1024 : 2048;"],
   // the cat app copies frames out of the canvas
   ["ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque' });",
     () => "ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });"],
@@ -161,13 +171,40 @@ const EDITS = [
 ];
 
 mkdirSync(out, { recursive: true });
+// WGSL -> GLSL ES 3.0 for every entry point, keyed '<module label>:<entry point>' to match
+// compile(WGSL_MAIN, 'main') / compile(WGSL_SHADOW, 'shadow') in the toy pages.
+function translateShaders(html, toy) {
+  const a = html.indexOf('const WGSL_COMMON'), b = html.indexOf('\n`;', html.indexOf('const WGSL_MAIN')) + 3;
+  if (a < 0 || b < 3) throw new Error(`${toy}: WGSL not found`);
+  const mods = new Function(html.slice(a, b) + '\nreturn { shadow: WGSL_SHADOW, main: WGSL_MAIN };')();
+  const dir = mkdtempSync(join(tmpdir(), 'toy-glsl-'));
+  const out = {};
+  try {
+    for (const [label, code] of Object.entries(mods)) {
+      const wgsl = join(dir, `${label}.wgsl`);
+      writeFileSync(wgsl, code);
+      for (const [, stage, entry] of code.matchAll(/@(vertex|fragment)\s+fn\s+(\w+)/g)) {
+        const file = join(dir, `${entry}.${stage === 'vertex' ? 'vert' : 'frag'}`);
+        execFileSync('naga', [wgsl, file, '--entry-point', entry, '--profile', 'es300', '--compact'], { stdio: 'pipe' });
+        out[`${label}:${entry}`] = readFileSync(file, 'utf8');
+      }
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  return out;
+}
+
 for (const toy of TOYS) {
-  let html = readFileSync(join(src, toy, 'index.html'), 'utf8');
+  const original = readFileSync(join(src, toy, 'index.html'), 'utf8');
+  let html = original;
   for (const [find, put] of EDITS) {
     const n = html.split(find).length - 1;
     if (n !== 1) throw new Error(`${toy}: expected one "${find}", found ${n}`);
     html = html.replace(find, () => put(find));
   }
+  const glsl = translateShaders(original, toy);
+  // must come before the stand-in loads; '</' is escaped so the JSON can't end the script tag
+  const data = `<script>window.__TOY_GLSL = ${JSON.stringify(glsl).replace(/<\//g, '<\\/')};</script>\n`;
+  html = html.replace('<script>\n// 桌面貓貓 (?embed)', () => data + '<script>\n// 桌面貓貓 (?embed)');
   writeFileSync(join(out, `${toy}.html`), html);
-  console.log(`synced ${toy}`);
+  console.log(`synced ${toy} (${Object.keys(glsl).length} shaders)`);
 }

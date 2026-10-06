@@ -44,11 +44,11 @@
     <div class="field"><span>出嚟玩嘅公仔</span></div>
     <div class="checks" id="toyChecks"></div>
     <label class="field">公仔大細<input type="range" id="toySize" min="60" max="200" step="10"></label>
-    <p class="hint">公仔係你自己整嘅軟膠公仔，用 WebGPU 畫。貓貓會撥佢、撲佢、咬住佢周圍行，攰嘅時候仲會攬住佢瞓。你都可以拖佢、掟佢。公仔越多，部電腦越辛苦。</p>
+    <p class="hint">公仔係你自己整嘅軟膠公仔，喺呢度同貓貓一樣用 WebGL 畫。貓貓會撥佢、撲佢、咬住佢周圍行，攰嘅時候仲會攬住佢瞓。你都可以拖佢、掟佢。公仔越多，部電腦越辛苦。</p>
     <div class="field"><span>公仔狀態</span></div>
     <ul class="toy-status" id="toyStatus"></ul>
-    <label class="field">強制開 WebGPU（公仔出唔到先用）<input type="checkbox" id="forceWebGPU"></label>
-    <p class="hint">部電腦預設唔俾用 WebGPU 嘅時候，開咗呢個先見到公仔（同 Plush Toy Box 一樣做法）。改完要重新開貓貓。如果開咗之後部電腦變慢或者唔穩定，就熄返佢。</p>
+    <label class="field">強制開 WebGPU（進階，一般唔使）<input type="checkbox" id="forceWebGPU"></label>
+    <p class="hint">公仔先用 WebGL 畫，畫唔到先試 WebGPU。只有 WebGL 都畫唔到、而部電腦又預設唔俾用 WebGPU 嘅時候，先需要開呢個。改完要重新開貓貓；開咗之後部電腦變慢或者唔穩定就熄返佢。</p>
     <div class="row end" id="restartRow" hidden><button id="btnRestart" type="button">重新開貓貓</button></div>
   </section>
 

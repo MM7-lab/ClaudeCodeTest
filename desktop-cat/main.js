@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -69,7 +69,6 @@ const st = { running: true, nextAt: 0, remaining: 0, orderIdx: 0, pending: null,
 let pet = null, settingsWin = null, tray = null, catHidden = false, lastNote = null, tickN = 0, petReady = false;
 // What happened to each toy this run: 'loading', 'ready' or 'failed' (+ message), shown in settings.
 const toyStatus = {};
-let askedForceWebGPU = false;
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
 const preload = path.join(__dirname, 'preload.js');
 
@@ -312,10 +311,8 @@ ipcMain.handle('get-state', () => ({
 }));
 ipcMain.on('toy-status', (_e, id, state, msg, rect) => {
   if (!TOYS.some(t => t.id === id) || !['loading', 'ready', 'failed'].includes(state)) return;
-  const was = toyStatus[id] && toyStatus[id].state;
   toyStatus[id] = { state, msg: msg ? String(msg).slice(0, 300) : '' };
   if (rect && typeof rect === 'object') toyStatus[id].rect = ['l', 'r', 't', 'b'].map(k => Math.round(Number(rect[k]) || 0));
-  if (state === 'failed' && was !== 'failed') offerForceWebGPU();
 });
 
 // A plain-text report for troubleshooting: system, graphics chips, WebGPU, and each toy.
@@ -347,23 +344,6 @@ async function diagnostics() {
 }
 ipcMain.handle('diagnostics', () => diagnostics());
 ipcMain.handle('copy-diagnostics', async () => { const t = await diagnostics(); clipboard.writeText(t); return t; });
-// Toys need WebGPU. If Chromium hasn't allow-listed this computer's graphics chip, offer (once)
-// to switch it on anyway — the same switch the Plush Toy Box app uses — and restart.
-function offerForceWebGPU() {
-  if (S.forceWebGPU || askedForceWebGPU) return;
-  askedForceWebGPU = true;
-  dialog.showMessageBox({
-    type: 'question', title: '公仔出唔到嚟',
-    message: '部電腦預設唔俾公仔用 WebGPU，所以見唔到公仔。',
-    detail: '可以試吓強制開 WebGPU（同 Plush Toy Box 一樣做法），貓貓會自動重新開過。\n如果之後部電腦變慢或者唔穩定，可以喺設定度熄返。',
-    buttons: ['試吓', '唔使住'], defaultId: 0, cancelId: 1,
-  }).then(({ response }) => {
-    if (response !== 0) return;
-    S = { ...S, forceWebGPU: true };
-    writeJson('settings.json', S);
-    restartApp();
-  });
-}
 function restartApp() {
   // the portable .exe unpacks itself to a temp folder: restart the .exe itself
   const exe = process.env.PORTABLE_EXECUTABLE_FILE;
