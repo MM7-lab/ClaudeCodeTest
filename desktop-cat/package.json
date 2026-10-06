@@ -1,7 +1,7 @@
 {
   "name": "desktop-cat",
   "productName": "DesktopCat",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "桌面貓貓：喺你桌面行嚟行去嘅 3D 貓，定時提你飲水、休息、去廁所",
   "main": "main.js",
   "private": true,
@@ -26,6 +26,7 @@
       "preload.js",
       "pet/**",
       "settings/**",
+      "toys/**",
       "assets/**",
       "node_modules/three/build/three.module.js",
       "node_modules/three/build/three.core.js",
@@ -36,12 +37,6 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "portable",
           "arch": [
             "x64"
@@ -51,17 +46,12 @@
       "icon": "assets/icon.png"
     },
     "portable": {
-      "artifactName": "DesktopCat-${version}-portable.${ext}"
-    },
-    "nsis": {
-      "oneClick": true,
-      "shortcutName": "桌面貓貓",
-      "uninstallDisplayName": "桌面貓貓"
+      "artifactName": "DesktopCat-${version}.exe"
     },
     "mac": {
       "target": [
         {
-          "target": "dmg",
+          "target": "zip",
           "arch": [
             "universal"
           ]

@@ -33,5 +33,5 @@ jobs:
           name: DesktopCat-${{ runner.os }}
           path: |
             desktop-cat/dist/*.exe
-            desktop-cat/dist/*.dmg
+            desktop-cat/dist/*.zip
           if-no-files-found: error

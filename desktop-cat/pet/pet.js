@@ -14,7 +14,7 @@ const CHAT = ['你做得好好呀！加油 💪', '我喺度陪住你 🐾', '�
   '今日都好努力呀 🌼', '我信你得嘅 💛', '有咩唔開心，摸吓我啦 🐱'];
 const OUCH = ['嚇死我喇！😾', '喵！好高呀 😿', '安全着陸 😼'];
 
-let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 100 };
+let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80 };
 const sound = makeSound(() => S);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -229,6 +229,7 @@ function landingSurface(x, prevY) {
 // ---------- toys ----------
 const toyScreen = t => toyCenter(t.state);
 const toyWorldX = t => toyScreen(t).x - W / 2;
+const toyZ = t => clamp((t.state.z || 0) + 14, -40, 90);
 function playableToy() {
   const list = toys.live().filter(t => !t.state.held && !t.state.carried);
   if (!list.length) return null;
@@ -367,15 +368,18 @@ function update(dt) {
       if (!t.state || t.state.held) { decide(); break; }
       faceToward(toyWorldX(t) - ai.x, 0);
       if (ai.t > 0.45 && !d.sent) {
+        // bite the near side, so the toy is dragged along in front of the cat
         d.sent = true;
-        const c = toyScreen(t);
-        toys.post(t, { type: 'grab', x: c.x, y: t.state.t + c.h * 0.22 });
+        const c = toyScreen(t), near = ai.x <= toyWorldX(t) ? -1 : 1;
+        d.dir = -near;
+        const x = near < 0 ? t.state.l + c.w * 0.2 : t.state.r - c.w * 0.2;
+        toys.post(t, { type: 'grab', x, y: t.state.t + c.h * 0.4 });
       }
       if (ai.t > 0.9) {
         if (!t.state.carried) { go('sit', { dur: 3 }); faceUser(); break; }
         const [x0, x1] = screenBounds();
         const gift = d.intent === 'gift';
-        const tx = gift && cursor ? clamp(cursor.x - W / 2, x0, x1) : clamp(ai.x + (Math.random() < 0.5 ? -1 : 1) * rand(200, 450), x0, x1);
+        const tx = gift && cursor ? clamp(cursor.x - W / 2, x0, x1) : clamp(ai.x + d.dir * rand(200, 450), x0, x1);
         go('carry', { toy: t, tx, gift });
       }
       break;
@@ -385,7 +389,7 @@ function update(dt) {
       if (!t.state || !t.state.carried) { go('sit', { dur: 3 }); faceUser(); break; }
       const m = mouthScreen();
       toys.post(t, { type: 'drag', x: m.x, y: m.y });
-      if (walkTo(dt, d.tx, LANE[0], 55) || ai.t > 20) {
+      if (walkTo(dt, d.tx, ai.z, 55) || ai.t > 20) {
         toys.post(t, { type: 'release' });
         ai.data.toy = null;
         if (d.gift) { go('sit', { dur: 6 }); ai.yawTarget = FRONT; say('送俾你 🎁', 4000); sound.chirp(); }
@@ -458,7 +462,8 @@ function updateToyGo(dt) {
   const gap = d.intent === 'cuddle' ? 8 : d.intent === 'pounce' ? 150 : 30;
   const spot = besideToy(t, gap);
   ai.look = { x: spot.tx, y: 30 * S.size, z: ai.z };
-  if (!walkTo(dt, spot.x, LANE[0], d.intent === 'pounce' ? 120 : 80)) return;
+  // stand at the toy's depth, a little in front of it, so the cat isn't hidden behind it
+  if (!walkTo(dt, spot.x, toyZ(t), d.intent === 'pounce' ? 120 : 80)) return;
   faceToward(spot.tx - ai.x, 0);
   if (d.intent === 'bat') go('toyBat', { toy: t, swats: 2 + Math.floor(rand(0, 4)), chases: d.chases });
   else if (d.intent === 'pounce') {
@@ -640,7 +645,7 @@ function applySettings(s) {
   if (S.sound && soundWasOn === false && frameStarted) sound.meow(); // let them hear it when switched on
   cat.setCoat(S.coat);
   placeTree();
-  toys.set(S.toys || [], Math.round(S.toySize || 100));
+  toys.set(S.toys || [], Math.round(S.toySize || 80));
 }
 let treeKey = '';
 function placeTree() {

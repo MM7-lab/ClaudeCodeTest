@@ -37,7 +37,7 @@ const DEFAULTS = {
   name: '麻糬', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: false, volume: 0.6, autostart: false,
-  tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 100,
+  tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -165,7 +165,8 @@ function cleanPatch(p) {
 function applyAutostart() {
   // Only the installed app should register itself; a dev run would register the bare Electron binary.
   if (!app.isPackaged) return;
-  try { app.setLoginItemSettings({ openAtLogin: S.autostart }); } catch {}
+  // the portable .exe unpacks itself to a temp folder each run; start the .exe itself at login
+  try { app.setLoginItemSettings({ openAtLogin: S.autostart, path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath }); } catch {}
 }
 
 // ---------- windows ----------
