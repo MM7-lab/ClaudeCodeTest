@@ -19,6 +19,7 @@ function render(s) {
   $('autostart').checked = s.autostart;
   $('tree').value = s.tree;
   $('toySize').value = s.toySize;
+  $('forceWebGPU').checked = !!s.forceWebGPU;
   document.querySelectorAll('[data-toy]').forEach(c => { c.checked = s.toys.includes(c.dataset.toy); });
 }
 function buildToyChecks(list) {
@@ -40,8 +41,30 @@ function renderStats(st) {
   $('stPets').textContent = st.pets;
 }
 async function save(patch) { render(await api.saveSettings(patch)); }
+let startedForced = null;
+function renderToyStatus(state) {
+  const names = Object.fromEntries(state.toyList.map(t => [t.id, t.label]));
+  const rows = state.settings.toys.map(id => {
+    const st = state.toyStatus[id] || { state: 'loading' };
+    const li = document.createElement('li'), name = document.createElement('span'), v = document.createElement('span');
+    name.textContent = '🧸 ' + names[id];
+    v.className = st.state === 'ready' ? 'ok' : st.state === 'failed' ? 'bad' : 'wait';
+    v.textContent = st.state === 'ready' ? '出咗嚟 ✓' : st.state === 'failed' ? '出唔到' : '載入中…';
+    if (st.msg) v.title = st.msg;
+    li.append(name, v);
+    return li;
+  });
+  const gpu = document.createElement('li');
+  gpu.innerHTML = '<span>WebGPU 技術資料</span><span></span>';
+  gpu.lastChild.textContent = state.webgpu;
+  gpu.className = 'wait';
+  $('toyStatus').replaceChildren(...rows, gpu);
+  if (startedForced === null) startedForced = !!state.settings.forceWebGPU;
+  $('restartRow').hidden = startedForced === !!state.settings.forceWebGPU;
+}
 async function refresh() {
   const state = await api.getState();
+  renderToyStatus(state);
   $('status').textContent = state.status;
   $('btnPause').textContent = state.timer.running ? '暫停提醒' : '繼續提醒';
   renderStats(state.stats);
@@ -59,6 +82,8 @@ $('volume').addEventListener('change', () => save({ volume: Number($('volume').v
 $('autostart').addEventListener('change', () => save({ autostart: $('autostart').checked }));
 $('tree').addEventListener('change', () => save({ tree: $('tree').value }));
 $('toySize').addEventListener('change', () => save({ toySize: Number($('toySize').value) }));
+$('forceWebGPU').addEventListener('change', () => save({ forceWebGPU: $('forceWebGPU').checked }));
+$('btnRestart').addEventListener('click', () => api.restart());
 $('btnPause').addEventListener('click', async () => { const s = await api.getState(); api.setPaused(s.timer.running); setTimeout(refresh, 100); });
 $('btnTest').addEventListener('click', () => { api.testReminder(); setTimeout(refresh, 100); });
 $('btnReset').addEventListener('click', async () => renderStats(await api.resetStats()));

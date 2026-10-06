@@ -6,10 +6,11 @@ export const TOY_NAMES = {
 
 export class ToyBox {
   // layer: element to hold the iframes; floorPx: floor height above the window bottom;
-  // placeX(i, n): screen x for the i-th of n toys; onFail(toy, msg): toy could not start.
-  constructor(layer, floorPx, placeX, onFail) {
-    Object.assign(this, { layer, floorPx, placeX, onFail });
+  // placeX(i, n): screen x for the i-th of n toys; onStatus(toy, 'loading'|'ready'|'failed', msg).
+  constructor(layer, floorPx, placeX, onStatus) {
+    Object.assign(this, { layer, floorPx, placeX, onStatus });
     this.toys = new Map();
+    this.failed = new Set(); // don't keep retrying a toy that couldn't start this run
     addEventListener('message', e => this.onMessage(e));
   }
 
@@ -18,14 +19,18 @@ export class ToyBox {
       if (!ids.includes(id) || t.size !== size) { t.el.remove(); this.toys.delete(id); }
     }
     for (const id of ids) {
-      if (this.toys.has(id) || !TOY_NAMES[id]) continue;
+      if (this.toys.has(id) || !TOY_NAMES[id] || this.failed.has(id)) continue;
       const el = document.createElement('iframe');
       el.className = 'toy';
       el.title = TOY_NAMES[id];
       el.tabIndex = -1;
       el.src = `../toys/${id}.html?pet=1&embed=1&id=${id}&size=${size}&floor=${this.floorPx}`;
       this.layer.append(el);
-      this.toys.set(id, { id, name: TOY_NAMES[id], el, size, ready: false, state: null, interactive: false });
+      const t = { id, name: TOY_NAMES[id], el, size, ready: false, state: null, interactive: false };
+      this.toys.set(id, t);
+      this.onStatus(t, 'loading');
+      // a toy that never says hello (e.g. its graphics hang) counts as failed
+      setTimeout(() => { if (this.toys.get(id) === t && !t.ready) this.fail(t, '30 秒都未出到嚟'); }, 30000);
     }
   }
 
@@ -35,6 +40,7 @@ export class ToyBox {
     if (!t || !m || typeof m !== 'object') return;
     if (m.type === 'ready') {
       t.ready = true;
+      this.onStatus(t, 'ready');
       const all = [...this.toys.keys()];
       this.post(t, { type: 'place', x: this.placeX(all.indexOf(t.id), all.length) });
     } else if (m.type === 'state') {
@@ -43,10 +49,14 @@ export class ToyBox {
     } else if (m.type === 'interactive') {
       t.interactive = !!m.on;
     } else if (m.type === 'failed') {
-      t.el.remove();
-      this.toys.delete(t.id);
-      this.onFail(t, m.msg);
+      this.fail(t, m.msg);
     }
+  }
+  fail(t, msg) {
+    this.failed.add(t.id);
+    t.el.remove();
+    this.toys.delete(t.id);
+    this.onStatus(t, 'failed', msg);
   }
 
   post(t, msg) { try { t.el.contentWindow.postMessage(msg, '*'); } catch {} }

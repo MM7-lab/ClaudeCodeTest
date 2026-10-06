@@ -1337,7 +1337,7 @@ async function main() {
     return;
   }
   let adapter = null;
-  try { adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); } catch (e) { /* handled below */ }
+  try { adapter = await navigator.gpu.requestAdapter(params.has('embed') ? {} : { powerPreference: 'high-performance' }); } catch (e) { /* handled below */ }
   if (!adapter) { fail('WebGPU is present, but no compatible GPU adapter was found. Check that hardware acceleration is enabled.'); return; }
   const device = await adapter.requestDevice();
   device.lost.then((info) => { if (info.reason !== 'destroyed') fail('The GPU device was lost (' + info.message + '). Reload to try again.'); });

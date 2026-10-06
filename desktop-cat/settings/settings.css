@@ -42,3 +42,9 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .stats b { display: block; font-size: 22px; }
 .stats small { color: var(--muted); }
 .tips ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; }
+.toy-status { list-style: none; margin: 0 0 6px; padding: 0; font-size: 13.5px; }
+.toy-status li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.toy-status .ok { color: #3f9e6e; }
+.toy-status .bad { color: #c0392b; }
+.toy-status .wait { color: var(--muted); }
+[hidden] { display: none !important; }

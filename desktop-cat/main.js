@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -38,6 +38,7 @@ const DEFAULTS = {
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
+  forceWebGPU: false,
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -66,6 +67,9 @@ function loadStats() { const s = readJson('stats.json', null); return s && s.dat
 let S = DEFAULTS, stats = null;
 const st = { running: true, nextAt: 0, remaining: 0, orderIdx: 0, pending: null, nagAt: 0, nags: 0, away: false };
 let pet = null, settingsWin = null, tray = null, catHidden = false, lastNote = null, tickN = 0, petReady = false;
+// What happened to each toy this run: 'loading', 'ready' or 'failed' (+ message), shown in settings.
+const toyStatus = {};
+let askedForceWebGPU = false;
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
 const preload = path.join(__dirname, 'preload.js');
 
@@ -160,6 +164,7 @@ function cleanPatch(p) {
   if (['right', 'left', 'off'].includes(p.tree)) out.tree = p.tree;
   if (Array.isArray(p.toys)) out.toys = TOYS.map(t => t.id).filter(id => p.toys.includes(id));
   if (Number.isFinite(p.toySize)) out.toySize = Math.min(200, Math.max(60, Math.round(p.toySize)));
+  if (typeof p.forceWebGPU === 'boolean') out.forceWebGPU = p.forceWebGPU;
   return out;
 }
 function applyAutostart() {
@@ -300,7 +305,39 @@ ipcMain.on('pet-ready', () => {
   petReady = true;
   if (!catHidden) pet.showInactive();
 });
-ipcMain.handle('get-state', () => ({ settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS }));
+ipcMain.handle('get-state', () => ({
+  settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS, toyStatus,
+  webgpu: app.getGPUFeatureStatus().webgpu || 'unknown',
+}));
+ipcMain.on('toy-status', (_e, id, state, msg) => {
+  if (!TOYS.some(t => t.id === id)) return;
+  toyStatus[id] = { state, msg: msg ? String(msg).slice(0, 300) : '' };
+  if (state === 'failed') offerForceWebGPU();
+});
+// Toys need WebGPU. If Chromium hasn't allow-listed this computer's graphics chip, offer (once)
+// to switch it on anyway — the same switch the Plush Toy Box app uses — and restart.
+function offerForceWebGPU() {
+  if (S.forceWebGPU || askedForceWebGPU) return;
+  askedForceWebGPU = true;
+  dialog.showMessageBox({
+    type: 'question', title: '公仔出唔到嚟',
+    message: '部電腦預設唔俾公仔用 WebGPU，所以見唔到公仔。',
+    detail: '可以試吓強制開 WebGPU（同 Plush Toy Box 一樣做法），貓貓會自動重新開過。\n如果之後部電腦變慢或者唔穩定，可以喺設定度熄返。',
+    buttons: ['試吓', '唔使住'], defaultId: 0, cancelId: 1,
+  }).then(({ response }) => {
+    if (response !== 0) return;
+    S = { ...S, forceWebGPU: true };
+    writeJson('settings.json', S);
+    restartApp();
+  });
+}
+function restartApp() {
+  // the portable .exe unpacks itself to a temp folder: restart the .exe itself
+  const exe = process.env.PORTABLE_EXECUTABLE_FILE;
+  app.relaunch(exe ? { execPath: exe, args: [] } : undefined);
+  app.exit(0);
+}
+ipcMain.on('restart-app', restartApp);
 ipcMain.on('reminder-answer', (_e, done) => answer(!!done));
 ipcMain.on('petted', () => { stats.pets++; saveStats(); });
 ipcMain.on('context-menu', () => { if (pet) Menu.buildFromTemplate(menuItems()).popup({ window: pet }); });
@@ -328,6 +365,9 @@ ipcMain.handle('save-settings', (_e, patch) => {
 // hang the whole computer. Without 3D the cat says so and stays out of the way.
 // Windows otherwise decides a see-through window is hidden and pauses it, freezing the cat.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+// Only when the user chose it (after the toys couldn't start): let WebGPU run on graphics chips
+// Chromium hasn't allow-listed. Switches must be set before the app is ready.
+if (readJson('settings.json', {}).forceWebGPU === true) app.commandLine.appendSwitch('enable-unsafe-webgpu');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {

@@ -101,6 +101,10 @@ const EDITS = [
   ['cam.focus = [0, visH / 2 - 0.4, 0];', () => "cam.focus = [0, visH / 2 - (params.has('floor') ? Number(params.get('floor')) * unitsPerPx : 0.4), 0];"],
   // several toys share the cat's window: draw them at 1× to keep graphics memory down
   ['const dpr = Math.min(window.devicePixelRatio || 1, PET ? 1.5 : 2);', () => "const dpr = Math.min(window.devicePixelRatio || 1, params.has('embed') ? 1 : PET ? 1.5 : 2);"],
+  // use the same graphics chip that shows the window: on laptops with two GPUs a toy drawn on
+  // the other one can come out invisible in a see-through window
+  ["adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });",
+    () => "adapter = await navigator.gpu.requestAdapter(params.has('embed') ? {} : { powerPreference: 'high-performance' });"],
   // no WebGPU: tell the cat app instead of showing the English fallback card
   ['function fail(msg) {', (m) => m + "\n  if (params.has('embed')) { parent.postMessage({ toy: params.get('id'), type: 'failed', msg }, '*'); return; }"],
   ['  statParticles.textContent', (m) => API + m],

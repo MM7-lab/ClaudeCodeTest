@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('catApi', {
   answer: done => ipcRenderer.send('reminder-answer', done),
   petted: () => ipcRenderer.send('petted'),
   ready: () => ipcRenderer.send('pet-ready'),
+  toyStatus: (id, state, msg) => ipcRenderer.send('toy-status', id, state, msg),
+  restart: () => ipcRenderer.send('restart-app'),
   contextMenu: () => ipcRenderer.send('context-menu'),
   openSettings: () => ipcRenderer.send('open-settings'),
   saveSettings: patch => ipcRenderer.invoke('save-settings', patch),

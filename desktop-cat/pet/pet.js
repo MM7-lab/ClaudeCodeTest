@@ -68,10 +68,19 @@ const tree = new CatTree(cat.ramp);
 scene.add(tree.group);
 let treeOn = false;
 
-const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, msg) => {
+const failedToys = [];
+const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
+  api.toyStatus?.(t.id, state, msg);
+  if (state !== 'failed') return;
   console.warn('toy failed', t.id, msg);
-  say(`部電腦用唔到 WebGPU，${t.name}出唔到嚟 😿`, 6000);
+  failedToys.push(t.name);
+  // wait until the cat has landed and said hello, so this isn't drawn over
+  if (ai.mode !== 'fall') tellFailedToys();
 });
+function tellFailedToys() {
+  if (!failedToys.length) return;
+  say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 部電腦可能唔俾用 WebGPU，設定入面有得試`, 9000);
+}
 function placeToy(i, n) {
   // spread the toys out, away from the cat tree
   const [a, b] = !treeOn ? [0.2, 0.8] : S.tree === 'left' ? [0.38, 0.85] : [0.15, 0.62];
@@ -410,7 +419,10 @@ function update(dt) {
         break;
       }
       if (pending) { go('remind'); ai.yawTarget = FRONT; }
-      else if (d.welcome) { go('sit', { dur: 5 }); ai.yawTarget = FRONT; say(`我係${S.name}，今日陪你做嘢 🐾`, 6000); sound.meow(); }
+      else if (d.welcome) {
+        go('sit', { dur: 5 }); ai.yawTarget = FRONT; say(`我係${S.name}，今日陪你做嘢 🐾`, 4000); sound.meow();
+        setTimeout(tellFailedToys, 4500);
+      }
       else if (ai.mode === 'fall' && landed > 0.45) { go('sit', { dur: 3 }); faceUser(); say(pick(OUCH), 3000); }
       else { go('idle', { dur: rand(1, 2) }); faceUser(); }
       break;
