@@ -41,6 +41,19 @@ export function makeSound(getSettings) {
       if (!on() || !ac()) return;
       voice(ctx.currentTime, 480, 880, 760, 0.18, vol() * 0.25);
     },
+    scratch() {
+      if (!on() || !ac()) return;
+      // a few bursts of filtered noise: claws on sisal
+      const len = 0.09, buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      for (let n = 0; n < 3; n++) {
+        const t = ctx.currentTime + n * 0.14, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        src.buffer = buf; f.type = 'bandpass'; f.frequency.value = rand(2500, 4000); f.Q.value = 1.2;
+        g.gain.value = vol() * 0.18;
+        src.connect(f).connect(g).connect(ctx.destination);
+        src.start(t);
+      }
+    },
     purr() {
       if (!on() || !ac()) return;
       const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),

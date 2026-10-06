@@ -22,15 +22,21 @@ export const POSES = {
          tailLift: 2.05, tailCurl: -0.12, tailSide: 0.22, tailAmp: 0.06, tailSpeed: 1.2 },
   loaf: { lift: -17, legs: [-1.45, -1.45, -1.3, -1.3], scales: [0.55, 0.55, 0.55, 0.55], headPitch: 0.28,
           tailLift: 2.0, tailCurl: -0.05, tailSide: 0.28, tailAmp: 0.03, tailSpeed: 0.7, eyeOpen: 0 },
-  stretch: { pitch: -0.32, legs: [-0.9, -0.9, 0.1, 0.1], scales: [0.97, 0.97, 1, 1], headPitch: -0.25,
+  stretch: { pitch: -0.32, legs: [0.9, 0.9, -0.1, -0.1], scales: [0.97, 0.97, 1, 1], headPitch: -0.25,
              tailLift: 0.25, tailCurl: 0.06, tailAmp: 0.08 },
-  crouch: { lift: -9, pitch: -0.06, scales: [0.75, 0.75, 0.72, 0.72], legs: [-0.15, -0.15, 0.2, 0.2], headPitch: -0.05,
+  crouch: { lift: -9, pitch: -0.06, scales: [0.75, 0.75, 0.72, 0.72], legs: [0.25, 0.25, -0.3, -0.3], headPitch: 0.1,
             tailLift: 1.1, tailCurl: 0.1, tailAmp: 0.35, tailSpeed: 6, earBack: 0.2 },
-  groom: { lift: -18, pitch: 0.75, legs: [0, -2.25, -1.2, -1.2], scales: [1.28, 0.8, 0.75, 0.75], headPitch: 0.45, headRoll: -0.2,
+  groom: { lift: -18, pitch: 0.75, legs: [0, 2.25, -1.2, -1.2], scales: [1.28, 0.8, 0.75, 0.75], headPitch: 0.45, headRoll: -0.2,
            tailLift: 2.05, tailCurl: -0.12, tailSide: 0.22, tailAmp: 0.05, tailSpeed: 1, eyeOpen: 0.15 },
   held: { legs: [0.25, 0.25, 0.15, 0.15], scales: [1.25, 1.25, 1.25, 1.25], headPitch: 0.1,
           tailLift: 2.9, tailCurl: 0.04, tailAmp: 0.35, tailSpeed: 3, earBack: 0.35 },
-  leap: { legs: [-0.7, -0.7, 0.8, 0.8], scales: [1.1, 1.1, 1.1, 1.1], headPitch: -0.1, tailLift: 1.3, tailCurl: 0.05, tailAmp: 0.1 },
+  leap: { legs: [0.7, 0.7, -0.8, -0.8], scales: [1.1, 1.1, 1.1, 1.1], headPitch: -0.1, tailLift: 1.3, tailCurl: 0.05, tailAmp: 0.1 },
+  // up on the hind legs with both front paws on the scratching post
+  scratch: { pitch: 1.0, legs: [2.0, 2.0, -0.05, -0.05], scales: [1, 1, 0.95, 0.95], headPitch: -0.1,
+             tailLift: 1.7, tailCurl: 0.12, tailAmp: 0.18, tailSpeed: 3, earBack: 0.15 },
+  // standing up to bat at something dangling
+  reach: { pitch: 0.9, legs: [0.6, 2.3, -0.05, -0.05], scales: [0.8, 1.05, 0.95, 0.95], headPitch: -0.25,
+           tailLift: 1.4, tailCurl: 0.1, tailAmp: 0.35, tailSpeed: 5 },
 };
 
 const SPHERE = new THREE.SphereGeometry(1, 32, 20);
@@ -248,7 +254,7 @@ export class Cat {
     const swing = [s, -s, -s, s].map(v => v * 0.55 * g.amp);
     this.legs.forEach((leg, i) => {
       let a = p.legs[i] + swing[i];
-      if (i === 1 && this.swat > 0) a += -1.6 * Math.abs(Math.sin(this.swat * 9));
+      if (i === 1 && this.swat > 0) a += 1.4 * Math.abs(Math.sin(this.swat * 9));
       leg.rotation.z = a - p.pitch;
       leg.scale.y = p.scales[i];
     });

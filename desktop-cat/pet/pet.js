@@ -1,5 +1,7 @@
 import * as THREE from '../node_modules/three/build/three.module.js';
 import { Cat } from './cat.js';
+import { CatTree } from './tree.js';
+import { ToyBox, toyCenter } from './toys.js';
 import { makeSound } from './sound.js';
 
 const api = window.catApi;
@@ -12,7 +14,7 @@ const CHAT = ['你做得好好呀！加油 💪', '我喺度陪住你 🐾', '�
   '今日都好努力呀 🌼', '我信你得嘅 💛', '有咩唔開心，摸吓我啦 🐱'];
 const OUCH = ['嚇死我喇！😾', '喵！好高呀 😿', '安全着陸 😼'];
 
-let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6 };
+let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 100 };
 const sound = makeSound(() => S);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -22,6 +24,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // Orthographic camera in screen pixels, tilted down a little so the cat reads as 3D.
 // The floor (y = 0) sits BOTTOM pixels above the bottom of the work area.
 const TILT = 0.3, BOTTOM = 34;
+const LANE = [5, 50]; // depth range the cat wanders in on the floor (the tree stands behind it)
 let W = innerWidth, H = innerHeight;
 let renderer;
 try {
@@ -33,7 +36,9 @@ try {
   throw e;
 }
 renderer.setClearColor(0x000000, 0);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// The canvas covers the whole screen: draw it at 1× and keep the frame rate modest so the
+// graphics card stays cool, even on high-resolution laptop screens.
+renderer.setPixelRatio(1);
 const scene = new THREE.Scene();
 scene.add(new THREE.HemisphereLight(0xffffff, 0xcdb8a6, 1.2));
 const sun = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -42,14 +47,6 @@ scene.add(sun);
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 8000);
 camera.position.set(0, Math.sin(TILT) * 3000, Math.cos(TILT) * 3000);
 camera.lookAt(0, 0, 0);
-function resize() {
-  W = innerWidth; H = innerHeight;
-  Object.assign(camera, { left: -W / 2, right: W / 2, top: H - BOTTOM, bottom: -BOTTOM });
-  camera.updateProjectionMatrix();
-  renderer.setSize(W, H, false);
-  const [x0, x1] = bounds();
-  ai.x = clamp(ai.x, x0, x1);
-}
 
 const shadow = (() => {
   const c = document.createElement('canvas');
@@ -60,44 +57,77 @@ const shadow = (() => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
   m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 1;
   scene.add(m);
   return m;
 })();
 
 const cat = new Cat();
 scene.add(cat.root);
+const tree = new CatTree(cat.ramp);
+scene.add(tree.group);
+let treeOn = false;
+
+const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, msg) => {
+  console.warn('toy failed', t.id, msg);
+  say(`部電腦用唔到 WebGPU，${t.name}出唔到嚟 😿`, 6000);
+});
+function placeToy(i, n) {
+  // spread the toys out, away from the cat tree
+  const [a, b] = !treeOn ? [0.2, 0.8] : S.tree === 'left' ? [0.38, 0.85] : [0.15, 0.62];
+  return W * (a + (b - a) * (i + 0.5) / n);
+}
 
 // ---------- behaviour state ----------
 const FRONT = -Math.PI / 2; // yaw that faces the screen
 const ai = {
-  mode: 'fall', t: 0, dur: 0, data: {}, x: 0, y: 0, z: 0, vx: 0, vy: 0, yaw: FRONT, yawTarget: FRONT,
-  awakeSince: Date.now(), squash: 0, happy: 0, chaseCooldown: 0, chatAt: Date.now() + rand(8, 14) * MIN,
-  glance: { yaw: 0, pitch: 0, t: 0 }, strokeDist: 0, strokeCooldown: 0,
+  mode: 'fall', t: 0, dur: 0, data: {}, x: 0, y: 0, z: 20, vx: 0, vy: 0, yaw: FRONT, yawTarget: FRONT,
+  surface: null, // the tree surface the cat is on, or null for the floor
+  awakeSince: Date.now(), squash: 0, happy: 0, chaseCooldown: 0, toyCooldown: 0, chatAt: Date.now() + rand(8, 14) * MIN,
+  glance: { yaw: 0, pitch: 0, t: 0 }, strokeDist: 0, strokeCooldown: 0, look: null,
 };
 let pending = null; // reminder waiting for an answer
 let cursor = null, cursorSpeed = 0, rect = null, captured = false, drag = null;
 
-const bounds = () => { const m = 80 * S.size; return [-W / 2 + m, W / 2 - m]; };
+const screenBounds = () => { const m = 80 * S.size; return [-W / 2 + m, W / 2 - m]; };
+const bounds = () => (ai.surface ? [ai.surface.x0, ai.surface.x1] : screenBounds());
 const facing = () => (Math.cos(ai.yaw) >= 0 ? 1 : -1);
 function faceUser(side = facing()) { ai.yawTarget = FRONT + side * 0.55; }
 function faceToward(dx, dz) { ai.yawTarget = Math.atan2(-dz, dx); }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+const onFloor = () => !ai.surface;
+const laneZ = () => rand(LANE[0], LANE[1]);
 
 function go(mode, data = {}) {
+  if (ai.mode === 'carry' && mode !== 'carry') dropCarried();
   ai.mode = mode; ai.t = 0; ai.dur = data.dur ?? 0; ai.data = data;
   cat.swat = 0;
   const pose = { sit: 'sit', remind: 'sit', sleep: 'loaf', groom: 'groom', stretch: 'stretch', held: 'held',
-                 fall: 'leap', jump: 'leap', yawn: data.pose || 'sit' }[mode] || 'stand';
+                 fall: 'leap', jump: 'leap', hop: 'crouch', scratch: 'scratch', pompom: 'reach',
+                 toyBat: 'crouch', grabToy: 'crouch', yawn: data.pose || 'sit' }[mode] || 'stand';
   cat.setPose(pose);
   zzz.hidden = mode !== 'sleep';
 }
 
+// ---------- choosing what to do next ----------
 function decide() {
+  if (pending) { go('remind'); ai.yawTarget = FRONT; return; }
   const awakeMin = (Date.now() - ai.awakeSince) / MIN;
-  const options = [
-    ['walk', 30], ['idle', 12], ['sit', 16], ['groom', 8], ['stretch', 5], ['run', 3], ['jump', 4], ['look', 8],
-    ['sleep', awakeMin > 6 ? 40 : awakeMin > 2 ? 6 : 0],
-  ];
+  const sleepy = awakeMin > 6 ? 40 : awakeMin > 2 ? 6 : 0;
+  let options;
+  if (ai.surface) {
+    const bed = ai.surface.name === 'bed';
+    options = [['sit', 14], ['groom', 8], ['look', 8], ['idle', 5], ['down', ai.surface.name === 'base' ? 60 : 12],
+      ['sleep', bed ? sleepy + 15 : sleepy / 2]];
+  } else {
+    const playable = toys.live().filter(t => !t.state.held).length > 0;
+    options = [
+      ['walk', 26], ['idle', 10], ['sit', 12], ['groom', 7], ['stretch', 4], ['run', 3], ['jump', 3], ['look', 7],
+      ['sleep', sleepy],
+      ['climb', treeOn ? 10 : 0], ['scratch', treeOn ? 6 : 0], ['pompom', treeOn ? 6 : 0],
+      ['toyPlay', playable ? 16 : 0], ['toyCarry', playable ? 5 : 0], ['toyGift', playable ? 2 : 0],
+    ];
+  }
   let r = Math.random() * options.reduce((s, o) => s + o[1], 0);
   for (const [name, w] of options) { if ((r -= w) < 0) return start(name); }
   start('idle');
@@ -108,11 +138,11 @@ function start(name) {
     case 'walk': {
       let tx = rand(x0, x1);
       if (Math.abs(tx - ai.x) < 120) tx = clamp(ai.x + (Math.random() < 0.5 ? -1 : 1) * rand(150, 400), x0, x1);
-      go('walk', { tx, tz: rand(-50, 50) });
+      go('walk', { tx, tz: laneZ() });
       break;
     }
     case 'run':
-      go('run', { tx: ai.x > 0 ? x0 + rand(0, 120) : x1 - rand(0, 120), tz: rand(-30, 30), laps: 2 + Math.floor(rand(0, 2)) });
+      go('run', { tx: ai.x > 0 ? x0 + rand(0, 120) : x1 - rand(0, 120), tz: laneZ(), laps: 2 + Math.floor(rand(0, 2)) });
       break;
     case 'idle': go('idle', { dur: rand(2, 5) }); faceUser(); break;
     case 'sit': go('sit', { dur: rand(6, 16) }); faceUser(); break;
@@ -120,7 +150,29 @@ function start(name) {
     case 'groom': go('groom', { dur: rand(4, 7) }); faceUser(); break;
     case 'stretch': go('stretch', { dur: 2.4 }); break;
     case 'jump': ai.vy = rand(380, 480); ai.vx = rand(-90, 90); go('jump'); break;
-    case 'sleep': go('sleep', { dur: rand(40, 150) }); faceUser(); break;
+    case 'sleep': {
+      // a sleepy cat prefers the bed at the top of the tree, or curling up with a toy
+      const toy = playableToy();
+      if (onFloor() && treeOn && Math.random() < 0.55) return climb('bed', () => start('sleep'));
+      if (onFloor() && toy && Math.random() < 0.5) return approachToy(toy, 'cuddle');
+      go('sleep', { dur: rand(40, 150) }); faceUser();
+      break;
+    }
+    case 'climb': climb(pick(['roof', 'shelf', 'bed', 'bed']), decide); break;
+    case 'down': jumpDown(decide); break;
+    case 'scratch': {
+      const base = tree.surface('base');
+      walkThen((base.x0 + base.x1) / 2 - 30 * S.size, LANE[0], () => hopTo(base, () => go('scratch', { dur: rand(3, 5) })));
+      break;
+    }
+    case 'pompom': {
+      const p = tree.pomWorld(), side = Math.random() < 0.5 ? -1 : 1;
+      walkThen(p.x - side * 30 * S.size, LANE[0], () => go('pompom', { dur: rand(5, 9), side }));
+      break;
+    }
+    case 'toyPlay': approachToy(playableToy(), Math.random() < 0.25 ? 'pounce' : 'bat'); break;
+    case 'toyCarry': approachToy(playableToy(), 'carry'); break;
+    case 'toyGift': approachToy(playableToy(), 'gift'); break;
     default: go('idle', { dur: 2 });
   }
 }
@@ -129,8 +181,87 @@ function wake(greet) {
   go('yawn', { pose: 'loaf', then: 'stretch' });
   if (greet) { sound.chirp(); say('喵…我醒咗喇 😺', 3000); }
 }
+function walkThen(tx, tz, then, speed = 60) {
+  const [x0, x1] = screenBounds();
+  go('walk', { tx: clamp(tx, x0, x1), tz, then, speed });
+}
 
-// Walk toward (tx, tz); returns true on arrival. Turns on the spot before moving.
+// ---------- the cat tree: hopping between surfaces ----------
+function hopTo(surface, then) {
+  const to = surface
+    ? { x: clamp(ai.x, surface.x0, surface.x1), y: surface.y, z: surface.z }
+    : { x: clamp(ai.x + facing() * 30 * S.size, ...screenBounds()), y: 0, z: laneZ() };
+  if (surface && surface.x0 === surface.x1) to.x = surface.x0;
+  go('hop', { from: { x: ai.x, y: ai.y, z: ai.z }, to, surface, then });
+}
+function hopToFloorAt(x, then) {
+  go('hop', { from: { x: ai.x, y: ai.y, z: ai.z }, to: { x, y: 0, z: laneZ() }, surface: null, then });
+}
+// Climb to a named surface: walk under it, then hop up one level at a time.
+function climb(name, then) {
+  if (!treeOn) return then();
+  const target = tree.surface(name);
+  const path = name === 'bed' ? [pick([tree.surface('shelf'), tree.surface('roof')]), target] : [target];
+  const first = path[0];
+  if (ai.surface === target) return then();
+  const step = (i) => i >= path.length ? then() : hopTo(path[i], () => step(i + 1));
+  if (ai.surface) return jumpDown(() => climb(name, then));
+  walkThen((first.x0 + first.x1) / 2 + (first.x0 < tree.group.position.x ? -40 : 40) * S.size, LANE[0], () => step(0));
+}
+function jumpDown(then) {
+  const s = ai.surface;
+  if (!s) return then();
+  if (s.name === 'bed') return hopTo(pick([tree.surface('shelf'), tree.surface('roof')]), () => jumpDown(then));
+  const out = s.name === 'shelf' || s.name === 'base' ? -1 : 1; // jump off the outer side
+  hopToFloorAt(clamp(ai.x + out * rand(70, 130) * S.size, ...screenBounds()), then);
+}
+// Highest surface the cat can land on at x after falling from prevY (0 = the floor).
+function landingSurface(x, prevY) {
+  if (!treeOn) return null;
+  let best = null;
+  for (const s of tree.surfaces) {
+    if (s.name === 'base') continue;
+    if (x > s.x0 - 30 * S.size && x < s.x1 + 30 * S.size && prevY >= s.y - 1 && (!best || s.y > best.y)) best = s;
+  }
+  return best;
+}
+
+// ---------- toys ----------
+const toyScreen = t => toyCenter(t.state);
+const toyWorldX = t => toyScreen(t).x - W / 2;
+function playableToy() {
+  const list = toys.live().filter(t => !t.state.held && !t.state.carried);
+  if (!list.length) return null;
+  // the nearest one, usually
+  list.sort((a, b) => Math.abs(toyWorldX(a) - ai.x) - Math.abs(toyWorldX(b) - ai.x));
+  return Math.random() < 0.7 ? list[0] : pick(list);
+}
+function approachToy(toy, intent) {
+  if (!toy) return go('idle', { dur: 2 });
+  if (ai.surface) return jumpDown(() => approachToy(toy, intent));
+  go('toyGo', { toy, intent });
+}
+// x where the cat should stand to reach the toy from its current side
+function besideToy(toy, gap = 34) {
+  const c = toyScreen(toy), tx = c.x - W / 2, side = ai.x <= tx ? -1 : 1;
+  return { x: tx + side * (c.w / 2 + gap * S.size), side, tx };
+}
+function swatToy(toy, side) {
+  // contact point: the toy's edge nearest the cat, a little below the middle
+  const c = toyScreen(toy);
+  const x = side < 0 ? toy.state.l + 6 : toy.state.r - 6;
+  toys.post(toy, { type: 'poke', x, y: c.y + c.h * 0.15, dx: -side, dy: -0.35, power: rand(2.5, 4.5), lift: 1.2 });
+}
+function mouthScreen() {
+  const p = cat.neck.localToWorld(v.set(36, -4, 0));
+  return toScreen(p);
+}
+function dropCarried() {
+  const t = ai.data && ai.data.toy;
+  if (t) toys.post(t, { type: 'release' });
+}
+
+// ---------- per-frame behaviour ----------
 function walkTo(dt, tx, tz, speed) {
   const dx = tx - ai.x, dz = tz - ai.z, dist = Math.hypot(dx, dz);
   if (dist < 3) return true;
@@ -144,25 +275,30 @@ function walkTo(dt, tx, tz, speed) {
   return false;
 }
 function physics(dt) {
+  const prevY = ai.y;
   ai.vy -= 1800 * dt;
   ai.y += ai.vy * dt; ai.x += ai.vx * dt;
-  const [x0, x1] = bounds();
+  const [x0, x1] = screenBounds();
   if (ai.x < x0) { ai.x = x0; ai.vx = Math.abs(ai.vx) * 0.5; }
   if (ai.x > x1) { ai.x = x1; ai.vx = -Math.abs(ai.vx) * 0.5; }
   if (Math.abs(ai.vx) > 40) faceToward(ai.vx, 0);
-  if (ai.y <= 0 && ai.vy < 0) {
-    const force = Math.min(1, -ai.vy / 1400);
-    ai.y = 0; ai.vy = 0; ai.vx = 0;
-    ai.squash = 0.08 + force * 0.25;
-    return force;
-  }
-  return -1;
+  if (ai.vy >= 0) return -1;
+  const s = landingSurface(ai.x, prevY);
+  const ground = s ? s.y : 0;
+  if (ai.y > ground) return -1;
+  const force = Math.min(1, -ai.vy / 1400);
+  ai.y = ground; ai.vy = 0; ai.vx = 0;
+  ai.surface = s;
+  if (s) { ai.z = s.z; ai.x = clamp(ai.x, s.x0, s.x1); }
+  ai.squash = 0.08 + force * 0.25;
+  return force;
 }
 
 function update(dt) {
   ai.t += dt;
   const d = ai.data;
-  cat.gait.amp *= ['walk', 'run', 'chase', 'come', 'held'].includes(ai.mode) ? 1 : Math.exp(-dt * 8);
+  cat.gait.amp *= ['walk', 'run', 'chase', 'come', 'held', 'toyGo', 'carry'].includes(ai.mode) ? 1 : Math.exp(-dt * 8);
+  ai.look = null;
   switch (ai.mode) {
     case 'idle': case 'sit':
       if (ai.t > ai.dur) decide();
@@ -172,10 +308,10 @@ function update(dt) {
       if (ai.t > ai.dur) decide();
       break;
     case 'walk':
-      if (walkTo(dt, d.tx, d.tz, 60)) decide();
+      if (walkTo(dt, d.tx, d.tz, d.speed || 60)) d.then ? d.then() : decide();
       break;
     case 'come':
-      if (walkTo(dt, d.tx, 0, 120)) { go('sit', { dur: 8 }); ai.yawTarget = FRONT; }
+      if (walkTo(dt, d.tx, LANE[0], 120)) { go('sit', { dur: 8 }); ai.yawTarget = FRONT; }
       break;
     case 'run':
       if (walkTo(dt, d.tx, d.tz, 300)) {
@@ -185,7 +321,9 @@ function update(dt) {
       }
       break;
     case 'stretch':
-      if (ai.t > ai.dur) { go('idle', { dur: rand(1, 3) }); faceUser(); }
+      if (ai.t <= ai.dur) break;
+      if (d.after === 'down') jumpDown(decide);
+      else { go('idle', { dur: rand(1, 3) }); faceUser(); }
       break;
     case 'yawn': {
       const k = clamp(ai.t / 1.6, 0, 1);
@@ -197,9 +335,76 @@ function update(dt) {
     case 'sleep':
       if (ai.t > ai.dur) wake(false);
       break;
+    case 'hop': updateHop(dt); break;
+    case 'scratch': {
+      faceToward(1, 0);
+      const w = Math.sin(ai.t * 11);
+      cat.target.legs[0] = 2.0 + 0.4 * w;
+      cat.target.legs[1] = 2.0 - 0.4 * w;
+      if (ai.t - (d.lastSound || -1) > 0.5) { d.lastSound = ai.t; sound.scratch(); }
+      if (ai.t > ai.dur) go('stretch', { dur: 1.2, after: 'down' });
+      break;
+    }
+    case 'pompom': {
+      const p = tree.pomWorld();
+      faceToward(p.x - ai.x, 0);
+      ai.look = { x: p.x, y: p.y, z: p.z };
+      d.next = d.next ?? 0.4;
+      if (ai.t > d.next) {
+        d.next = ai.t + rand(0.5, 1.1);
+        d.swatT = ai.t;
+        // reachable: the ball is roughly at paw height and in front of the cat
+        if (Math.abs(p.x - ai.x) < 55 * S.size && p.y > 50 * S.size && p.y < 120 * S.size) tree.swatPom(Math.sign(p.x - ai.x) || 1);
+      }
+      cat.swat = d.swatT != null && ai.t - d.swatT < 0.35 ? ai.t - d.swatT : 0;
+      if (ai.t > ai.dur) { go('sit', { dur: 4 }); faceUser(); }
+      break;
+    }
+    case 'toyGo': updateToyGo(dt); break;
+    case 'toyBat': updateToyBat(dt); break;
+    case 'grabToy': {
+      const t = d.toy;
+      if (!t.state || t.state.held) { decide(); break; }
+      faceToward(toyWorldX(t) - ai.x, 0);
+      if (ai.t > 0.45 && !d.sent) {
+        d.sent = true;
+        const c = toyScreen(t);
+        toys.post(t, { type: 'grab', x: c.x, y: t.state.t + c.h * 0.22 });
+      }
+      if (ai.t > 0.9) {
+        if (!t.state.carried) { go('sit', { dur: 3 }); faceUser(); break; }
+        const [x0, x1] = screenBounds();
+        const gift = d.intent === 'gift';
+        const tx = gift && cursor ? clamp(cursor.x - W / 2, x0, x1) : clamp(ai.x + (Math.random() < 0.5 ? -1 : 1) * rand(200, 450), x0, x1);
+        go('carry', { toy: t, tx, gift });
+      }
+      break;
+    }
+    case 'carry': {
+      const t = d.toy;
+      if (!t.state || !t.state.carried) { go('sit', { dur: 3 }); faceUser(); break; }
+      const m = mouthScreen();
+      toys.post(t, { type: 'drag', x: m.x, y: m.y });
+      if (walkTo(dt, d.tx, LANE[0], 55) || ai.t > 20) {
+        toys.post(t, { type: 'release' });
+        ai.data.toy = null;
+        if (d.gift) { go('sit', { dur: 6 }); ai.yawTarget = FRONT; say('送俾你 🎁', 4000); sound.chirp(); }
+        else { go('sit', { dur: 4 }); faceUser(); }
+      }
+      break;
+    }
     case 'jump': case 'fall': {
       const landed = physics(dt);
       if (landed < 0) break;
+      if (d.pounce && d.pounce.state) {
+        const t = d.pounce, c = toyScreen(t);
+        if (Math.abs(c.x - W / 2 - ai.x) < c.w * 0.7) {
+          toys.post(t, { type: 'poke', x: c.x, y: t.state.t + 8, dx: 0, dy: 1, power: 5, lift: -2.5 });
+          if (Math.random() < 0.5) say(pick(['捉到喇！😼', '我嘅！🐾']), 2500);
+        }
+        go('toyBat', { toy: t, swats: 2 + Math.floor(rand(0, 2)) });
+        break;
+      }
       if (pending) { go('remind'); ai.yawTarget = FRONT; }
       else if (d.welcome) { go('sit', { dur: 5 }); ai.yawTarget = FRONT; say(`我係${S.name}，今日陪你做嘢 🐾`, 6000); sound.meow(); }
       else if (ai.mode === 'fall' && landed > 0.45) { go('sit', { dur: 3 }); faceUser(); say(pick(OUCH), 3000); }
@@ -212,34 +417,110 @@ function update(dt) {
       ai.yawTarget = FRONT;
       break;
     case 'remind':
-      if (ai.y > 0 || ai.vy > 0) physics(dt);
+      if (ai.y > (ai.surface ? ai.surface.y : 0) || ai.vy > 0) physics(dt);
       ai.yawTarget = FRONT;
       cat.target.tailSpeed = 6; cat.target.tailAmp = 0.3;
       break;
     case 'chase': updateChase(dt); break;
   }
   if (ai.chaseCooldown > 0) ai.chaseCooldown -= dt;
+  if (ai.toyCooldown > 0) ai.toyCooldown -= dt;
   maybeChase();
+  maybeChaseToy();
   maybeChat();
+}
+
+function updateHop(dt) {
+  const d = ai.data, from = d.from, to = d.to;
+  const PREP = 0.2;
+  if (d.T == null) {
+    const dy = to.y - from.y;
+    d.T = 0.42 + Math.abs(dy) / 800 + Math.abs(to.x - from.x) / 1500;
+    d.arc = dy > 0 ? dy * 0.25 + 30 * S.size : 25 * S.size;
+    if (Math.abs(to.x - from.x) > 4) faceToward(to.x - from.x, 0);
+  }
+  if (ai.t < PREP) return; // crouch, then spring
+  if (!d.flying) { d.flying = true; cat.setPose('leap'); }
+  const k = clamp((ai.t - PREP) / d.T, 0, 1);
+  ai.x = from.x + (to.x - from.x) * k;
+  ai.z = from.z + (to.z - from.z) * k;
+  ai.y = from.y + (to.y - from.y) * k + d.arc * 4 * k * (1 - k);
+  if (k < 1) return;
+  ai.surface = d.surface;
+  ai.squash = 0.12;
+  if (pending) { go('remind'); ai.yawTarget = FRONT; return; }
+  d.then ? d.then() : decide();
+}
+
+function updateToyGo(dt) {
+  const d = ai.data, t = d.toy;
+  if (!t.state || t.state.held || t.state.carried || ai.t > 14) { decide(); return; }
+  const gap = d.intent === 'cuddle' ? 8 : d.intent === 'pounce' ? 150 : 30;
+  const spot = besideToy(t, gap);
+  ai.look = { x: spot.tx, y: 30 * S.size, z: ai.z };
+  if (!walkTo(dt, spot.x, LANE[0], d.intent === 'pounce' ? 120 : 80)) return;
+  faceToward(spot.tx - ai.x, 0);
+  if (d.intent === 'bat') go('toyBat', { toy: t, swats: 2 + Math.floor(rand(0, 4)), chases: d.chases });
+  else if (d.intent === 'pounce') {
+    // wiggle the bum, then leap onto it
+    go('toyBat', { toy: t, swats: 0, pounce: true });
+  } else if (d.intent === 'carry' || d.intent === 'gift') go('grabToy', { toy: t, intent: d.intent });
+  else if (d.intent === 'cuddle') { go('sleep', { dur: rand(40, 120) }); faceToward(spot.tx - ai.x, 6); }
+}
+
+function updateToyBat(dt) {
+  const d = ai.data, t = d.toy;
+  if (!t.state || t.state.held || t.state.carried) { decide(); return; }
+  const c = toyScreen(t), tx = c.x - W / 2, side = ai.x <= tx ? -1 : 1;
+  faceToward(-side, 0);
+  ai.look = { x: tx, y: 20 * S.size, z: ai.z };
+  if (d.pounce) {
+    cat.target.tailSpeed = 9;
+    cat.figure.position.x = Math.sin(ai.t * 30) * 1.5; // bum wiggle
+    if (ai.t > 1.1) {
+      cat.figure.position.x = 0;
+      ai.vy = 470; ai.vx = (tx - ai.x) / (2 * 470 / 1800);
+      go('jump', { pounce: t });
+    }
+    return;
+  }
+  // too far now (it rolled away)? go after it
+  if (Math.abs(tx - ai.x) > c.w / 2 + 90 * S.size) {
+    const chases = (d.chases || 0) + 1;
+    if (chases > 3) { go('sit', { dur: 4 }); faceUser(); }
+    else go('toyGo', { toy: t, intent: 'bat', chases });
+    return;
+  }
+  d.next = d.next ?? 0.5;
+  if (ai.t > d.next) {
+    if (d.swats <= 0) { go('sit', { dur: rand(3, 6) }); faceUser(); if (Math.random() < 0.4) say(pick(['好好玩 😸', '再嚟！', '喵嗚～']), 2500); return; }
+    d.swats--;
+    d.next = ai.t + rand(0.6, 1.1);
+    d.swatT = ai.t;
+    d.hit = false;
+  }
+  const since = d.swatT != null ? ai.t - d.swatT : 9;
+  cat.swat = since < 0.35 ? since : 0;
+  if (!d.hit && since > 0.15 && since < 0.35) { d.hit = true; swatToy(t, side); }
 }
 
 // ---------- playing with the mouse ----------
 const cursorWorldX = () => cursor.x - W / 2;
 const cursorNearFloor = () => cursor && cursor.y > H - 240 && cursor.y < H + 20 && cursor.x > 0 && cursor.x < W;
 function maybeChase() {
-  if (pending || drag || ai.chaseCooldown > 0 || !['idle', 'sit', 'walk'].includes(ai.mode)) return;
+  if (pending || drag || !onFloor() || ai.chaseCooldown > 0 || !['idle', 'sit', 'walk'].includes(ai.mode)) return;
   if (!cursorNearFloor() || cursorSpeed < 250 || Math.abs(cursorWorldX() - ai.x) > 500) return;
   if (Math.random() < 0.01) { go('chase', { state: 'run' }); ai.chaseCooldown = 30; }
 }
 function updateChase(dt) {
   const d = ai.data;
   if (!cursorNearFloor() || ai.t > 15) { go('sit', { dur: 4 }); faceUser(); return; }
-  const [x0, x1] = bounds();
+  const [x0, x1] = screenBounds();
   const cx = clamp(cursorWorldX(), x0, x1), side = cx >= ai.x ? 1 : -1;
   const gap = Math.abs(cx - ai.x);
   if (gap > 90 * S.size) {
     if (d.state !== 'run') { cat.setPose('stand'); d.state = 'run'; }
-    walkTo(dt, cx - side * 60 * S.size, 0, 170);
+    walkTo(dt, cx - side * 60 * S.size, LANE[0], 170);
   } else {
     if (d.state !== 'crouch') { cat.setPose('crouch'); d.state = 'crouch'; }
     faceToward(side, 0);
@@ -247,20 +528,34 @@ function updateChase(dt) {
     if (cursorSpeed > 500 && Math.random() < 0.02) { ai.vy = 380; ai.vx = side * 160; go('jump'); }
   }
 }
+// A toy flying past (someone threw it) is hard to ignore.
+function maybeChaseToy() {
+  if (pending || drag || !onFloor() || ai.toyCooldown > 0 || !['idle', 'sit', 'walk', 'groom'].includes(ai.mode)) return;
+  const t = toys.live().find(t => !t.state.held && !t.state.carried && t.state.speed > 450);
+  if (!t) return;
+  ai.toyCooldown = 10;
+  if (Math.random() < 0.5) go('toyGo', { toy: t, intent: 'bat' });
+}
 function maybeChat() {
   if (Date.now() < ai.chatAt) return;
   ai.chatAt = Date.now() + rand(10, 18) * MIN;
   if (S.chatty && !pending && ai.mode !== 'sleep' && bubble.hidden) { say(pick(CHAT), 6000); ai.happy = 1.2; }
 }
 
-// Head follows the mouse when it's close; otherwise glances around now and then.
+// Head follows the mouse when it's close, or whatever the cat is busy with; otherwise glances around.
 function updateGaze(dt, headScreen) {
   let yaw = 0, pitch = 0;
-  const awake = !['sleep', 'held', 'yawn', 'groom', 'stretch'].includes(ai.mode);
-  if (awake && cursor && headScreen && Math.hypot(cursor.x - headScreen.x, cursor.y - headScreen.y) < 450) {
-    const want = FRONT + clamp((cursor.x - headScreen.x) / 450, -1, 1) * 0.9;
+  const awake = !['sleep', 'held', 'yawn', 'groom', 'stretch', 'scratch', 'hop'].includes(ai.mode);
+  const lookAt = (sx, sy, range) => {
+    const want = FRONT + clamp((sx - headScreen.x) / range, -1, 1) * 0.9;
     yaw = clamp(angleDiff(want, ai.yaw), -1.1, 1.1);
-    pitch = -clamp((headScreen.y - cursor.y) / 400, -0.6, 0.6) * 0.5;
+    pitch = -clamp((headScreen.y - sy) / 400, -0.6, 0.6) * 0.5;
+  };
+  if (awake && headScreen && ai.look) {
+    const p = toScreen(v.set(ai.look.x, ai.look.y, ai.look.z));
+    lookAt(p.x, p.y, 200);
+  } else if (awake && cursor && headScreen && Math.hypot(cursor.x - headScreen.x, cursor.y - headScreen.y) < 450) {
+    lookAt(cursor.x, cursor.y, 450);
   } else if (awake && ['idle', 'sit', 'remind'].includes(ai.mode)) {
     const g = ai.glance;
     if ((g.t -= dt) <= 0) { g.t = rand(1.5, 4); g.yaw = rand(-0.6, 0.6); g.pitch = rand(-0.15, 0.1); if (Math.random() < 0.3) cat.twitch = 1; }
@@ -305,14 +600,14 @@ function petCat() {
   if (ai.mode === 'sleep') { wake(true); return; }
   hearts(); sound.purr(); ai.happy = 1.8;
   api.petted();
-  if (['walk', 'run', 'idle'].includes(ai.mode)) { go('sit', { dur: 5 }); ai.yawTarget = FRONT; }
+  if (['walk', 'run', 'idle', 'toyGo'].includes(ai.mode)) { go('sit', { dur: 5 }); ai.yawTarget = FRONT; }
 }
 
-// ---------- reminders from the main process ----------
+// ---------- messages from the main process ----------
 api.on('reminder', r => {
   pending = r;
   if (ai.mode === 'sleep') ai.awakeSince = Date.now();
-  if (ai.mode !== 'held' && ai.mode !== 'fall') { go('remind'); ai.vy = 300; }
+  if (!['held', 'fall', 'hop'].includes(ai.mode)) { go('remind'); ai.vy = 300; }
   ai.yawTarget = FRONT;
   ask(r.text);
   sound.meow(2);
@@ -326,12 +621,15 @@ api.on('reminder-end', r => {
 });
 api.on('say', r => say(r.text, 5000));
 api.on('come-here', () => {
-  const [x0, x1] = bounds();
-  const tx = cursor && cursor.x >= 0 && cursor.x <= W ? clamp(cursorWorldX(), x0, x1) : 0;
   if (ai.mode === 'sleep') ai.awakeSince = Date.now();
-  go('come', { tx });
   say('喵？叫我呀？😺', 3000);
+  const comeOver = () => {
+    const [x0, x1] = screenBounds();
+    go('come', { tx: cursor && cursor.x >= 0 && cursor.x <= W ? clamp(cursorWorldX(), x0, x1) : 0 });
+  };
+  ai.surface && ai.mode !== 'hop' ? jumpDown(comeOver) : comeOver();
 });
+api.on('toy-action', a => toys.action(a));
 api.on('settings', s => applySettings(s));
 $('btnDone').addEventListener('click', () => api.answer(true));
 $('btnLater').addEventListener('click', () => api.answer(false));
@@ -339,11 +637,30 @@ $('btnLater').addEventListener('click', () => api.answer(false));
 function applySettings(s) {
   S = { ...S, ...s };
   cat.setCoat(S.coat);
+  placeTree();
+  toys.set(S.toys || [], Math.round(S.toySize || 100));
+}
+let treeKey = '';
+function placeTree() {
+  const key = `${S.tree}|${W}|${S.size}`;
+  if (key === treeKey) return;
+  treeKey = key;
+  treeOn = S.tree === 'left' || S.tree === 'right';
+  tree.group.visible = treeOn;
+  if (treeOn) {
+    const side = S.tree === 'left' ? -1 : 1;
+    tree.place(side * (W / 2 - 120 * S.size), -60, S.size);
+  }
+  // the tree moved or went away under the cat: drop down to the floor
+  if (ai.surface) {
+    ai.surface = null;
+    if (!['held', 'fall'].includes(ai.mode)) { ai.vy = 0; ai.vx = 0; go('fall'); }
+  }
 }
 
 // ---------- mouse: hover, pet, drag & drop ----------
-// The window ignores the mouse (clicks go to whatever is underneath) except
-// while the pointer is over the cat or its speech bubble.
+// The window ignores the mouse (clicks go to whatever is underneath) except while the
+// pointer is over the cat, its speech bubble, or one of the toys.
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2(), hit = new THREE.Vector3();
 function overCat(x, y) {
@@ -358,17 +675,23 @@ function overBubble(x, y) {
   return x > b.left - 6 && x < b.right + 6 && y > b.top - 6 && y < b.bottom + 12;
 }
 function updateCapture() {
-  const want = !!drag || (cursor && (overCat(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
+  const onCat = !!drag || (cursor && (overCat(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
+  const toy = onCat ? null : toys.hovered();
+  // route the mouse: the cat's canvas, or the toy's own page underneath it
+  canvas.style.pointerEvents = toy ? 'none' : 'auto';
+  for (const t of toys.toys.values()) t.el.style.pointerEvents = t === toy ? 'auto' : 'none';
+  const want = onCat || !!toy;
   if (want !== captured) {
     captured = want;
     api.setThrough(!want);
-    canvas.style.cursor = want ? 'grab' : '';
   }
+  canvas.style.cursor = onCat ? (drag && drag.moved ? 'grabbing' : 'grab') : '';
 }
 let lastCursor = null, lastCursorT = 0;
 setInterval(async () => {
   const c = await api.cursor();
   if (!c) return;
+  toys.cursor(c);
   const now = performance.now();
   if (lastCursor) {
     const moved = Math.hypot(c.x - lastCursor.x, c.y - lastCursor.y);
@@ -392,7 +715,7 @@ function pointerWorld(e) {
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !overCat(e.clientX, e.clientY)) return;
   canvas.setPointerCapture(e.pointerId);
-  drag = { x: e.clientX, y: e.clientY, moved: false, vx: 0, vy: 0, lx: 0, ly: 0, lt: performance.now(), prevMode: ai.mode };
+  drag = { x: e.clientX, y: e.clientY, moved: false, vx: 0, vy: 0, lx: 0, ly: 0, lt: performance.now() };
   const p = pointerWorld(e);
   if (p) { drag.lx = p.x; drag.ly = p.y; }
 });
@@ -401,8 +724,8 @@ canvas.addEventListener('pointermove', e => {
   if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
   if (!drag.moved) {
     drag.moved = true;
-    canvas.style.cursor = 'grabbing';
     if (ai.mode === 'sleep') ai.awakeSince = Date.now();
+    ai.surface = null;
     go('held');
     sound.meow();
   }
@@ -412,7 +735,7 @@ canvas.addEventListener('pointermove', e => {
   drag.vx = drag.vx * 0.5 + ((p.x - drag.lx) / dt) * 0.5;
   drag.vy = drag.vy * 0.5 + ((p.y - drag.ly) / dt) * 0.5;
   drag.lx = p.x; drag.ly = p.y; drag.lt = now;
-  const [x0, x1] = bounds();
+  const [x0, x1] = screenBounds();
   ai.x = clamp(p.x, x0, x1);
   ai.y = Math.max(0, p.y - 62 * S.size);
 });
@@ -420,7 +743,6 @@ function endDrag() {
   if (!drag) return;
   const d = drag;
   drag = null;
-  canvas.style.cursor = 'grab';
   if (!d.moved) { petCat(); return; }
   ai.vx = clamp(d.vx, -900, 900);
   ai.vy = clamp(d.vy, -600, 900);
@@ -457,9 +779,14 @@ function placeOverlays() {
     bubble.style.setProperty('--arrow-x', clamp(anchor.x - left, 20, bw - 20) + 'px');
   }
   if (!zzz.hidden) zzz.style.transform = `translate(${anchor.x + 14}px, ${anchor.y + 6}px)`;
+  // a toy closer to the screen than the cat (or in its mouth) draws in front of it
+  for (const t of toys.toys.values()) {
+    const front = t.state && (t.state.carried || t.state.z > ai.z + 10);
+    t.el.style.zIndex = front ? 3 : 1;
+  }
 }
 
-let last = performance.now(), acc = 0;
+let last = performance.now(), acc = 0, shownOnce = false;
 function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000;
@@ -467,7 +794,7 @@ function frame(now) {
   // Calm moments render at ~30 fps to go easy on laptops.
   acc += raw;
   const calm = ['sleep', 'sit', 'idle', 'groom', 'remind'].includes(ai.mode) && !drag;
-  if (calm && acc < 1 / 30) return;
+  if (acc < (calm ? 1 / 24 : 1 / 40)) return;
   const dt = Math.min(0.05, acc);
   acc = 0;
 
@@ -488,28 +815,42 @@ function frame(now) {
   const sq = ai.squash * Math.cos(ai.t * 25);
   cat.figure.scale.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5);
   cat.update(dt);
+  if (treeOn) tree.update(dt);
 
-  const lift = clamp(ai.y / 500, 0, 0.7);
+  // the shadow sits on whatever is underneath: a tree surface or the floor
+  const below = ai.mode === 'hop' ? (ai.data.surface ? ai.data.surface.y : 0) : (ai.surface ? ai.surface.y : landingSurface(ai.x, ai.y)?.y || 0);
+  const lift = clamp((ai.y - below) / 500, 0, 0.7);
   const ss = 115 * S.size * (1 - lift);
-  shadow.position.set(ai.x + 5 * S.size, 0.5, ai.z);
+  shadow.position.set(ai.x + 5 * S.size, below + 0.6, ai.mode === 'hop' ? ai.z : ai.z);
   shadow.scale.set(ss, ss * 0.55, 1);
   shadow.material.opacity = 1 - lift;
 
   renderer.render(scene, camera);
+  if (!shownOnce) { shownOnce = true; api.ready?.(); }
   measure();
   placeOverlays();
   updateCapture();
+}
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  Object.assign(camera, { left: -W / 2, right: W / 2, top: H - BOTTOM, bottom: -BOTTOM });
+  camera.updateProjectionMatrix();
+  renderer.setSize(W, H, false);
+  placeTree();
+  const [x0, x1] = screenBounds();
+  if (!ai.surface) ai.x = clamp(ai.x, x0, x1);
 }
 
 // ---------- start ----------
 api.getState().then(state => {
   applySettings(state.settings);
   resize();
-  const [x0, x1] = bounds();
-  ai.x = rand(x0, x1) * 0.6;
+  const [x0, x1] = screenBounds();
+  ai.x = rand(x0, x1) * 0.5;
   ai.y = H * 0.55;
   go('fall', { welcome: true });
   requestAnimationFrame(frame);
 });
 addEventListener('resize', resize);
-if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake };
+if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake, tree, toys, climb, approachToy, decide };

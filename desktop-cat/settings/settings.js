@@ -17,6 +17,21 @@ function render(s) {
   $('sound').checked = s.sound;
   $('volume').value = s.volume;
   $('autostart').checked = s.autostart;
+  $('tree').value = s.tree;
+  $('toySize').value = s.toySize;
+  document.querySelectorAll('[data-toy]').forEach(c => { c.checked = s.toys.includes(c.dataset.toy); });
+}
+function buildToyChecks(list) {
+  $('toyChecks').replaceChildren(...list.map(t => {
+    const label = document.createElement('label'), box = document.createElement('input');
+    box.type = 'checkbox'; box.dataset.toy = t.id;
+    box.addEventListener('change', () => {
+      const on = [...document.querySelectorAll('[data-toy]')].filter(c => c.checked).map(c => c.dataset.toy);
+      save({ toys: on });
+    });
+    label.append(box, ' 🧸 ' + t.label);
+    return label;
+  }));
 }
 function renderStats(st) {
   $('stWater').textContent = st.water;
@@ -42,11 +57,13 @@ $('chatty').addEventListener('change', () => save({ chatty: $('chatty').checked 
 $('sound').addEventListener('change', () => save({ sound: $('sound').checked }));
 $('volume').addEventListener('change', () => save({ volume: Number($('volume').value) }));
 $('autostart').addEventListener('change', () => save({ autostart: $('autostart').checked }));
+$('tree').addEventListener('change', () => save({ tree: $('tree').value }));
+$('toySize').addEventListener('change', () => save({ toySize: Number($('toySize').value) }));
 $('btnPause').addEventListener('click', async () => { const s = await api.getState(); api.setPaused(s.timer.running); setTimeout(refresh, 100); });
 $('btnTest').addEventListener('click', () => { api.testReminder(); setTimeout(refresh, 100); });
 $('btnReset').addEventListener('click', async () => renderStats(await api.resetStats()));
 api.on('settings', render);
 api.on('stats', renderStats);
 
-refresh().then(state => render(state.settings));
+refresh().then(state => { buildToyChecks(state.toyList); render(state.settings); });
 setInterval(refresh, 1000);

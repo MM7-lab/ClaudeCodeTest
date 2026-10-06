@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -25,10 +25,19 @@ const THANKS = {
   toilet: () => '歡迎返嚟！我幫你暖住張櫈 🐾',
 };
 const COATS = ['orange', 'grey', 'black', 'white', 'tuxedo'];
+// The plush toys (公仔) from the soft-body toy box; the cat plays with whichever are switched on.
+const TOYS = [
+  { id: 'baby-bear', label: '熊啤啤' },
+  { id: 'plush-octopus', label: '八爪魚' },
+  { id: 'hello-kitty', label: 'Hello Kitty' },
+  { id: 'moomin', label: '姆明' },
+  { id: 'turbo-granny', label: '高速婆婆' },
+];
 const DEFAULTS = {
   name: '麻糬', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: true, volume: 0.6, autostart: false,
+  tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 100,
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -47,7 +56,7 @@ function loadStats() { const s = readJson('stats.json', null); return s && s.dat
 
 let S = DEFAULTS, stats = null;
 const st = { running: true, nextAt: 0, remaining: 0, orderIdx: 0, pending: null, nagAt: 0, nags: 0, away: false };
-let pet = null, settingsWin = null, tray = null, catHidden = false, lastNote = null, tickN = 0;
+let pet = null, settingsWin = null, tray = null, catHidden = false, lastNote = null, tickN = 0, petReady = false;
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
 const preload = path.join(__dirname, 'preload.js');
 
@@ -139,6 +148,9 @@ function cleanPatch(p) {
   if (p.types && typeof p.types === 'object') out.types = { ...S.types, ...Object.fromEntries(Object.keys(TYPES).filter(k => k in p.types).map(k => [k, !!p.types[k]])) };
   for (const k of ['chatty', 'sound', 'autostart']) if (typeof p[k] === 'boolean') out[k] = p[k];
   if (Number.isFinite(p.volume)) out.volume = Math.min(1, Math.max(0, p.volume));
+  if (['right', 'left', 'off'].includes(p.tree)) out.tree = p.tree;
+  if (Array.isArray(p.toys)) out.toys = TOYS.map(t => t.id).filter(id => p.toys.includes(id));
+  if (Number.isFinite(p.toySize)) out.toySize = Math.min(200, Math.max(60, Math.round(p.toySize)));
   return out;
 }
 function applyAutostart() {
@@ -166,12 +178,27 @@ function createPet() {
     backgroundColor: '#00000000', title: '桌面貓貓',
     webPreferences: { preload, autoplayPolicy: 'no-user-gesture-required', backgroundThrottling: false },
   });
-  pet.setAlwaysOnTop(true, 'screen-saver');
+  pet.setAlwaysOnTop(true);
   pet.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   pet.setIgnoreMouseEvents(true, { forward: true });
   pet.loadFile(path.join(__dirname, 'pet', 'index.html'));
-  pet.once('ready-to-show', () => pet.showInactive());
+  // Stay hidden until the cat has drawn a frame, so a failed start can never leave an
+  // invisible or black window covering the screen.
+  petReady = false;
+  setTimeout(() => {
+    if (pet && !petReady) giveUp('貓貓開唔到（3D 顯示冇反應），已經收埋咗。');
+  }, 20000);
+  pet.webContents.on('render-process-gone', () => giveUp('貓貓個畫面停咗，已經收埋咗。'));
   pet.on('closed', () => { pet = null; });
+}
+// Something went wrong with the cat's window: hide it, say so, and don't retry in a loop.
+function giveUp(msg) {
+  if (!pet || pet.isDestroyed()) return;
+  pet.setIgnoreMouseEvents(true);
+  pet.hide();
+  catHidden = true;
+  notify(`${S.name}出咗事 😿`, `${msg}右下角貓貓圖示可以再試或者離開。`);
+  refreshTray();
 }
 function showCat(on) {
   if (!pet) return;
@@ -201,15 +228,40 @@ function notify(title, body) {
 }
 
 // ---------- tray ----------
+function saveAndApply(patch) {
+  S = { ...S, ...cleanPatch(patch) };
+  writeJson('settings.json', S);
+  broadcast('settings', S);
+  refreshTray();
+}
 function menuItems() {
   return [
     { label: st.running ? '暫停提醒' : '繼續提醒', click: () => setPaused(st.running) },
     { label: '即刻提醒一次（試吓）', click: testReminder },
     { label: '叫貓貓過嚟', click: () => { showCat(true); sendPet('come-here'); } },
     { label: catHidden ? '叫貓貓出返嚟' : '收埋貓貓', click: () => showCat(catHidden) },
+    {
+      label: '公仔',
+      submenu: [
+        ...TOYS.map(t => ({
+          label: t.label, type: 'checkbox', checked: S.toys.includes(t.id),
+          click: (item) => saveAndApply({ toys: item.checked ? [...S.toys, t.id] : S.toys.filter(id => id !== t.id) }),
+        })),
+        { type: 'separator' },
+        { label: '全部公仔郁一郁', click: () => sendPet('toy-action', 'wiggle') },
+        { label: '公仔由天跌落嚟', click: () => sendPet('toy-action', 'drop') },
+        { label: '擺返好啲公仔', click: () => sendPet('toy-action', 'reset') },
+      ],
+    },
+    {
+      label: '貓跳臺',
+      submenu: [['right', '放喺右邊'], ['left', '放喺左邊'], ['off', '唔要']].map(([v, label]) => ({
+        label, type: 'radio', checked: S.tree === v, click: () => saveAndApply({ tree: v }),
+      })),
+    },
     { label: '設定…', click: openSettings },
     { type: 'separator' },
-    { label: '離開', click: () => app.quit() },
+    { label: '離開（Ctrl+Alt+Q）', click: () => app.quit() },
   ];
 }
 function refreshTray() {
@@ -233,7 +285,12 @@ ipcMain.handle('cursor', () => {
   return { x: p.x - b.x, y: p.y - b.y };
 });
 ipcMain.on('mouse-through', (_e, on) => { if (pet) pet.setIgnoreMouseEvents(!!on, { forward: true }); });
-ipcMain.handle('get-state', () => ({ settings: S, stats, timer: timerInfo(), status: statusText() }));
+ipcMain.on('pet-ready', () => {
+  if (!pet || petReady) return;
+  petReady = true;
+  if (!catHidden) pet.showInactive();
+});
+ipcMain.handle('get-state', () => ({ settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS }));
 ipcMain.on('reminder-answer', (_e, done) => answer(!!done));
 ipcMain.on('petted', () => { stats.pets++; saveStats(); });
 ipcMain.on('context-menu', () => { if (pet) Menu.buildFromTemplate(menuItems()).popup({ window: pet }); });
@@ -257,8 +314,10 @@ ipcMain.handle('save-settings', (_e, patch) => {
 });
 
 // ---------- app ----------
-// Let WebGL run on older or blocklisted graphics drivers (falls back to software rendering).
-app.commandLine.appendSwitch('ignore-gpu-blocklist');
+// Don't force 3D onto graphics drivers Chromium has blocklisted: those drivers can crash or
+// hang the whole computer. Without 3D the cat says so and stays out of the way.
+// Windows otherwise decides a see-through window is hidden and pauses it, freezing the cat.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -274,6 +333,9 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-metrics-changed', fitPet);
     screen.on('display-added', fitPet);
     screen.on('display-removed', fitPet);
+    // Emergency exit that works even if the mouse is stuck: Ctrl+Alt+Q (Mac: Cmd+Alt+Q).
+    globalShortcut.register('CommandOrControl+Alt+Q', () => app.quit());
+    app.on('child-process-gone', (_e, d) => { if (d.type === 'GPU') giveUp('部電腦嘅顯示卡程序停咗。'); });
     powerMonitor.on('lock-screen', () => { st.away = true; });
     powerMonitor.on('suspend', () => { st.away = true; });
     setInterval(tick, 1000);

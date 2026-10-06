@@ -1,0 +1,2075 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<script>
+// 桌面貓貓 (?embed): the toy lives in an iframe in the cat app's see-through window.
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('embed')) return;
+  const id = q.get('id') || '';
+  let onCursor = null;
+  window.petBridge = {
+    onCursor: (cb) => { onCursor = cb; },
+    setInteractive: (on) => parent.postMessage({ toy: id, type: 'interactive', on }, '*'),
+  };
+  addEventListener('message', (e) => { if (e.source === parent && e.data && e.data.type === 'cursor') onCursor && onCursor(e.data); });
+})();
+</script>
+<title>高速婆婆</title>
+<style>
+  :root {
+    --ink: #2c1d1a;
+    --ink-2: #745a53;
+    --rule: rgba(44, 29, 26, .16);
+    --accent: #c8321f;
+    --paper: #f3e8e2;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif TC", "Noto Serif CJK TC", "Songti TC", "PMingLiU", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block;
+    touch-action: none; outline: none; opacity: 0; transition: opacity .9s ease; -webkit-tap-highlight-color: transparent; }
+  #gl.ready { opacity: 1; }
+  .ui { position: fixed; z-index: 2; pointer-events: none; }
+  .mast { top: max(16px, min(4vh, 40px)); left: max(16px, min(4vw, 48px)); max-width: min(440px, calc(100vw - 32px)); }
+  .kicker { display: flex; align-items: center; gap: .9em; font: 600 10.5px/1.2 var(--sans);
+    letter-spacing: .24em; text-transform: uppercase; color: var(--ink-2); }
+  .kicker::before { content: ""; width: 28px; height: 1px; background: currentColor; opacity: .55; }
+  h1 { font: 400 clamp(42px, 6.6vw, 80px)/.9 var(--serif); letter-spacing: -.025em; margin: .3em 0 .24em; }
+  h1 em { font-style: italic; color: var(--accent); }
+  .dek { margin: 0; max-width: 31ch; font: 400 15px/1.5 var(--serif); color: var(--ink-2); }
+  .meta { top: max(16px, min(4vh, 40px)); right: max(16px, min(4vw, 48px)); text-align: right;
+    font: 500 10.5px/1.85 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+  .meta dl { display: grid; grid-template-columns: auto auto; gap: 0 14px; margin: 0; }
+  .meta dt { opacity: .62; }
+  .meta dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .foot { left: max(16px, min(4vw, 48px)); right: max(16px, min(4vw, 48px)); bottom: max(14px, min(3.5vh, 36px));
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 24px;
+    border-top: 1px solid var(--rule); padding-top: 12px; }
+  .hints { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px;
+    font: 400 12.5px/1.4 var(--sans); color: var(--ink-2); }
+  .hints li { text-shadow: 0 0 10px rgba(243, 232, 226, .95), 0 0 3px rgba(243, 232, 226, .9); }
+  .hints b { font-weight: 600; color: var(--ink); margin-right: .35em; }
+  .actions { display: flex; gap: 6px; pointer-events: auto; flex: none; }
+  .actions button { font: 600 10.5px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--ink);
+    background: rgba(255, 255, 255, .4); border: 1px solid var(--rule); border-radius: 999px; padding: 10px 15px;
+    cursor: pointer; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: background .2s, transform .15s; }
+  .actions button:hover { background: rgba(255, 255, 255, .75); }
+  .actions button:active { transform: scale(.95); }
+  .actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #fallback { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: var(--paper); }
+  #fallback[hidden] { display: none; }
+  /* desktop-pet mode (?pet): a see-through page with only the toy on it */
+  html.pet, html.pet body { background: transparent; }
+  html.pet .ui { display: none; }
+  html.pet #gl { transition: none; }
+  html.pet #fallback { inset: auto 24px 24px auto; max-width: 360px; border-radius: 14px; box-shadow: 0 8px 30px rgba(0, 0, 0, .18); }
+  .fb-card { max-width: 440px; }
+  .fb-card h2 { font: 400 34px/1.05 var(--serif); margin: .3em 0 .4em; }
+  .fb-card h2 em { color: var(--accent); }
+  .fb-card p { font: 400 15px/1.55 var(--serif); color: var(--ink-2); margin: 0; white-space: pre-wrap; }
+  @media (max-width: 680px) {
+    .meta { display: none; }
+    .dek { font-size: 13.5px; max-width: 26ch; }
+    .hints { font-size: 12px; gap: 4px 14px; }
+    .hints li.wide { display: none; }
+    .foot { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" tabindex="0" aria-label="Interactive 3D plush Turbo Granny. Drag her to pull and throw; drag the background to orbit."></canvas>
+
+<header class="ui mast">
+  <div class="kicker">Soft Objects &nbsp;/&nbsp; No. 09 &nbsp;/&nbsp; Turbo Granny</div>
+  <h1>高速<em>婆婆</em></h1>
+  <p class="dek">The granny of the expressway legend, sewn as a plush in lavender knit and red sneakers. Simulated live as a soft body and drawn with WebGPU.</p>
+</header>
+
+<aside class="ui meta" aria-label="Specimen notes">
+  <dl>
+    <dt>Cardigan</dt><dd>Lavender knit</dd>
+    <dt>Hair</dt><dd>Grey yarn bun</dd>
+    <dt>Shoes</dt><dd>Red sneakers</dd>
+    <dt>Top speed</dt><dd>100+ km/h, per legend</dd>
+    <dt>Body</dt><dd id="st-particles">—</dd>
+    <dt>Frame</dt><dd id="st-fps">—</dd>
+  </dl>
+</aside>
+
+<footer class="ui foot">
+  <ul class="hints">
+    <li><b>Drag</b>pull &amp; stretch</li>
+    <li><b>Flick</b>throw</li>
+    <li><b>Tap</b>squish</li>
+    <li class="wide"><b>Press down</b>squash it flat</li>
+    <li><b>Drag space</b>orbit</li>
+    <li class="wide"><b>Scroll / pinch</b>zoom</li>
+  </ul>
+  <nav class="actions" aria-label="Actions">
+    <button id="b-wiggle" type="button">Wiggle</button>
+    <button id="b-drop" type="button">Drop</button>
+    <button id="b-reset" type="button">Reset</button>
+  </nav>
+</footer>
+
+<div id="fallback" hidden>
+  <div class="fb-card">
+    <div class="kicker">Soft Objects &nbsp;/&nbsp; No. 09</div>
+    <h2>高速<em>婆婆</em> needs WebGPU</h2>
+    <p id="fb-msg"></p>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* PHYSICS:BEGIN — soft-body simulation (position-based dynamics + shape matching) */
+
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+// 3x3 row-major helpers
+function m3mul(a, b, o) {
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++)
+    o[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+  return o;
+}
+function m3det(m) {
+  return m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6]);
+}
+function m3inv(m, o) {
+  const d = m3det(m);
+  if (Math.abs(d) < 1e-12) { o.set([1, 0, 0, 0, 1, 0, 0, 0, 1]); return o; }
+  const i = 1 / d;
+  o[0] = (m[4] * m[8] - m[5] * m[7]) * i; o[1] = (m[2] * m[7] - m[1] * m[8]) * i; o[2] = (m[1] * m[5] - m[2] * m[4]) * i;
+  o[3] = (m[5] * m[6] - m[3] * m[8]) * i; o[4] = (m[0] * m[8] - m[2] * m[6]) * i; o[5] = (m[2] * m[3] - m[0] * m[5]) * i;
+  o[6] = (m[3] * m[7] - m[4] * m[6]) * i; o[7] = (m[1] * m[6] - m[0] * m[7]) * i; o[8] = (m[0] * m[4] - m[1] * m[3]) * i;
+  return o;
+}
+function quatToM3(q, o) {
+  const [x, y, z, w] = q;
+  o[0] = 1 - 2 * (y * y + z * z); o[1] = 2 * (x * y - z * w); o[2] = 2 * (x * z + y * w);
+  o[3] = 2 * (x * y + z * w); o[4] = 1 - 2 * (x * x + z * z); o[5] = 2 * (y * z - x * w);
+  o[6] = 2 * (x * z - y * w); o[7] = 2 * (y * z + x * w); o[8] = 1 - 2 * (x * x + y * y);
+  return o;
+}
+function quatMul(a, b) {
+  return [
+    a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+    a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+    a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+    a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+  ];
+}
+function quatAxisAngle(x, y, z, ang) { const s = Math.sin(ang / 2); return [x * s, y * s, z * s, Math.cos(ang / 2)]; }
+// Müller et al. 2016, "A Robust Method to Extract the Rotational Part of Deformations"
+const _R = new Float64Array(9);
+function extractRotation(A, q, iters) {
+  for (let it = 0; it < iters; it++) {
+    quatToM3(q, _R);
+    let ox = 0, oy = 0, oz = 0, dd = 0;
+    for (let c = 0; c < 3; c++) {
+      const rx = _R[c], ry = _R[3 + c], rz = _R[6 + c], ax = A[c], ay = A[3 + c], az = A[6 + c];
+      ox += ry * az - rz * ay; oy += rz * ax - rx * az; oz += rx * ay - ry * ax;
+      dd += rx * ax + ry * ay + rz * az;
+    }
+    const s = 1 / (Math.abs(dd) + 1e-9);
+    ox *= s; oy *= s; oz *= s;
+    const w = Math.hypot(ox, oy, oz);
+    if (w < 1e-9) break;
+    const nq = quatMul(quatAxisAngle(ox / w, oy / w, oz / w, w), q);
+    const l = Math.hypot(nq[0], nq[1], nq[2], nq[3]);
+    q[0] = nq[0] / l; q[1] = nq[1] / l; q[2] = nq[2] / l; q[3] = nq[3] / l;
+  }
+}
+
+// ---- toy dimensions -------------------------------------------------------
+const BODY_N = 56;            // particles on the body shell
+const NT = 4, NS = 10;        // limbs (two arms, two legs) × particles per limb
+// Limb table, in the body frame (+z is the face, +y up). kind 0 = arm, 1 = leg.
+const LIMB = [
+  { kind: 0, side: -1, root: [-0.72, -0.2, 0.02], seg: 0.088 },
+  { kind: 0, side: 1, root: [0.72, -0.2, 0.02], seg: 0.088 },
+  { kind: 1, side: -1, root: [-0.3, -0.55, 0.4], seg: 0.092 },
+  { kind: 1, side: 1, root: [0.3, -0.55, 0.4], seg: 0.092 },
+];
+const NP = BODY_N + NT * NS;
+const ORIGIN = [0, 0.8, 0];   // rest position of the body centre
+const GRAVITY = -17;
+const H = 1 / 600;            // fixed sub-step
+const SM_ALPHA = 0.0036;      // shape-matching pull per sub-step (≈ 5–6 Hz jiggle)
+const SM_BETA = 0.3;          // how much linear (squash/stretch) deformation the goal keeps
+const SHELL_K = 0.02, ROOT_K = 0.08;
+const AIR = 0.25, BODY_DAMP = 0.0065, TENT_DAMP = 0.012;
+const FRICTION = 0.12, WALL = 4.6, FLAT = 0.94;
+const tIndex = (t, k) => BODY_N + t * NS + k;
+// sleeve → mitten hand; stocking → chunky sneaker
+const limbRad = (t, s) => LIMB[t].kind === 0
+  ? 0.118 - 0.014 * s + 0.026 * smooth(0.78, 0.93, s)
+  : 0.13 + 0.004 * s + 0.034 * smooth(0.72, 0.88, s);
+
+const BUN = norm3([0, 0.95, -0.3]);
+function headShape(x, y, z) {
+  const sy = 0.8 + 0.22 * smooth(-0.35, 0.45, y);
+  const hips = 1 + 0.07 * Math.exp(-((y + 0.45) ** 2) / 0.06);   // sits wide on the floor
+  const neck = 1 - 0.055 * Math.exp(-(y ** 2) / 0.012);           // soft seam between head and body
+  const r = hips * neck;
+  // hair bun at the crown, a little towards the back
+  const a = Math.acos(clamp(x * BUN[0] + y * BUN[1] + z * BUN[2], -1, 1));
+  const bun = 0.3 * Math.pow(Math.max(0, 1 - (a / 0.42) ** 2), 0.6);
+  return [x * r + x * bun, y * sy + y * bun, z * 0.94 * r + z * bun];
+}
+
+// Rest heading of a limb at arc parameter s (body frame).
+function limbDir(t, s, time, out) {
+  const L = LIMB[t];
+  let x, y, z;
+  if (L.kind === 0) {
+    // arm: out from the shoulder, then down beside the body, hand resting forward
+    let th = -0.25 - 1.0 * smooth(0.15, 0.7, s);
+    let fw = 0.15 + 0.55 * s;
+    if (time !== null) { th += 0.09 * s * Math.sin(time * 1.3 + t * 2.1); fw += 0.12 * s * Math.sin(time * 0.9 + t); }
+    x = L.side * Math.cos(th) * (1 - 0.45 * s); y = Math.sin(th); z = fw;
+  } else {
+    // leg: down to the floor, straight out in front, toes tipped up
+    let th = -0.8 + 0.8 * smooth(0, 0.45, s) + 0.4 * smooth(0.75, 1, s);
+    let sp = 0.26;
+    if (time !== null) { th += 0.05 * s * Math.sin(time * 1.1 + t * 1.7); sp += 0.06 * s * Math.sin(time * 0.7 + t * 2.3); }
+    x = L.side * sp; y = Math.sin(th); z = Math.cos(th);
+  }
+  const l = Math.hypot(x, y, z);
+  out[0] = x / l; out[1] = y / l; out[2] = z / l;
+  return out;
+}
+
+const P = new Float64Array(NP * 3), PP = new Float64Array(NP * 3), V = new Float64Array(NP * 3);
+const REST = new Float64Array(NP * 3), MASS = new Float64Array(NP), W = new Float64Array(NP), RAD = new Float64Array(NP);
+
+{ // rest shape
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < BODY_N; i++) {
+    const y = 1 - 2 * (i + 0.5) / BODY_N, r = Math.sqrt(1 - y * y), ph = i * golden;
+    REST.set(headShape(Math.cos(ph) * r, y, Math.sin(ph) * r), i * 3);
+    MASS[i] = 0.07; RAD[i] = 0.035;
+  }
+  const d = [0, 0, 0];
+  for (let t = 0; t < NT; t++) {
+    const L = LIMB[t];
+    let p = L.root.slice();
+    for (let k = 0; k < NS; k++) {
+      const s = k / (NS - 1);
+      if (k > 0) {
+        limbDir(t, (k - 0.5) / (NS - 1), null, d);
+        p = [p[0] + d[0] * L.seg, p[1] + d[1] * L.seg, p[2] + d[2] * L.seg];
+      }
+      const i = tIndex(t, k);
+      REST.set(p, i * 3);
+      MASS[i] = L.kind === 0 ? 0.035 : 0.04 + 0.02 * smooth(0.7, 0.9, s); RAD[i] = limbRad(t, s);
+    }
+  }
+  for (let i = 0; i < NP; i++) W[i] = 1 / MASS[i];
+}
+
+// Shape-matching cluster: whole body shell + the first two particles of every limb.
+const CL = [];
+for (let i = 0; i < BODY_N; i++) CL.push(i);
+for (let t = 0; t < NT; t++) CL.push(tIndex(t, 0), tIndex(t, 1));
+const NC = CL.length;
+const CLM = new Float64Array(NC);
+let CLMsum = 0;
+const restCom = [0, 0, 0];
+for (let j = 0; j < NC; j++) {
+  const i = CL[j]; CLM[j] = MASS[i]; CLMsum += MASS[i];
+  for (let a = 0; a < 3; a++) restCom[a] += MASS[i] * REST[i * 3 + a];
+}
+for (let a = 0; a < 3; a++) restCom[a] /= CLMsum;
+const Q = new Float64Array(NC * 3), QS = new Float64Array(NC * 3);
+for (let j = 0; j < NC; j++) for (let a = 0; a < 3; a++) Q[j * 3 + a] = REST[CL[j] * 3 + a] - restCom[a];
+
+// Distance constraints: shell neighbours + limb roots to the shell.
+const conList = [];
+{
+  const seen = new Set();
+  const add = (a, b, k) => {
+    const key = a < b ? a * 4096 + b : b * 4096 + a;
+    if (seen.has(key)) return; seen.add(key);
+    const L = Math.hypot(REST[a * 3] - REST[b * 3], REST[a * 3 + 1] - REST[b * 3 + 1], REST[a * 3 + 2] - REST[b * 3 + 2]);
+    conList.push([a, b, L, k]);
+  };
+  const nearestShell = (i, n) => {
+    const arr = [];
+    for (let j = 0; j < BODY_N; j++) if (j !== i)
+      arr.push([j, (REST[i * 3] - REST[j * 3]) ** 2 + (REST[i * 3 + 1] - REST[j * 3 + 1]) ** 2 + (REST[i * 3 + 2] - REST[j * 3 + 2]) ** 2]);
+    arr.sort((x, y) => x[1] - y[1]);
+    return arr.slice(0, n).map((x) => x[0]);
+  };
+  for (let i = 0; i < BODY_N; i++) for (const j of nearestShell(i, 6)) add(i, j, SHELL_K);
+  for (let t = 0; t < NT; t++) for (const k of [0, 1]) {
+    const i = tIndex(t, k);
+    for (const j of nearestShell(i, 3)) add(i, j, ROOT_K);
+  }
+}
+const NCON = conList.length;
+const CA = new Int32Array(NCON), CB = new Int32Array(NCON), CLEN = new Float64Array(NCON), CK = new Float64Array(NCON);
+conList.forEach((c, n) => { CA[n] = c[0]; CB[n] = c[1]; CLEN[n] = c[2]; CK[n] = c[3]; });
+
+const POSEK = new Float64Array(NT * NS);
+// floppy sleeves; stuffed legs that keep sticking out front with the toes up
+for (let t = 0; t < NT; t++) for (let k = 0; k < NS; k++) {
+  const s = k / (NS - 1);
+  POSEK[t * NS + k] = LIMB[t].kind === 0
+    ? 0.0022 * (1 - s) ** 2 + 0.0006
+    : 0.0034 * (1 - s) ** 2 + 0.0011 + 0.0022 * smooth(0.7, 1, s);
+}
+const SEGREST = new Float64Array(NT * NS * 3);
+
+const SM = {
+  c: [0, 0, 0], q: [0, 0, 0, 1],
+  R: new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+  G: new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+  S: new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+  AqqInv: new Float64Array(9),
+};
+
+const grab = { active: false, core: -1, coreW: 0, items: [], off: [0, 0, 0], kind: '', tent: -1 };
+// Desktop-pet mode swaps the round play mat for the screen: walls at its edges, ceiling at its top.
+const BOX = { on: false, x0: -5, x1: 5, z0: -1, z1: 1, y1: 9 };
+const BOUNCE = 0.45;
+const squash = { v: 0 }; // 0..0.6 — pressing the head flattens its rest shape (volume-preserving)
+
+// Per-frame rest-pose update: breathing, gentle sway, idle limb drift.
+function updateRest(time) {
+  const b = Math.sin(time * 2 * Math.PI / 3.8);
+  const sq = squash.v, bulge = 1 / Math.sqrt(1 - sq);
+  const sc = [(1 + 0.012 * b) * bulge, (1 + 0.026 * b) * (1 - sq), (1 + 0.012 * b) * bulge];
+  const az = 0.03 * Math.sin(time * 0.9), ax = 0.018 * Math.sin(time * 0.63 + 1.0);
+  const cz = Math.cos(az), sz = Math.sin(az), cx = Math.cos(ax), sx = Math.sin(ax);
+  const Rr = [cz, -sz * cx, sz * sx, sz, cz * cx, -cz * sx, 0, sx, cx];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) SM.S[r * 3 + c] = Rr[r * 3 + c] * sc[c];
+  const S = SM.S, Aqq = new Float64Array(9);
+  for (let j = 0; j < NC; j++) {
+    const qx = Q[j * 3], qy = Q[j * 3 + 1], qz = Q[j * 3 + 2];
+    const x = S[0] * qx + S[1] * qy + S[2] * qz, y = S[3] * qx + S[4] * qy + S[5] * qz, z = S[6] * qx + S[7] * qy + S[8] * qz;
+    QS[j * 3] = x; QS[j * 3 + 1] = y; QS[j * 3 + 2] = z;
+    const m = CLM[j];
+    Aqq[0] += m * x * x; Aqq[1] += m * x * y; Aqq[2] += m * x * z;
+    Aqq[3] += m * y * x; Aqq[4] += m * y * y; Aqq[5] += m * y * z;
+    Aqq[6] += m * z * x; Aqq[7] += m * z * y; Aqq[8] += m * z * z;
+  }
+  m3inv(Aqq, SM.AqqInv);
+  const d = [0, 0, 0];
+  for (let t = 0; t < NT; t++) for (let k = 1; k < NS; k++) {
+    limbDir(t, (k - 0.5) / (NS - 1), time, d);
+    const o = (t * NS + k) * 3, sg = LIMB[t].seg;
+    SEGREST[o] = d[0] * sg; SEGREST[o + 1] = d[1] * sg; SEGREST[o + 2] = d[2] * sg;
+  }
+}
+
+const _A = new Float64Array(9), _T = new Float64Array(9), _Ru = new Float64Array(9), _Up = new Float64Array(9);
+function shapeMatch(upright) {
+  let cx = 0, cy = 0, cz = 0;
+  for (let j = 0; j < NC; j++) { const i = CL[j] * 3, m = CLM[j]; cx += m * P[i]; cy += m * P[i + 1]; cz += m * P[i + 2]; }
+  cx /= CLMsum; cy /= CLMsum; cz /= CLMsum;
+  _A.fill(0);
+  for (let j = 0; j < NC; j++) {
+    const i = CL[j] * 3, m = CLM[j];
+    const px = P[i] - cx, py = P[i + 1] - cy, pz = P[i + 2] - cz;
+    const qx = QS[j * 3], qy = QS[j * 3 + 1], qz = QS[j * 3 + 2];
+    _A[0] += m * px * qx; _A[1] += m * px * qy; _A[2] += m * px * qz;
+    _A[3] += m * py * qx; _A[4] += m * py * qy; _A[5] += m * py * qz;
+    _A[6] += m * pz * qx; _A[7] += m * pz * qy; _A[8] += m * pz * qz;
+  }
+  extractRotation(_A, SM.q, 4);
+  quatToM3(SM.q, SM.R);
+  _Ru.set(SM.R);
+  if (upright) {
+    // A weighted bean-bag bottom: nudge the goal orientation back towards upright.
+    const ux = SM.R[1], uy = SM.R[4], uz = SM.R[7];
+    const sn = Math.hypot(ux, uz);
+    if (sn > 1e-5) {
+      const ang = Math.atan2(sn, uy) * 0.004;
+      quatToM3(quatAxisAngle(-uz / sn, 0, ux / sn, ang), _Up);
+      m3mul(_Up, SM.R, _Ru);
+    }
+    if (BOX.on && uy > 0.8) {
+      // desktop pet: slowly turn back to face the viewer once sitting upright
+      const fx = _Ru[2], fz = _Ru[8];
+      const yaw = Math.atan2(fx, fz);
+      if (Math.abs(yaw) > 1e-3) {
+        quatToM3(quatAxisAngle(0, 1, 0, -yaw * 0.003), _Up);
+        _T.set(_Ru); m3mul(_Up, _T, _Ru);
+      }
+    }
+  }
+  m3mul(_A, SM.AqqInv, _T);
+  const det = m3det(_T);
+  const G = SM.G;
+  if (det > 1e-6) {
+    const s = 1 / Math.cbrt(det);
+    for (let n = 0; n < 9; n++) G[n] = SM_BETA * _T[n] * s + (1 - SM_BETA) * _Ru[n];
+  } else G.set(_Ru);
+  for (let j = 0; j < NC; j++) {
+    const i = CL[j];
+    if (W[i] === 0) continue;
+    const qx = QS[j * 3], qy = QS[j * 3 + 1], qz = QS[j * 3 + 2], o = i * 3;
+    const a = j < BODY_N ? SM_ALPHA : SM_ALPHA * 3;
+    P[o] += (cx + G[0] * qx + G[1] * qy + G[2] * qz - P[o]) * a;
+    P[o + 1] += (cy + G[3] * qx + G[4] * qy + G[5] * qz - P[o + 1]) * a;
+    P[o + 2] += (cz + G[6] * qx + G[7] * qy + G[8] * qz - P[o + 2]) * a;
+  }
+  SM.c[0] = cx; SM.c[1] = cy; SM.c[2] = cz;
+}
+
+function solveDist(a, b, L, k) {
+  const ia = a * 3, ib = b * 3;
+  const dx = P[ib] - P[ia], dy = P[ib + 1] - P[ia + 1], dz = P[ib + 2] - P[ia + 2];
+  const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const wa = W[a], wb = W[b], ws = wa + wb;
+  if (d < 1e-9 || ws === 0) return;
+  const c = (d - L) / (d * ws) * k;
+  P[ia] += dx * c * wa; P[ia + 1] += dy * c * wa; P[ia + 2] += dz * c * wa;
+  P[ib] -= dx * c * wb; P[ib + 1] -= dy * c * wb; P[ib + 2] -= dz * c * wb;
+}
+
+function solveLimbs() {
+  const R = SM.R;
+  for (let pass = 0; pass < 2; pass++)
+    for (let t = 0; t < NT; t++) for (let k = 1; k < NS; k++) solveDist(tIndex(t, k - 1), tIndex(t, k), LIMB[t].seg, 1);
+  // Angular "stuffing" spring: each segment wants its rest heading in the body frame.
+  for (let t = 0; t < NT; t++) for (let k = 2; k < NS; k++) {
+    const i = tIndex(t, k), j = tIndex(t, k - 1), o = (t * NS + k) * 3;
+    const wi = W[i], wj = W[j], ws = wi + wj;
+    if (ws === 0) continue;
+    const sx = SEGREST[o], sy = SEGREST[o + 1], sz = SEGREST[o + 2];
+    const dx = P[j * 3] + R[0] * sx + R[1] * sy + R[2] * sz - P[i * 3];
+    const dy = P[j * 3 + 1] + R[3] * sx + R[4] * sy + R[5] * sz - P[i * 3 + 1];
+    const dz = P[j * 3 + 2] + R[6] * sx + R[7] * sy + R[8] * sz - P[i * 3 + 2];
+    const kk = POSEK[t * NS + k] / ws;
+    P[i * 3] += dx * kk * wi; P[i * 3 + 1] += dy * kk * wi; P[i * 3 + 2] += dz * kk * wi;
+    P[j * 3] -= dx * kk * wj; P[j * 3 + 1] -= dy * kk * wj; P[j * 3 + 2] -= dz * kk * wj;
+  }
+}
+
+function bodyOrigin(out) {
+  const R = SM.R, x = -restCom[0], y = -restCom[1], z = -restCom[2];
+  out[0] = SM.c[0] + R[0] * x + R[1] * y + R[2] * z;
+  out[1] = SM.c[1] + R[3] * x + R[4] * y + R[5] * z;
+  out[2] = SM.c[2] + R[6] * x + R[7] * y + R[8] * z;
+  return out;
+}
+
+const _O = [0, 0, 0];
+function collide() {
+  for (let i = 0; i < NP; i++) {
+    const o = i * 3;
+    const r = i < BODY_N ? RAD[i] : RAD[i] * FLAT;
+    if (P[o + 1] < r) {
+      P[o + 1] = r;
+      P[o] -= (P[o] - PP[o]) * FRICTION;
+      P[o + 2] -= (P[o + 2] - PP[o + 2]) * FRICTION;
+    }
+    if (BOX.on) {
+      // clamp to the box and reflect the motion into the previous position, so it bounces
+      if (P[o] < BOX.x0) { const v = P[o] - PP[o]; P[o] = BOX.x0; PP[o] = BOX.x0 + v * BOUNCE; }
+      else if (P[o] > BOX.x1) { const v = P[o] - PP[o]; P[o] = BOX.x1; PP[o] = BOX.x1 + v * BOUNCE; }
+      if (P[o + 2] < BOX.z0) { const v = P[o + 2] - PP[o + 2]; P[o + 2] = BOX.z0; PP[o + 2] = BOX.z0 + v * BOUNCE; }
+      else if (P[o + 2] > BOX.z1) { const v = P[o + 2] - PP[o + 2]; P[o + 2] = BOX.z1; PP[o + 2] = BOX.z1 + v * BOUNCE; }
+      if (P[o + 1] > BOX.y1) { const v = P[o + 1] - PP[o + 1]; P[o + 1] = BOX.y1; PP[o + 1] = BOX.y1 + v * BOUNCE; }
+    } else {
+      if (P[o + 1] > 9) P[o + 1] = 9;
+      const hr = Math.hypot(P[o], P[o + 2]);
+      if (hr > WALL) { const s = WALL / hr; P[o] *= s; P[o + 2] *= s; }
+    }
+  }
+  // limbs vs the body (an egg-shaped ellipsoid in the body frame)
+  const R = SM.R; bodyOrigin(_O);
+  for (let t = 0; t < NT; t++) for (let k = 4; k < NS; k++) {
+    const i = tIndex(t, k), o = i * 3, r = RAD[i];
+    const wx = P[o] - _O[0], wy = P[o + 1] - _O[1], wz = P[o + 2] - _O[2];
+    const lx = R[0] * wx + R[3] * wy + R[6] * wz, ly = R[1] * wx + R[4] * wy + R[7] * wz, lz = R[2] * wx + R[5] * wy + R[8] * wz;
+    const ex = 1.0 + r, ey = (ly > 0 ? 1.05 : 0.8) + r * FLAT, ez = 0.92 + r;
+    const e = (lx / ex) ** 2 + (ly / ey) ** 2 + (lz / ez) ** 2;
+    if (e < 1 && e > 1e-6) {
+      const s = 1 / Math.sqrt(e) - 1;
+      const gx = lx * s, gy = ly * s, gz = lz * s;
+      P[o] += R[0] * gx + R[1] * gy + R[2] * gz;
+      P[o + 1] += R[3] * gx + R[4] * gy + R[5] * gz;
+      P[o + 2] += R[6] * gx + R[7] * gy + R[8] * gz;
+    }
+  }
+  // limb vs limb
+  for (let t1 = 0; t1 < NT; t1++) for (let k1 = 3; k1 < NS; k1++) {
+    const a = tIndex(t1, k1), ao = a * 3;
+    for (let t2 = t1; t2 < NT; t2++) for (let k2 = (t2 === t1 ? k1 + 3 : 3); k2 < NS; k2++) {
+      const b = tIndex(t2, k2), bo = b * 3;
+      const dx = P[bo] - P[ao], dy = P[bo + 1] - P[ao + 1], dz = P[bo + 2] - P[ao + 2];
+      const rr = (RAD[a] + RAD[b]) * 0.9, d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < rr * rr && d2 > 1e-10) {
+        const d = Math.sqrt(d2), wa = W[a], wb = W[b], ws = wa + wb;
+        if (ws === 0) continue;
+        const c = (d - rr) / (d * ws) * 0.5;
+        P[ao] += dx * c * wa; P[ao + 1] += dy * c * wa; P[ao + 2] += dz * c * wa;
+        P[bo] -= dx * c * wb; P[bo + 1] -= dy * c * wb; P[bo + 2] -= dz * c * wb;
+      }
+    }
+  }
+}
+
+// Damp the body's wobble relative to its rigid motion (so throws stay ballistic).
+const _I = new Float64Array(9), _Ii = new Float64Array(9);
+function bodyDamp(k) {
+  let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
+  for (let j = 0; j < NC; j++) {
+    const o = CL[j] * 3, m = CLM[j];
+    M += m; cx += m * P[o]; cy += m * P[o + 1]; cz += m * P[o + 2]; vx += m * V[o]; vy += m * V[o + 1]; vz += m * V[o + 2];
+  }
+  cx /= M; cy /= M; cz /= M; vx /= M; vy /= M; vz /= M;
+  let Lx = 0, Ly = 0, Lz = 0;
+  _I.fill(0);
+  for (let j = 0; j < NC; j++) {
+    const o = CL[j] * 3, m = CLM[j];
+    const rx = P[o] - cx, ry = P[o + 1] - cy, rz = P[o + 2] - cz;
+    const ux = V[o], uy = V[o + 1], uz = V[o + 2];
+    Lx += m * (ry * uz - rz * uy); Ly += m * (rz * ux - rx * uz); Lz += m * (rx * uy - ry * ux);
+    const r2 = rx * rx + ry * ry + rz * rz;
+    _I[0] += m * (r2 - rx * rx); _I[1] -= m * rx * ry; _I[2] -= m * rx * rz;
+    _I[3] -= m * ry * rx; _I[4] += m * (r2 - ry * ry); _I[5] -= m * ry * rz;
+    _I[6] -= m * rz * rx; _I[7] -= m * rz * ry; _I[8] += m * (r2 - rz * rz);
+  }
+  m3inv(_I, _Ii);
+  const wx = _Ii[0] * Lx + _Ii[1] * Ly + _Ii[2] * Lz, wy = _Ii[3] * Lx + _Ii[4] * Ly + _Ii[5] * Lz, wz = _Ii[6] * Lx + _Ii[7] * Ly + _Ii[8] * Lz;
+  for (let j = 0; j < NC; j++) {
+    const i = CL[j], o = i * 3;
+    if (W[i] === 0) continue;
+    const rx = P[o] - cx, ry = P[o + 1] - cy, rz = P[o + 2] - cz;
+    V[o] += (vx + wy * rz - wz * ry - V[o]) * k;
+    V[o + 1] += (vy + wz * rx - wx * rz - V[o + 1]) * k;
+    V[o + 2] += (vz + wx * ry - wy * rx - V[o + 2]) * k;
+  }
+}
+
+function tentDamp(k) {
+  for (let t = 0; t < NT; t++) for (let n = 1; n < NS; n++) {
+    const a = tIndex(t, n - 1) * 3, b = tIndex(t, n) * 3;
+    for (let c = 0; c < 3; c++) { const dv = (V[a + c] - V[b + c]) * k * 0.5; V[b + c] += dv; V[a + c] -= dv; }
+  }
+}
+
+function substep(Tx, Ty, Tz) {
+  const damp = Math.exp(-AIR * H);
+  for (let i = 0; i < NP; i++) {
+    const o = i * 3;
+    V[o + 1] += GRAVITY * H;
+    V[o] *= damp; V[o + 1] *= damp; V[o + 2] *= damp;
+    PP[o] = P[o]; PP[o + 1] = P[o + 1]; PP[o + 2] = P[o + 2];
+    P[o] += V[o] * H; P[o + 1] += V[o + 1] * H; P[o + 2] += V[o + 2] * H;
+  }
+  if (grab.active) {
+    const o = grab.core * 3;
+    P[o] = Tx + grab.off[0]; P[o + 1] = Ty + grab.off[1]; P[o + 2] = Tz + grab.off[2];
+  }
+  shapeMatch(!grab.active && SM.c[1] < 2.2);
+  for (let n = 0; n < NCON; n++) solveDist(CA[n], CB[n], CLEN[n], CK[n]);
+  solveLimbs();
+  if (grab.active) {
+    for (const it of grab.items) {
+      const o = it.i * 3, k = Math.min(1, it.w * 0.035);
+      P[o] += (Tx + it.ox - P[o]) * k; P[o + 1] += (Ty + it.oy - P[o + 1]) * k; P[o + 2] += (Tz + it.oz - P[o + 2]) * k;
+    }
+  }
+  collide();
+  const inv = 1 / H;
+  for (let i = 0; i < NP; i++) {
+    const o = i * 3;
+    let vx = (P[o] - PP[o]) * inv, vy = (P[o + 1] - PP[o + 1]) * inv, vz = (P[o + 2] - PP[o + 2]) * inv;
+    const sp = Math.hypot(vx, vy, vz);
+    if (sp > 30) { const s = 30 / sp; vx *= s; vy *= s; vz *= s; }
+    V[o] = vx; V[o + 1] = vy; V[o + 2] = vz;
+  }
+  bodyDamp(BODY_DAMP);
+  tentDamp(TENT_DAMP);
+}
+
+function resetSim(lift, yaw) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  for (let i = 0; i < NP; i++) {
+    const x = REST[i * 3], y = REST[i * 3 + 1], z = REST[i * 3 + 2];
+    P[i * 3] = ORIGIN[0] + c * x + s * z;
+    P[i * 3 + 1] = ORIGIN[1] + y + lift;
+    P[i * 3 + 2] = ORIGIN[2] - s * x + c * z;
+  }
+  PP.set(P); V.fill(0);
+  SM.q = [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)];
+  quatToM3(SM.q, SM.R); SM.G.set(SM.R);
+  SM.c = [ORIGIN[0] + restCom[0], ORIGIN[1] + restCom[1] + lift, ORIGIN[2] + restCom[2]];
+}
+
+/* PHYSICS:END */
+
+// ---------------------------------------------------------------------------
+// Matrices (column-major, WebGPU clip space z ∈ [0,1])
+function m4mul(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s;
+  }
+  return o;
+}
+function m4persp(fovy, aspect, n, f) {
+  const t = 1 / Math.tan(fovy / 2);
+  return new Float32Array([t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, f / (n - f), -1, 0, 0, n * f / (n - f), 0]);
+}
+function m4ortho(l, r, b, t, n, f) {
+  return new Float32Array([2 / (r - l), 0, 0, 0, 0, 2 / (t - b), 0, 0, 0, 0, 1 / (n - f), 0, (l + r) / (l - r), (t + b) / (b - t), n / (n - f), 1]);
+}
+function m4look(eye, at, up) {
+  const z = norm3(sub3(eye, at)), x = norm3(cross3(up, z)), y = cross3(z, x);
+  return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot3(x, eye), -dot3(y, eye), -dot3(z, eye), 1]);
+}
+
+// ---------------------------------------------------------------------------
+// Procedural geometry
+
+function icosphere(sub) {
+  const t = (1 + Math.sqrt(5)) / 2;
+  const verts = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t],
+    [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(norm3);
+  let faces = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+  for (let s = 0; s < sub; s++) {
+    const cache = new Map(), nf = [];
+    const mid = (a, b) => {
+      const key = a < b ? a * 100000 + b : b * 100000 + a;
+      let m = cache.get(key);
+      if (m === undefined) {
+        const va = verts[a], vb = verts[b];
+        m = verts.length; verts.push(norm3([va[0] + vb[0], va[1] + vb[1], va[2] + vb[2]])); cache.set(key, m);
+      }
+      return m;
+    };
+    for (const [a, b, c] of faces) {
+      const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
+      nf.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+    }
+    faces = nf;
+  }
+  return { verts, faces };
+}
+
+// Head mesh, skinned to the cluster particles.
+const ico = icosphere(4);
+const nvB = ico.verts.length, ntB = ico.faces.length;
+const bodyDir = new Float32Array(nvB * 3), vRel = new Float64Array(nvB * 3), bodyRestPos = new Float64Array(nvB * 3);
+const bodyIdx = new Uint32Array(ntB * 3);
+ico.verts.forEach((d, v) => {
+  bodyDir.set(d, v * 3);
+  const p = headShape(d[0], d[1], d[2]);
+  bodyRestPos.set(p, v * 3);
+  for (let a = 0; a < 3; a++) vRel[v * 3 + a] = p[a] - restCom[a];
+});
+ico.faces.forEach((f, n) => bodyIdx.set(f, n * 3));
+const KW = 12;
+const skinIdx = new Uint16Array(nvB * KW), skinW = new Float32Array(nvB * KW);
+{
+  const g = (d2) => Math.exp(-d2 / (2 * 0.22 * 0.22));
+  const tmp = [];
+  for (let v = 0; v < nvB; v++) {
+    tmp.length = 0;
+    for (let j = 0; j < NC; j++) {
+      const i = CL[j] * 3;
+      tmp.push([j, (bodyRestPos[v * 3] - REST[i]) ** 2 + (bodyRestPos[v * 3 + 1] - REST[i + 1]) ** 2 + (bodyRestPos[v * 3 + 2] - REST[i + 2]) ** 2]);
+    }
+    tmp.sort((a, b) => a[1] - b[1]);
+    const floor = g(tmp[KW][1]); // subtract the first excluded weight → continuous skinning field
+    let sum = 0;
+    for (let n = 0; n < KW; n++) { const w = Math.max(0, g(tmp[n][1]) - floor); skinIdx[v * KW + n] = tmp[n][0]; skinW[v * KW + n] = w; sum += w; }
+    for (let n = 0; n < KW; n++) skinW[v * KW + n] /= (sum || 1);
+  }
+}
+const bodyDyn = new Float32Array(nvB * 6);
+const bodyNrm = new Float32Array(nvB * 3);
+const DISP = new Float64Array(NC * 3);
+
+const EYE_DIRS = [norm3([-0.27, 0.3, 0.915]), norm3([0.27, 0.3, 0.915])];
+const EYE_SCALE = [0.075, 0.085, 0.05], EYE_SINK = 0.018;
+const eyeVert = EYE_DIRS.map((d) => {
+  const p = headShape(d[0], d[1], d[2]);
+  let best = 0, bd = 1e9;
+  for (let v = 0; v < nvB; v++) {
+    const e = (bodyRestPos[v * 3] - p[0]) ** 2 + (bodyRestPos[v * 3 + 1] - p[1]) ** 2 + (bodyRestPos[v * 3 + 2] - p[2]) ** 2;
+    if (e < bd) { bd = e; best = v; }
+  }
+  return best;
+});
+
+let bodyStretch = 0;
+function buildBody() {
+  const G = SM.G, S = SM.S, c = SM.c;
+  const GS = m3mul(G, S, new Float64Array(9));
+  let st = 0;
+  for (let j = 0; j < NC; j++) {
+    const i = CL[j] * 3, qx = QS[j * 3], qy = QS[j * 3 + 1], qz = QS[j * 3 + 2];
+    const dx = P[i] - (c[0] + G[0] * qx + G[1] * qy + G[2] * qz);
+    const dy = P[i + 1] - (c[1] + G[3] * qx + G[4] * qy + G[5] * qz);
+    const dz = P[i + 2] - (c[2] + G[6] * qx + G[7] * qy + G[8] * qz);
+    DISP[j * 3] = dx; DISP[j * 3 + 1] = dy; DISP[j * 3 + 2] = dz;
+    if (j < BODY_N) st += Math.hypot(dx, dy, dz);
+  }
+  bodyStretch = st / BODY_N;
+  for (let v = 0; v < nvB; v++) {
+    const x = vRel[v * 3], y = vRel[v * 3 + 1], z = vRel[v * 3 + 2];
+    let px = c[0] + GS[0] * x + GS[1] * y + GS[2] * z;
+    let py = c[1] + GS[3] * x + GS[4] * y + GS[5] * z;
+    let pz = c[2] + GS[6] * x + GS[7] * y + GS[8] * z;
+    for (let n = 0; n < KW; n++) {
+      const w = skinW[v * KW + n];
+      if (w === 0) continue;
+      const j = skinIdx[v * KW + n] * 3;
+      px += DISP[j] * w; py += DISP[j + 1] * w; pz += DISP[j + 2] * w;
+    }
+    bodyDyn[v * 6] = px; bodyDyn[v * 6 + 1] = py; bodyDyn[v * 6 + 2] = pz;
+  }
+  bodyNrm.fill(0);
+  for (let f = 0; f < ntB; f++) {
+    const a = bodyIdx[f * 3], b = bodyIdx[f * 3 + 1], cc = bodyIdx[f * 3 + 2];
+    const ax = bodyDyn[a * 6], ay = bodyDyn[a * 6 + 1], az = bodyDyn[a * 6 + 2];
+    const e1x = bodyDyn[b * 6] - ax, e1y = bodyDyn[b * 6 + 1] - ay, e1z = bodyDyn[b * 6 + 2] - az;
+    const e2x = bodyDyn[cc * 6] - ax, e2y = bodyDyn[cc * 6 + 1] - ay, e2z = bodyDyn[cc * 6 + 2] - az;
+    const nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+    for (const v of [a, b, cc]) { bodyNrm[v * 3] += nx; bodyNrm[v * 3 + 1] += ny; bodyNrm[v * 3 + 2] += nz; }
+  }
+  for (let v = 0; v < nvB; v++) {
+    const nx = bodyNrm[v * 3], ny = bodyNrm[v * 3 + 1], nz = bodyNrm[v * 3 + 2];
+    const l = 1 / (Math.hypot(nx, ny, nz) || 1);
+    bodyNrm[v * 3] = nx * l; bodyNrm[v * 3 + 1] = ny * l; bodyNrm[v * 3 + 2] = nz * l;
+    bodyDyn[v * 6 + 3] = nx * l; bodyDyn[v * 6 + 4] = ny * l; bodyDyn[v * 6 + 5] = nz * l;
+  }
+}
+
+// Limb tubes: Catmull-Rom through the particle chain, parallel-transport frames, flattened cross-section.
+const SUB = 4, SIDES = 16, CAP = 4;
+const BODY_RINGS = (NS - 1) * SUB + 1;
+const RINGS = BODY_RINGS + CAP;
+const VPR = SIDES + 1, VPT = RINGS * VPR, nvT = NT * VPT;
+const ringS = new Float32Array(RINGS);
+for (let r = 0; r < RINGS; r++) ringS[r] = r < BODY_RINGS ? r / (BODY_RINGS - 1) : 1;
+const tentDyn = new Float32Array(nvT * 6);
+const tentAttr = new Float32Array(nvT * 4);
+const tentIdx = new Uint32Array(NT * (RINGS - 1) * SIDES * 6);
+{
+  let n = 0;
+  for (let t = 0; t < NT; t++) {
+    const base = t * VPT;
+    for (let r = 0; r < RINGS; r++) for (let j = 0; j <= SIDES; j++) {
+      const v = base + r * VPR + j;
+      tentAttr[v * 4] = ringS[r]; tentAttr[v * 4 + 1] = j / SIDES; tentAttr[v * 4 + 2] = t; tentAttr[v * 4 + 3] = limbRad(t, ringS[r]);
+    }
+    for (let r = 0; r < RINGS - 1; r++) for (let j = 0; j < SIDES; j++) {
+      const a = base + r * VPR + j, b = a + 1, c = a + VPR, d = c + 1;
+      tentIdx.set([a, c, b, b, c, d], n); n += 6;
+    }
+  }
+}
+const TA = 0.94, TB = 1.03; // cross-section: very slightly oval
+const _pts = new Float64Array((NS + 2) * 3);
+const ringP = new Float64Array(BODY_RINGS * 3), ringT = new Float64Array(BODY_RINGS * 3), ringR = new Float64Array(BODY_RINGS);
+const segScale = new Float64Array(NS);
+const COS = new Float64Array(SIDES + 1), SIN = new Float64Array(SIDES + 1);
+for (let j = 0; j <= SIDES; j++) { const a = j / SIDES * Math.PI * 2; COS[j] = Math.cos(a); SIN[j] = Math.sin(a); }
+
+function buildLimbs() {
+  const up = [SM.R[1], SM.R[4], SM.R[7]];
+  for (let t = 0; t < NT; t++) {
+    // padded control points
+    for (let k = 0; k < NS; k++) { const o = tIndex(t, k) * 3; _pts[(k + 1) * 3] = P[o]; _pts[(k + 1) * 3 + 1] = P[o + 1]; _pts[(k + 1) * 3 + 2] = P[o + 2]; }
+    for (let a = 0; a < 3; a++) {
+      _pts[a] = 2 * _pts[3 + a] - _pts[6 + a];
+      _pts[(NS + 1) * 3 + a] = 2 * _pts[NS * 3 + a] - _pts[(NS - 1) * 3 + a];
+    }
+    // thinner where stretched, plumper where squashed
+    for (let k = 0; k < NS - 1; k++) {
+      const a = (k + 1) * 3, b = (k + 2) * 3;
+      const L = Math.hypot(_pts[b] - _pts[a], _pts[b + 1] - _pts[a + 1], _pts[b + 2] - _pts[a + 2]) / LIMB[t].seg;
+      segScale[k] = clamp(1 / Math.sqrt(L), 0.72, 1.15);
+    }
+    for (let r = 0; r < BODY_RINGS; r++) {
+      let seg = Math.floor(r / SUB), u = r / SUB - seg;
+      if (seg >= NS - 1) { seg = NS - 2; u = 1; }
+      const p0 = seg * 3, p1 = p0 + 3, p2 = p0 + 6, p3 = p0 + 9;
+      const u2 = u * u, u3 = u2 * u;
+      let tx = 0, ty = 0, tz = 0;
+      for (let a = 0; a < 3; a++) {
+        const A = _pts[p0 + a], B = _pts[p1 + a], C = _pts[p2 + a], D = _pts[p3 + a];
+        ringP[r * 3 + a] = 0.5 * (2 * B + (-A + C) * u + (2 * A - 5 * B + 4 * C - D) * u2 + (-A + 3 * B - 3 * C + D) * u3);
+        const d = 0.5 * ((-A + C) + 2 * (2 * A - 5 * B + 4 * C - D) * u + 3 * (-A + 3 * B - 3 * C + D) * u2);
+        if (a === 0) tx = d; else if (a === 1) ty = d; else tz = d;
+      }
+      const l = Math.hypot(tx, ty, tz) || 1;
+      ringT[r * 3] = tx / l; ringT[r * 3 + 1] = ty / l; ringT[r * 3 + 2] = tz / l;
+      const sA = segScale[Math.max(0, seg - (u < 0.5 ? 1 : 0))], sB = segScale[Math.min(NS - 2, seg + (u < 0.5 ? 0 : 1))];
+      const blend = u < 0.5 ? u + 0.5 : u - 0.5;
+      ringR[r] = limbRad(t, ringS[r]) * (sA + (sB - sA) * blend);
+    }
+    // parallel transport, starting with N = body-up projected
+    let T0 = [ringT[0], ringT[1], ringT[2]];
+    let N = norm3(sub3(up, T0.map((x) => x * dot3(up, T0))));
+    const base = t * VPT;
+    const writeRing = (r, cx, cy, cz, T, Nv, rad, capCos, capSin) => {
+      const B = cross3(T, Nv);
+      for (let j = 0; j <= SIDES; j++) {
+        const cs = COS[j], sn = SIN[j];
+        const ox = (Nv[0] * cs * TA + B[0] * sn * TB) * rad, oy = (Nv[1] * cs * TA + B[1] * sn * TB) * rad, oz = (Nv[2] * cs * TA + B[2] * sn * TB) * rad;
+        let nx = Nv[0] * cs / TA + B[0] * sn / TB, ny = Nv[1] * cs / TA + B[1] * sn / TB, nz = Nv[2] * cs / TA + B[2] * sn / TB;
+        const nl = 1 / (Math.hypot(nx, ny, nz) || 1);
+        nx = nx * nl * capCos + T[0] * capSin; ny = ny * nl * capCos + T[1] * capSin; nz = nz * nl * capCos + T[2] * capSin;
+        const nl2 = 1 / (Math.hypot(nx, ny, nz) || 1);
+        const v = (base + r * VPR + j) * 6;
+        tentDyn[v] = cx + ox; tentDyn[v + 1] = cy + oy; tentDyn[v + 2] = cz + oz;
+        tentDyn[v + 3] = nx * nl2; tentDyn[v + 4] = ny * nl2; tentDyn[v + 5] = nz * nl2;
+      }
+    };
+    let T = T0;
+    for (let r = 0; r < BODY_RINGS; r++) {
+      T = [ringT[r * 3], ringT[r * 3 + 1], ringT[r * 3 + 2]];
+      const d = dot3(N, T);
+      N = norm3([N[0] - T[0] * d, N[1] - T[1] * d, N[2] - T[2] * d]);
+      writeRing(r, ringP[r * 3], ringP[r * 3 + 1], ringP[r * 3 + 2], T, N, ringR[r], 1, 0);
+    }
+    // rounded tip
+    const e = (BODY_RINGS - 1) * 3, rt = ringR[BODY_RINGS - 1];
+    for (let m = 1; m <= CAP; m++) {
+      const ph = m / CAP * Math.PI / 2, cs = Math.cos(ph), sn = Math.sin(ph);
+      writeRing(BODY_RINGS - 1 + m, ringP[e] + T[0] * rt * sn * 0.9, ringP[e + 1] + T[1] * rt * sn * 0.9, ringP[e + 2] + T[2] * rt * sn * 0.9,
+        T, N, rt * cs, cs, sn);
+    }
+  }
+}
+
+// Safety-eye dome
+const eyeMesh = (() => {
+  const RG = 12, SG = 32, pos = [], idx = [];
+  for (let i = 0; i <= RG; i++) {
+    const a = i / RG * Math.PI / 2;
+    for (let j = 0; j <= SG; j++) {
+      const b = j / SG * Math.PI * 2;
+      const x = Math.sin(a) * Math.cos(b), y = Math.sin(a) * Math.sin(b), z = Math.cos(a);
+      pos.push(x, y, z, x, y, z);
+    }
+  }
+  for (let i = 0; i < RG; i++) for (let j = 0; j < SG; j++) {
+    const a = i * (SG + 1) + j, b = a + 1, c = a + SG + 1, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  return { vb: new Float32Array(pos), ib: new Uint32Array(idx) };
+})();
+const eyeU = new Float32Array(64);
+function buildEyes() {
+  const R = SM.R;
+  const right = [R[0], R[3], R[6]];
+  for (let e = 0; e < 2; e++) {
+    const v = eyeVert[e];
+    const n = [bodyNrm[v * 3], bodyNrm[v * 3 + 1], bodyNrm[v * 3 + 2]];
+    const p = [bodyDyn[v * 6] - n[0] * EYE_SINK, bodyDyn[v * 6 + 1] - n[1] * EYE_SINK, bodyDyn[v * 6 + 2] - n[2] * EYE_SINK];
+    const x = norm3(sub3(right, n.map((c) => c * dot3(right, n))));
+    const y = cross3(n, x);
+    const [sx, sy, sz] = EYE_SCALE;
+    eyeU.set([x[0] * sx, x[1] * sx, x[2] * sx, 0, y[0] * sy, y[1] * sy, y[2] * sy, 0, n[0] * sz, n[1] * sz, n[2] * sz, 0, p[0], p[1], p[2], 1], e * 16);
+    eyeU.set([x[0] / sx, x[1] / sx, x[2] / sx, 0, y[0] / sy, y[1] / sy, y[2] / sy, 0, n[0] / sz, n[1] / sz, n[2] / sz, 0, 0, 0, 0, 1], 32 + e * 16);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WGSL
+
+const WGSL_COMMON = /* wgsl */`
+struct Frame {
+  viewProj: mat4x4f,
+  lightVP: mat4x4f,
+  camPos: vec4f,
+  keyDir: vec4f,
+  params: vec4f,   // x surprise, y time, z blush
+  res: vec4f,      // w, h, 1/w, 1/h
+  focus: vec4f,    // xyz camera focus, w sphere count
+  spheres: array<vec4f, 112>,
+};
+struct Eyes { model: array<mat4x4f, 2>, nrm: array<mat4x4f, 2> };
+@group(0) @binding(0) var<uniform> F: Frame;
+@group(0) @binding(3) var<uniform> EY: Eyes;
+`;
+
+const WGSL_SHADOW = WGSL_COMMON + /* wgsl */`
+@vertex fn vs_sh(@location(0) p: vec3f) -> @builtin(position) vec4f {
+  return F.lightVP * vec4f(p, 1.0);
+}
+@vertex fn vs_sh_eye(@location(0) p: vec3f, @builtin(instance_index) ii: u32) -> @builtin(position) vec4f {
+  return F.lightVP * (EY.model[ii] * vec4f(p, 1.0));
+}
+`;
+
+const WGSL_MAIN = WGSL_COMMON + /* wgsl */`
+@group(0) @binding(1) var shadowTex: texture_depth_2d;
+@group(0) @binding(2) var shadowSmp: sampler_comparison;
+
+const PI = 3.14159265;
+const FILL_DIR = vec3f(0.78, 0.28, 0.56);
+const RIM_DIR = vec3f(0.30, 0.50, -0.81);
+const KEY_COL = vec3f(1.0, 0.93, 0.84) * 1.85;
+const FILL_COL = vec3f(0.78, 0.85, 1.0) * 0.42;
+const RIM_COL = vec3f(1.0, 0.9, 0.86) * 1.1;
+const SKY_COL = vec3f(0.66, 0.66, 0.70) * 0.55;
+const GROUND_COL = vec3f(0.66, 0.48, 0.42) * 0.36;
+const SKIN = vec3f(0.92, 0.6, 0.46);
+const HAIR = vec3f(0.27, 0.27, 0.3);
+const KNIT = vec3f(0.42, 0.28, 0.55);
+const LACE = vec3f(0.9, 0.87, 0.82);
+const BUTTON = vec3f(0.86, 0.74, 0.56);
+const STOCKING = vec3f(0.13, 0.085, 0.075);
+const SHOE = vec3f(0.78, 0.05, 0.035);
+const SOLE = vec3f(0.9, 0.88, 0.84);
+const THREAD = vec3f(0.035, 0.012, 0.010);
+const GOLD = vec3f(0.42, 0.25, 0.06);
+const BUN_DIR = vec3f(0.0, 0.95358, -0.30113);
+const FLOOR_ALB = vec3f(0.46, 0.39, 0.355);
+
+fn sq(x: f32) -> f32 { return x * x; }
+
+fn hash13(p0: vec3f) -> f32 {
+  var p = fract(p0 * 0.1031);
+  p += dot(p, p.zyx + 31.32);
+  return fract((p.x + p.y) * p.z);
+}
+fn vnoise(p: vec3f) -> f32 {
+  let i = floor(p);
+  let f = fract(p);
+  let u = f * f * (3.0 - 2.0 * f);
+  let a = hash13(i);
+  let b = hash13(i + vec3f(1.0, 0.0, 0.0));
+  let c = hash13(i + vec3f(0.0, 1.0, 0.0));
+  let d = hash13(i + vec3f(1.0, 1.0, 0.0));
+  let e = hash13(i + vec3f(0.0, 0.0, 1.0));
+  let g = hash13(i + vec3f(1.0, 0.0, 1.0));
+  let h = hash13(i + vec3f(0.0, 1.0, 1.0));
+  let k = hash13(i + vec3f(1.0, 1.0, 1.0));
+  return mix(mix(mix(a, b, u.x), mix(c, d, u.x), u.y), mix(mix(e, g, u.x), mix(h, k, u.x), u.y), u.z);
+}
+fn ign(p: vec2f) -> f32 { return fract(52.9829189 * fract(dot(p, vec2f(0.06711056, 0.00583715)))); }
+
+fn tonemap(cIn: vec3f) -> vec3f {
+  // Khronos PBR Neutral: keeps fabric hues honest in the highlights
+  var c = cIn;
+  let x = min(c.r, min(c.g, c.b));
+  let offset = select(0.04, x - 6.25 * x * x, x < 0.08);
+  c = c - offset;
+  let peak = max(c.r, max(c.g, c.b));
+  let sc = 0.76;
+  if (peak < sc) { return c; }
+  let d = 1.0 - sc;
+  let np = 1.0 - d * d / (peak + d - sc);
+  c = c * (np / peak);
+  let g = 1.0 - 1.0 / (0.15 * (peak - np) + 1.0);
+  return mix(c, vec3f(np), g);
+}
+fn toSRGB(c: vec3f) -> vec3f {
+  let cl = clamp(c, vec3f(0.0), vec3f(1.0));
+  return select(1.055 * pow(cl, vec3f(1.0 / 2.4)) - 0.055, cl * 12.92, cl <= vec3f(0.0031308));
+}
+fn finish(c: vec3f, xy: vec2f) -> vec4f {
+  let t = toSRGB(tonemap(c)) + (ign(xy) - 0.5) / 255.0;
+  return vec4f(t, 1.0);
+}
+fn bgColor(uv: vec2f) -> vec3f {
+  let top = vec3f(0.958, 0.926, 0.905);
+  let bot = vec3f(0.915, 0.858, 0.828);
+  var c = mix(top, bot, smoothstep(0.05, 0.95, uv.y));
+  let v = length((uv - vec2f(0.5, 0.48)) * vec2f(1.0, 0.85));
+  c *= 1.0 - 0.16 * smoothstep(0.35, 1.0, v);
+  return c;
+}
+
+fn shadowAt(P: vec3f, N: vec3f, xy: vec2f, radius: f32) -> f32 {
+  let lp = F.lightVP * vec4f(P + N * 0.02, 1.0);
+  let ndc = lp.xyz / lp.w;
+  let uv = vec2f(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+  let z = ndc.z - 0.0012;
+  let ang = ign(xy) * 6.2831853;
+  let cs = cos(ang);
+  let sn = sin(ang);
+  var sum = 0.0;
+  for (var i = 0; i < 12; i++) {
+    let fi = f32(i);
+    let r = sqrt((fi + 0.5) / 12.0);
+    let t = fi * 2.3999632;
+    let o = vec2f(cos(t), sin(t)) * r;
+    let ro = vec2f(o.x * cs - o.y * sn, o.x * sn + o.y * cs) * radius;
+    sum += textureSampleCompareLevel(shadowTex, shadowSmp, uv + ro, z);
+  }
+  let inside = uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0 && z < 1.0;
+  return select(1.0, sum / 12.0, inside);
+}
+
+fn sphereAO(P: vec3f, N: vec3f) -> f32 {
+  var occ = 1.0;
+  let n = i32(F.focus.w);
+  for (var i = 0; i < n; i++) {
+    let s = F.spheres[i];
+    let d = s.xyz - P;
+    let l2 = max(dot(d, d), 1e-4);
+    let l = sqrt(l2);
+    let o = max(dot(N, d / l), 0.0) * s.w * s.w / l2;
+    occ *= 1.0 - clamp(o, 0.0, 1.0) * 0.8;
+  }
+  return occ;
+}
+
+// Bump from a scalar height field using screen-space derivatives (Mikkelsen 2010).
+fn perturb(P: vec3f, N: vec3f, h: f32) -> vec3f {
+  let dpx = dpdx(P);
+  let dpy = dpdy(P);
+  let dhx = dpdx(h);
+  let dhy = dpdy(h);
+  let r1 = cross(dpy, N);
+  let r2 = cross(N, dpx);
+  let det = dot(dpx, r1);
+  let grad = sign(det) * (dhx * r1 + dhy * r2);
+  let n = abs(det) * N - grad;
+  return select(N, normalize(n), dot(n, n) > 1e-20);
+}
+
+fn charlieD(rough: f32, NoH: f32) -> f32 {
+  let invA = 1.0 / rough;
+  let sin2h = max(1.0 - NoH * NoH, 0.0078125);
+  return (2.0 + invA) * pow(sin2h, invA * 0.5) / (2.0 * PI);
+}
+fn neubeltV(NoV: f32, NoL: f32) -> f32 {
+  return clamp(1.0 / (4.0 * (NoL + NoV - NoL * NoV)), 0.0, 1.0);
+}
+fn ggx(N: vec3f, V: vec3f, L: vec3f, rough: f32) -> f32 {
+  let H = normalize(L + V);
+  let NoH = max(dot(N, H), 0.0);
+  let NoL = max(dot(N, L), 0.0);
+  let NoV = max(dot(N, V), 0.001);
+  let a = rough * rough;
+  let a2 = a * a;
+  let dd = NoH * NoH * (a2 - 1.0) + 1.0;
+  let D = a2 / (PI * dd * dd);
+  let k = a * 0.5;
+  let G = NoL / (NoL * (1.0 - k) + k) * NoV / (NoV * (1.0 - k) + k);
+  return D * G / (4.0 * NoL * NoV + 1e-4) * NoL;
+}
+
+fn fabricLight(L: vec3f, col: vec3f, N: vec3f, V: vec3f, NoV: f32, base: vec3f, sheenCol: vec3f) -> vec3f {
+  let NoL = dot(N, L);
+  let wrap = 0.38;
+  let diff = clamp((NoL + wrap) / (1.0 + wrap), 0.0, 1.0);
+  // light bleeding through fibres/stuffing: the terminator warms up and saturates
+  let tint = mix(vec3f(1.0, 0.48, 0.40), vec3f(1.0), clamp(NoL * 1.6 + 0.25, 0.0, 1.0));
+  let H = normalize(L + V);
+  let NoH = clamp(dot(N, H), 0.0, 1.0);
+  let NoLc = clamp(NoL, 0.0, 1.0);
+  let sheen = sheenCol * charlieD(0.42, NoH) * neubeltV(NoV, NoLc) * NoLc * PI;
+  return col * (base * diff * tint + sheen);
+}
+
+fn shadeFabric(base: vec3f, N: vec3f, V: vec3f, sh: f32, ao: f32, sheenAmt: f32) -> vec3f {
+  let sheenCol = mix(base, vec3f(1.0), 0.55) * 0.75 * sheenAmt;
+  let NoV = max(dot(N, V), 0.001);
+  var c = fabricLight(F.keyDir.xyz, KEY_COL * sh, N, V, NoV, base, sheenCol);
+  c += fabricLight(FILL_DIR, FILL_COL, N, V, NoV, base, sheenCol);
+  c += fabricLight(RIM_DIR, RIM_COL, N, V, NoV, base, sheenCol);
+  c *= mix(1.0, ao, 0.55);
+  let hemi = mix(GROUND_COL, SKY_COL, N.y * 0.5 + 0.5);
+  c += base * hemi * ao;
+  // minky pile catching light at grazing angles
+  c += sheenCol * hemi * pow(1.0 - NoV, 3.0) * 0.9 * ao;
+  return c;
+}
+
+fn softbox(R: vec3f, D: vec3f, size: vec2f) -> f32 {
+  let t = normalize(cross(D, vec3f(0.0, 1.0, 0.0)));
+  let b = cross(t, D);
+  let d = dot(R, D);
+  let p = vec2f(dot(R, t), dot(R, b)) / max(d, 1e-3);
+  let m = (1.0 - smoothstep(size.x * 0.8, size.x, abs(p.x))) * (1.0 - smoothstep(size.y * 0.8, size.y, abs(p.y)));
+  return m * step(0.0, d);
+}
+fn envMap(R: vec3f) -> vec3f {
+  var c = mix(vec3f(0.34, 0.15, 0.11), vec3f(0.82, 0.80, 0.79), smoothstep(-0.25, 0.45, R.y)) * 0.7;
+  c += softbox(R, F.keyDir.xyz, vec2f(0.42, 0.3)) * vec3f(1.0, 0.95, 0.88) * 9.0;
+  c += softbox(R, FILL_DIR, vec2f(0.28, 0.5)) * vec3f(0.85, 0.9, 1.0) * 2.5;
+  c += softbox(R, RIM_DIR, vec2f(0.7, 0.12)) * 4.0;
+  return c;
+}
+
+struct VOut {
+  @builtin(position) clip: vec4f,
+  @location(0) wpos: vec3f,
+  @location(1) nrm: vec3f,
+  @location(2) attr: vec4f,
+};
+
+// ---------------- background
+struct BOut { @builtin(position) clip: vec4f };
+@vertex fn vs_bg(@builtin(vertex_index) i: u32) -> BOut {
+  var q = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+  var o: BOut;
+  o.clip = vec4f(q[i], 0.9999, 1.0);
+  return o;
+}
+@fragment fn fs_bg(in: BOut) -> @location(0) vec4f {
+  let uv = in.clip.xy * F.res.zw;
+  return vec4f(bgColor(uv) + (ign(in.clip.xy) - 0.5) / 255.0, 1.0);
+}
+
+// ---------------- floor
+struct FOut { @builtin(position) clip: vec4f, @location(0) wpos: vec3f };
+@vertex fn vs_floor(@builtin(vertex_index) i: u32) -> FOut {
+  var q = array<vec2f, 6>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, 1.0));
+  let xz = q[i] * 40.0;
+  let p = vec3f(xz.x, 0.0, xz.y);
+  var o: FOut;
+  o.clip = F.viewProj * vec4f(p, 1.0);
+  o.wpos = p;
+  return o;
+}
+@fragment fn fs_floor(in: FOut) -> @location(0) vec4f {
+  let P = in.wpos;
+  let N = vec3f(0.0, 1.0, 0.0);
+  let sh = shadowAt(P, N, in.clip.xy, 0.0075);
+  let ao = sphereAO(P, N);
+  let paper = 0.975 + 0.035 * vnoise(vec3f(P.xz * 2.0, 0.5)) + 0.012 * (vnoise(vec3f(P.xz * 34.0, 1.5)) - 0.5);
+  let alb = FLOOR_ALB * paper;
+  let NoK = max(dot(N, F.keyDir.xyz), 0.0);
+  let c = alb * (KEY_COL * NoK * sh + FILL_COL * FILL_DIR.y + SKY_COL * 1.2) * ao;
+  let lit = finish(c, in.clip.xy).rgb;
+  let fade = smoothstep(3.0, 9.5, length(P.xz - F.focus.xz));
+  return vec4f(mix(lit, bgColor(in.clip.xy * F.res.zw), fade), 1.0);
+}
+
+// floor for desktop-pet mode: only the soft shadow, as premultiplied alpha over the desktop
+@fragment fn fs_floor_pet(in: FOut) -> @location(0) vec4f {
+  let P = in.wpos;
+  let N = vec3f(0.0, 1.0, 0.0);
+  let sh = shadowAt(P, N, in.clip.xy, 0.0075);
+  let ao = sphereAO(P, N);
+  let dark = clamp((1.0 - sh) * 0.3 + (1.0 - ao) * 0.6, 0.0, 0.6);
+  let a = dark * (1.0 - smoothstep(2.0, 4.5, length(P.xz - F.focus.xz)));
+  return vec4f(vec3f(0.06, 0.04, 0.03) * a, a);
+}
+
+// ---------------- head
+@vertex fn vs_body(@location(0) p: vec3f, @location(1) n: vec3f, @location(2) d: vec3f) -> VOut {
+  var o: VOut;
+  o.clip = F.viewProj * vec4f(p, 1.0);
+  o.wpos = p;
+  o.nrm = n;
+  o.attr = vec4f(d, 0.0);
+  return o;
+}
+
+fn wrapPi(a: f32) -> f32 { return a - 6.2831853 * floor((a + PI) / 6.2831853); }
+
+// raised thread profile for a stroke at distance dist (half-width w)
+fn threadH(dist: f32, w: f32) -> f32 {
+  let a = clamp(dist / w, 0.0, 1.0);
+  return sqrt(max(0.0, 1.0 - a * a));
+}
+fn segDist(p: vec2f, a: vec2f, b: vec2f) -> f32 {
+  let pa = p - a;
+  let ba = b - a;
+  let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
+@fragment fn fs_body(in: VOut) -> @location(0) vec4f {
+  let d = normalize(in.attr.xyz);
+  let P = in.wpos;
+  let N0 = normalize(in.nrm);
+  let V = normalize(F.camPos.xyz - P);
+  let surprise = F.params.x;
+  let az = atan2(d.x, d.z);
+  let back = 0.5 - 0.5 * d.z / max(length(d.xz), 1e-3);   // 0 at the face, 1 at the back
+
+  // ---- regions: grey hair (with bun), skin, lace collar, knit cardigan
+  let hl = mix(0.6, -0.02, smoothstep(0.12, 0.85, back)) + 0.022 * sin(az * 11.0) * (1.0 - back);
+  let ew = fwidth(d.y) + 0.004;
+  let hairM = smoothstep(hl - ew, hl + ew, d.y);
+  let neckLine = -0.05 - 0.07 * (1.0 - smoothstep(0.0, 0.5, back));
+  let cardi = 1.0 - smoothstep(neckLine - ew, neckLine + ew, d.y);
+  let collarTop = neckLine + 0.08 + 0.012 * cos(az * 30.0);
+  let collar = (1.0 - smoothstep(collarTop - ew, collarTop + ew, d.y)) * (1.0 - cardi) * (1.0 - smoothstep(0.3, 0.5, back)) * (1.0 - hairM);
+  let hair = hairM * (1.0 - cardi);
+  let skin = (1.0 - hair) * (1.0 - cardi) * (1.0 - collar);
+
+  // ---- face (gnomonic projection of the front)
+  let front = smoothstep(0.2, 0.45, d.z) * skin;
+  let f = d.xy / max(d.z, 0.25);
+  let e1 = vec2f(-0.295, 0.328);
+  let e2 = vec2f(0.295, 0.328);
+  // round embroidered glasses + bridge + temples
+  let gR = 0.13;
+  var dG = min(abs(length(f - e1) - gR), abs(length(f - e2) - gR));
+  let bx = f.x / 0.165;
+  dG = min(dG, select(1.0, abs(f.y - (0.345 + 0.025 * (1.0 - bx * bx))), abs(f.x) < 0.165));
+  dG = min(dG, min(segDist(f, vec2f(-0.425, 0.35), vec2f(-0.7, 0.38)), segDist(f, vec2f(0.425, 0.35), vec2f(0.7, 0.38))));
+  let gW = 0.0085;
+  let glasses = (1.0 - smoothstep(gW * 0.7, gW, dG)) * front;
+  // gentle grey eyebrows above the frames
+  let b1 = f - vec2f(-0.3, 0.51);
+  let b2 = f - vec2f(0.3, 0.51);
+  let dB = min(abs(b1.y + 1.6 * b1.x * b1.x) + max(abs(b1.x) - 0.075, 0.0), abs(b2.y + 1.6 * b2.x * b2.x) + max(abs(b2.x) - 0.075, 0.0));
+  let brow = (1.0 - smoothstep(0.009, 0.013, dB)) * front;
+  // smile that pops into an "o"
+  let mc = f - vec2f(0.0, 0.1);
+  let RA = 0.12;
+  let q = mc - vec2f(0.0, RA);
+  let ang = atan2(q.x, -q.y);
+  let ha = 0.85;
+  let me = vec2f(RA * sin(ha), RA - RA * cos(ha));
+  let dEnd = min(length(mc - me), length(mc - vec2f(-me.x, me.y)));
+  let dArc = select(dEnd, abs(length(q) - RA), abs(ang) < ha);
+  let oc = (mc - vec2f(0.0, 0.03)) / vec2f(0.035, 0.045);
+  let dO = abs(length(oc) - 1.0) * 0.04;
+  let dm = mix(dArc, dO, surprise);
+  let along = select(ang * RA, atan2(oc.y, oc.x) * 0.04, surprise > 0.5);
+  let sw = 0.0115;
+  let mouth = (1.0 - smoothstep(sw * 0.72, sw, dm)) * front;
+  let stitch = 0.5 + 0.5 * sin(along / 0.0065 * 6.2831853 + clamp(dm / sw, 0.0, 1.0) * 1.5);
+  let hThread = 0.0042 * threadH(dm, sw) * (0.75 + 0.25 * stitch) * front + 0.0032 * threadH(dG, gW) * front + 0.0025 * threadH(dB, 0.013) * front;
+  let ck = min(length((f - vec2f(0.47, 0.13)) * vec2f(1.0, 1.25)), length((f - vec2f(-0.47, 0.13)) * vec2f(1.0, 1.25)));
+  let blush = (1.0 - smoothstep(0.02, 0.12, ck)) * front * (0.55 + 0.3 * F.params.z);
+  // fabric gathers around the little safety eyes
+  let E1 = vec3f(-0.27, 0.3, 0.91494);
+  let E2 = vec3f(0.27, 0.3, 0.91494);
+  let de = min(acos(clamp(dot(d, E1), -1.0, 1.0)), acos(clamp(dot(d, E2), -1.0, 1.0)));
+  let pucker = exp(-sq((de - 0.088) / 0.018));
+  let eyeAO = 1.0 - 0.45 * exp(-sq((de - 0.08) / 0.025));
+
+  // ---- hair: combed strands towards the crown, a coiled bun
+  let bc = dot(d, BUN_DIR);
+  let bunM = smoothstep(cos(0.44), cos(0.4), bc);
+  let bt = normalize(cross(BUN_DIR, vec3f(1.0, 0.0, 0.0)));
+  let bb = cross(BUN_DIR, bt);
+  let bang = atan2(dot(d, bt), dot(d, bb));
+  let coil = sin(bang * 6.0 + acos(clamp(bc, -1.0, 1.0)) * 70.0);
+  let strandLod = 1.0 - smoothstep(0.3, 1.0, fwidth(az * 15.0));
+  let strand = sin(az * 95.0 + d.y * 8.0) * strandLod;
+  let hairH = mix(strand, coil, bunM) * 0.0016 * hair;
+  let bunCrease = exp(-sq((acos(clamp(bc, -1.0, 1.0)) - 0.42) / 0.03)) * hair;
+
+  // ---- knit cardigan: stockinette chevrons, front placket, three buttons, ribbed hem
+  let cu = az * 26.0;
+  let cv = d.y * 70.0 + abs(fract(cu) - 0.5) * 1.6;
+  let knitLod = 1.0 - smoothstep(0.3, 1.0, max(fwidth(cu), fwidth(cv)));
+  let knit = (0.5 + 0.5 * sin(cv * 6.2831853)) * (0.6 + 0.4 * cos(cu * 6.2831853)) * knitLod;
+  let hem = 1.0 - smoothstep(-0.74, -0.7, d.y);
+  let rib = (0.5 + 0.5 * cos(az * 80.0)) * knitLod;
+  let placket = exp(-sq((abs(d.x) - 0.045) / 0.01)) * cardi * smoothstep(0.3, 0.6, d.z);
+  var btn = 10.0;
+  btn = min(btn, length(vec2f(d.x, d.y + 0.24)));
+  btn = min(btn, length(vec2f(d.x, d.y + 0.42)));
+  btn = min(btn, length(vec2f(d.x, d.y + 0.6)));
+  let button = (1.0 - smoothstep(0.036, 0.042, btn)) * cardi * smoothstep(0.3, 0.6, d.z);
+  let holes = (1.0 - smoothstep(0.004, 0.007, length(abs(vec2f(d.x, fract((d.y + 0.24) / 0.18 + 0.5) * 0.18 - 0.09)) - vec2f(0.011, 0.011)))) * button;
+  let hKnit = (mix(knit, rib, hem) * 0.0022 - 0.003 * placket) * cardi + button * 0.006 * threadH(btn, 0.042) - holes * 0.002;
+
+  // ---- skin minky fuzz
+  let fz = vnoise(d * 160.0);
+  let lod = 1.0 - smoothstep(0.25, 0.9, length(fwidth(d)) * 160.0);
+  let patchN = vnoise(d * 4.0 + 7.0);
+  let seamNeck = exp(-sq((d.y - neckLine) / 0.01)) * 0.6;
+  let h = (fz - 0.5) * 0.001 * lod * (skin + hair) + hThread + hairH + hKnit - 0.003 * pucker * skin - 0.004 * bunCrease - 0.003 * seamNeck;
+  let N = perturb(P, N0, h);
+
+  var base = SKIN * (0.94 + 0.12 * patchN) * (0.96 + 0.08 * mix(0.5, fz, lod));
+  base = mix(base, vec3f(0.95, 0.36, 0.36), blush * 0.5);
+  base = mix(base, LACE * (0.92 + 0.08 * sin(az * 120.0)), collar);
+  base = mix(base, HAIR * (0.86 + 0.28 * (0.5 + 0.5 * mix(strand, coil, bunM))) * (0.95 + 0.1 * patchN), hair);
+  base = mix(base, KNIT * (0.82 + 0.3 * mix(knit, rib, hem)) * (1.0 - 0.25 * placket), cardi);
+  base = mix(base, BUTTON * (1.0 - 0.6 * holes), button);
+  base = mix(base, vec3f(0.42, 0.42, 0.45), brow);
+  base = mix(base, GOLD, glasses);
+  base = mix(base, THREAD * (0.75 + 0.5 * stitch), mouth);
+  base *= 1.0 - 0.3 * bunCrease;
+
+  let threadAll = max(max(mouth, glasses), brow);
+  let ao = sphereAO(P, N0) * mix(1.0, eyeAO, skin) * (1.0 - 0.25 * bunCrease);
+  let sh = shadowAt(P, N0, in.clip.xy, 0.004);
+  let sheenAmt = mix(mix(1.0, 0.8, hair), 0.55, cardi) * (1.0 - threadAll) * (1.0 - button);
+  var col = shadeFabric(base, N, V, sh, ao, sheenAmt);
+  let gloss = max(threadAll, button);
+  col += vec3f(1.0, 0.95, 0.9) * gloss * (KEY_COL * sh * ggx(N, V, F.keyDir.xyz, 0.32) + RIM_COL * ggx(N, V, RIM_DIR, 0.32)) * 0.06;
+  return finish(col, in.clip.xy);
+}
+
+// ---------------- limbs
+@vertex fn vs_tent(@location(0) p: vec3f, @location(1) n: vec3f, @location(2) a: vec4f) -> VOut {
+  var o: VOut;
+  o.clip = F.viewProj * vec4f(p, 1.0);
+  o.wpos = p;
+  o.nrm = n;
+  o.attr = a;
+  return o;
+}
+@fragment fn fs_tent(in: VOut) -> @location(0) vec4f {
+  let s = in.attr.x;
+  let v = in.attr.y;
+  let tid = in.attr.z;
+  let rs = in.attr.w;
+  let P = in.wpos;
+  let N0 = normalize(in.nrm);
+  let V = normalize(F.camPos.xyz - P);
+  let isLeg = step(1.5, tid);
+  let u = v - 0.5;            // 0 = underside
+  let au = abs(u);
+
+  // arms: knit sleeve, ribbed cuff, mitten hand
+  let cuff = smoothstep(0.7, 0.72, s) * (1.0 - smoothstep(0.8, 0.82, s));
+  let hand = smoothstep(0.81, 0.83, s);
+  // legs: stocking, red sneaker with a white sole, toe cap and laces
+  let shoe = smoothstep(0.72, 0.74, s);
+  let aw = max(fwidth(au), 0.003);
+  let sole = (1.0 - smoothstep(0.2 - aw, 0.2 + aw, au)) * shoe;
+  let toe = smoothstep(0.955, 0.97, s) * (1.0 - smoothstep(0.3 - aw, 0.3 + aw, au)) * shoe;   // white rubber bumper, lower half only
+  let laceZone = smoothstep(0.32, 0.36, au) * smoothstep(0.78, 0.8, s) * (1.0 - smoothstep(0.9, 0.92, s));
+  let laces = (1.0 - smoothstep(0.25, 0.4, abs(fract(s * 60.0) - 0.5) * 2.0)) * laceZone;
+  let shoeEdge = exp(-sq((s - 0.735) / 0.008)) + exp(-sq((au - 0.2) / max(0.012, aw * 1.5))) * shoe;
+
+  let L = select(0.79, 0.83, isLeg > 0.5);
+  let cu = v * 18.0;
+  let cv = s * L * 70.0 + abs(fract(cu) - 0.5) * 1.6;
+  let knitLod = 1.0 - smoothstep(0.3, 1.0, max(fwidth(cu), fwidth(cv)));
+  let knit = (0.5 + 0.5 * sin(cv * 6.2831853)) * (0.6 + 0.4 * cos(cu * 6.2831853)) * knitLod;
+  let rib = (0.5 + 0.5 * cos(v * 6.2831853 * 14.0)) * knitLod;
+
+  let tp = vec3f(s * L * 1.2, cos(v * 6.2831853) * rs, sin(v * 6.2831853) * rs) * 120.0 + vec3f(tid * 17.0);
+  let lod = 1.0 - smoothstep(0.25, 0.9, length(fwidth(tp)));
+  let fz = vnoise(tp);
+  let patchN = vnoise(tp * 0.03 + 5.0);
+
+  var h: f32;
+  var base: vec3f;
+  var sheenAmt: f32;
+  let armH = mix(mix(knit, rib, cuff) * 0.0022, (fz - 0.5) * 0.001 * lod, hand) - 0.003 * exp(-sq((s - 0.815) / 0.008));
+  let legH = mix((fz - 0.5) * 0.0012 * lod, laces * 0.002 + toe * 0.001, shoe) - 0.003 * shoeEdge;
+  h = mix(armH, legH, isLeg);
+  let N = perturb(P, N0, h);
+
+  let armCol = mix(KNIT * (0.82 + 0.3 * mix(knit, rib, cuff)), SKIN * (0.95 + 0.1 * patchN), hand);
+  var legCol = STOCKING * (0.9 + 0.2 * patchN) * (0.95 + 0.1 * fz);
+  legCol = mix(legCol, SHOE * (0.95 + 0.1 * patchN), shoe);
+  legCol = mix(legCol, SOLE, max(sole, toe));
+  legCol = mix(legCol, SOLE, laces);
+  legCol *= 1.0 - 0.3 * shoeEdge;
+  base = mix(armCol, legCol, isLeg);
+  sheenAmt = mix(mix(0.55, 1.0, hand), mix(0.5, 0.35, shoe), isLeg);
+
+  let ao = sphereAO(P, N0);
+  let sh = shadowAt(P, N0, in.clip.xy, 0.004);
+  var col = shadeFabric(base, N, V, sh, ao, sheenAmt);
+  // sneakers are a little glossy
+  col += vec3f(1.0) * shoe * isLeg * (KEY_COL * sh * ggx(N, V, F.keyDir.xyz, 0.38) + RIM_COL * ggx(N, V, RIM_DIR, 0.38)) * 0.04;
+  return finish(col, in.clip.xy);
+}
+
+// ---------------- glossy safety eyes
+struct EOut {
+  @builtin(position) clip: vec4f,
+  @location(0) wpos: vec3f,
+  @location(1) nrm: vec3f,
+  @location(2) lp: vec3f,
+};
+@vertex fn vs_eye(@location(0) p: vec3f, @location(1) n: vec3f, @builtin(instance_index) ii: u32) -> EOut {
+  let w = EY.model[ii] * vec4f(p, 1.0);
+  var o: EOut;
+  o.clip = F.viewProj * w;
+  o.wpos = w.xyz;
+  o.nrm = (EY.nrm[ii] * vec4f(n, 0.0)).xyz;
+  o.lp = p;
+  return o;
+}
+@fragment fn fs_eye(in: EOut) -> @location(0) vec4f {
+  let N = normalize(in.nrm);
+  let V = normalize(F.camPos.xyz - in.wpos);
+  let NoV = max(dot(N, V), 0.001);
+  let rr = length(in.lp.xy);
+  let a = atan2(in.lp.y, in.lp.x);
+  let iris = smoothstep(0.46, 0.56, rr) * (1.0 - smoothstep(0.78, 0.88, rr));
+  let streak = 0.6 + 0.8 * vnoise(vec3f(a * 7.0, rr * 9.0, 0.0));
+  let base = mix(vec3f(0.004, 0.0035, 0.0035), vec3f(0.03, 0.013, 0.008) * streak, iris);
+  let sh = shadowAt(in.wpos, N, in.clip.xy, 0.003);
+  let hemi = mix(GROUND_COL, SKY_COL, N.y * 0.5 + 0.5);
+  var c = base * (KEY_COL * max(dot(N, F.keyDir.xyz), 0.0) * sh + FILL_COL * max(dot(N, FILL_DIR), 0.0) + hemi);
+  let R = reflect(-V, N);
+  let fr = 0.04 + 0.96 * pow(1.0 - NoV, 5.0);
+  c += envMap(R) * fr * mix(0.4, 1.0, sh);
+  c += (KEY_COL * sh * ggx(N, V, F.keyDir.xyz, 0.07) + RIM_COL * ggx(N, V, RIM_DIR, 0.1)) * 0.04;
+  // the fabric hugs the base of the dome
+  c *= mix(0.45, 1.0, smoothstep(0.0, 0.3, in.lp.z));
+  return finish(c, in.clip.xy);
+}
+`;
+
+// ---------------------------------------------------------------------------
+// App
+
+const canvas = document.getElementById('gl');
+// ?pet: the toy alone on a see-through page (used by the desktop app's desktop-pet window)
+const params = new URLSearchParams(location.search);
+const PET = params.has('pet');
+const PET_SIZE = clamp(Number(params.get('size')) || 300, 60, 900); // on-screen height of the toy, CSS px
+if (PET) document.documentElement.classList.add('pet');
+const petBridge = window.petBridge; // provided by the desktop app's preload script, absent on the web
+let petCursor = null;              // latest cursor position from the desktop app, CSS px
+petBridge?.onCursor?.((p) => { petCursor = p; });
+const statParticles = document.getElementById('st-particles');
+const statFps = document.getElementById('st-fps');
+
+function fail(msg) {
+  if (params.has('embed')) { parent.postMessage({ toy: params.get('id'), type: 'failed', msg }, '*'); return; }
+  document.getElementById('fb-msg').textContent = msg;
+  document.getElementById('fallback').hidden = false;
+}
+
+async function main() {
+  if (!('gpu' in navigator)) {
+    fail('This browser does not expose WebGPU. Open the page in a recent Chrome or Edge, Safari 26+, or Firefox with WebGPU enabled — served over https or localhost.');
+    return;
+  }
+  let adapter = null;
+  try { adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); } catch (e) { /* handled below */ }
+  if (!adapter) { fail('WebGPU is present, but no compatible GPU adapter was found. Check that hardware acceleration is enabled.'); return; }
+  const device = await adapter.requestDevice();
+  device.lost.then((info) => { if (info.reason !== 'destroyed') fail('The GPU device was lost (' + info.message + '). Reload to try again.'); });
+  device.addEventListener('uncapturederror', (e) => console.error('WebGPU:', e.error.message));
+
+  const ctx = canvas.getContext('webgpu');
+  const format = navigator.gpu.getPreferredCanvasFormat();
+  ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque' });
+
+  async function compile(code, label) {
+    const m = device.createShaderModule({ code, label });
+    const info = await m.getCompilationInfo();
+    const errs = info.messages.filter((x) => x.type === 'error');
+    if (errs.length) throw new Error(label + ' shader: ' + errs.map((e) => `${e.lineNum}:${e.linePos} ${e.message}`).join('\n'));
+    return m;
+  }
+  const modMain = await compile(WGSL_MAIN, 'main');
+  const modShadow = await compile(WGSL_SHADOW, 'shadow');
+
+  // buffers
+  const mkBuf = (data, usage) => {
+    const b = device.createBuffer({ size: Math.ceil(data.byteLength / 4) * 4, usage: usage | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(b, 0, data);
+    return b;
+  };
+  const U = GPUBufferUsage;
+  const frameU = new Float32Array(500);
+  const frameBuf = device.createBuffer({ size: frameU.byteLength, usage: U.UNIFORM | U.COPY_DST });
+  const eyeBuf = device.createBuffer({ size: eyeU.byteLength, usage: U.UNIFORM | U.COPY_DST });
+  const bodyDynBuf = mkBuf(bodyDyn, U.VERTEX);
+  const bodyDirBuf = mkBuf(bodyDir, U.VERTEX);
+  const bodyIdxBuf = mkBuf(bodyIdx, U.INDEX);
+  const tentDynBuf = mkBuf(tentDyn, U.VERTEX);
+  const tentAttrBuf = mkBuf(tentAttr, U.VERTEX);
+  const tentIdxBuf = mkBuf(tentIdx, U.INDEX);
+  const eyeVB = mkBuf(eyeMesh.vb, U.VERTEX);
+  const eyeIB = mkBuf(eyeMesh.ib, U.INDEX);
+
+  const SHADOW_SIZE = 2048;
+  const shadowTex = device.createTexture({ size: [SHADOW_SIZE, SHADOW_SIZE], format: 'depth32float', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+  const shadowView = shadowTex.createView();
+  const shadowSmp = device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' });
+
+  const S = GPUShaderStage;
+  const bglMain = device.createBindGroupLayout({ entries: [
+    { binding: 0, visibility: S.VERTEX | S.FRAGMENT, buffer: { type: 'uniform' } },
+    { binding: 1, visibility: S.FRAGMENT, texture: { sampleType: 'depth' } },
+    { binding: 2, visibility: S.FRAGMENT, sampler: { type: 'comparison' } },
+    { binding: 3, visibility: S.VERTEX | S.FRAGMENT, buffer: { type: 'uniform' } },
+  ] });
+  const bglShadow = device.createBindGroupLayout({ entries: [
+    { binding: 0, visibility: S.VERTEX, buffer: { type: 'uniform' } },
+    { binding: 3, visibility: S.VERTEX, buffer: { type: 'uniform' } },
+  ] });
+  const bgMain = device.createBindGroup({ layout: bglMain, entries: [
+    { binding: 0, resource: { buffer: frameBuf } },
+    { binding: 1, resource: shadowView },
+    { binding: 2, resource: shadowSmp },
+    { binding: 3, resource: { buffer: eyeBuf } },
+  ] });
+  const bgShadow = device.createBindGroup({ layout: bglShadow, entries: [
+    { binding: 0, resource: { buffer: frameBuf } },
+    { binding: 3, resource: { buffer: eyeBuf } },
+  ] });
+
+  const dynLayout = { arrayStride: 24, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x3' }] };
+  const posOnly = { arrayStride: 24, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] };
+  const dirLayout = { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x3' }] };
+  const attrLayout = { arrayStride: 16, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x4' }] };
+
+  const layoutMain = device.createPipelineLayout({ bindGroupLayouts: [bglMain] });
+  const layoutShadow = device.createPipelineLayout({ bindGroupLayouts: [bglShadow] });
+  const SAMPLES = 4;
+  const mainPipe = (vs, fs, buffers, depthWrite = true, depthCompare = 'less') => device.createRenderPipeline({
+    layout: layoutMain,
+    vertex: { module: modMain, entryPoint: vs, buffers },
+    fragment: { module: modMain, entryPoint: fs, targets: [{ format }] },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth24plus', depthWriteEnabled: depthWrite, depthCompare },
+    multisample: { count: SAMPLES },
+  });
+  const shadowPipe = (vs) => device.createRenderPipeline({
+    layout: layoutShadow,
+    vertex: { module: modShadow, entryPoint: vs, buffers: [posOnly] },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less', depthBias: 2, depthBiasSlopeScale: 2.0, depthBiasClamp: 0.01 },
+  });
+  const pBg = mainPipe('vs_bg', 'fs_bg', [], false, 'always');
+  const pFloor = mainPipe('vs_floor', PET ? 'fs_floor_pet' : 'fs_floor', []);
+  const pBody = mainPipe('vs_body', 'fs_body', [dynLayout, dirLayout]);
+  const pTent = mainPipe('vs_tent', 'fs_tent', [dynLayout, attrLayout]);
+  const pEye = mainPipe('vs_eye', 'fs_eye', [dynLayout]);
+  const pShadow = shadowPipe('vs_sh');
+  const pShadowEye = shadowPipe('vs_sh_eye');
+
+  let msaaTex = null, depthTex = null, msaaView = null, depthView = null;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, params.has('embed') ? 1 : PET ? 1.5 : 2);
+    const max = device.limits.maxTextureDimension2D;
+    const w = Math.max(1, Math.min(max, Math.round(canvas.clientWidth * dpr)));
+    const h = Math.max(1, Math.min(max, Math.round(canvas.clientHeight * dpr)));
+    if (msaaTex && canvas.width === w && canvas.height === h) return;
+    canvas.width = w; canvas.height = h;
+    msaaTex?.destroy(); depthTex?.destroy();
+    msaaTex = device.createTexture({ size: [w, h], format, sampleCount: SAMPLES, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    depthTex = device.createTexture({ size: [w, h], format: 'depth24plus', sampleCount: SAMPLES, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    msaaView = msaaTex.createView(); depthView = depthTex.createView();
+  }
+
+  // ---------------- camera
+  const FOVY = 32 * Math.PI / 180;
+  const KEY_DIR = norm3([-0.55, 0.78, 0.42]);
+  const cam = { yaw: 0.3, pitch: 0.3, dist: 5.6, yawT: 0.3, pitchT: 0.3, distT: 5.6, focus: [0, 0.72, 0], eye: [0, 0, 0], aspect: 1, fovy: FOVY };
+  const YAW_LIM = 1.3, PITCH_MIN = 0.06, PITCH_MAX = 1.05, DIST_MIN = 3.4, DIST_MAX = 9.0;
+  function petCamera() {
+    const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+    const unitsPerPx = 1.9 / PET_SIZE;               // the toys are about 1.9 units tall
+    const visH = h * unitsPerPx, visW = w * unitsPerPx;
+    cam.fovy = 18 * Math.PI / 180;
+    cam.aspect = canvas.width / canvas.height;
+    const dist = (visH / 2) / Math.tan(cam.fovy / 2), pitch = 0.1;
+    cam.focus = [0, visH / 2 - (params.has('floor') ? Number(params.get('floor')) * unitsPerPx : 0.4), 0];               // floor sits a little above the screen bottom
+    cam.eye = [0, cam.focus[1] + dist * Math.sin(pitch), dist * Math.cos(pitch)];
+    BOX.on = true;
+    BOX.x0 = -visW / 2 + 0.08; BOX.x1 = visW / 2 - 0.08; BOX.z0 = -2.2; BOX.z1 = 2.2; BOX.y1 = visH - 0.1;
+  }
+  function updateCamera(dt) {
+    if (PET) { petCamera(); return; }
+    const k = 1 - Math.exp(-dt * 9);
+    cam.yaw += (cam.yawT - cam.yaw) * k;
+    cam.pitch += (cam.pitchT - cam.pitch) * k;
+    cam.dist += (cam.distT - cam.dist) * k;
+    const o = bodyOrigin([0, 0, 0]);
+    const tx = clamp(o[0] * 0.55, -2.5, 2.5), tz = clamp(o[2] * 0.55, -2.5, 2.5), ty = 0.72 + clamp((o[1] - ORIGIN[1]) * 0.35, -0.2, 1.2);
+    const kf = 1 - Math.exp(-dt * 2.5);
+    cam.focus[0] += (tx - cam.focus[0]) * kf; cam.focus[1] += (ty - cam.focus[1]) * kf; cam.focus[2] += (tz - cam.focus[2]) * kf;
+    cam.aspect = canvas.width / canvas.height;
+    // narrow screens: widen the lens a little and step back so her arms and sneakers stay in frame
+    const narrow = cam.aspect < 1 ? 1 / cam.aspect : 1;
+    cam.fovy = FOVY * Math.pow(narrow, 0.3);
+    const portrait = Math.pow(narrow, 0.95);
+    const dist = cam.dist * portrait;
+    const cp = Math.cos(cam.pitch);
+    cam.eye = [cam.focus[0] + dist * cp * Math.sin(cam.yaw), cam.focus[1] + dist * Math.sin(cam.pitch), cam.focus[2] + dist * cp * Math.cos(cam.yaw)];
+  }
+  function screenRay(cx, cy) {
+    const rect = canvas.getBoundingClientRect();
+    const nx = ((cx - rect.left) / rect.width) * 2 - 1, ny = 1 - ((cy - rect.top) / rect.height) * 2;
+    const f = norm3(sub3(cam.focus, cam.eye)), r = norm3(cross3(f, [0, 1, 0])), u = cross3(r, f);
+    const th = Math.tan(cam.fovy / 2);
+    const d = norm3([0, 1, 2].map((a) => f[a] + r[a] * nx * th * cam.aspect + u[a] * ny * th));
+    return { o: cam.eye.slice(), d, f };
+  }
+
+  // ---------------- picking
+  function rayTri(o, d, A, ia, ib, ic) {
+    const e1x = A[ib] - A[ia], e1y = A[ib + 1] - A[ia + 1], e1z = A[ib + 2] - A[ia + 2];
+    const e2x = A[ic] - A[ia], e2y = A[ic + 1] - A[ia + 1], e2z = A[ic + 2] - A[ia + 2];
+    const px = d[1] * e2z - d[2] * e2y, py = d[2] * e2x - d[0] * e2z, pz = d[0] * e2y - d[1] * e2x;
+    const det = e1x * px + e1y * py + e1z * pz;
+    if (Math.abs(det) < 1e-10) return Infinity;
+    const inv = 1 / det, tx = o[0] - A[ia], ty = o[1] - A[ia + 1], tz = o[2] - A[ia + 2];
+    const u = (tx * px + ty * py + tz * pz) * inv;
+    if (u < 0 || u > 1) return Infinity;
+    const qx = ty * e1z - tz * e1y, qy = tz * e1x - tx * e1z, qz = tx * e1y - ty * e1x;
+    const v = (d[0] * qx + d[1] * qy + d[2] * qz) * inv;
+    if (v < 0 || u + v > 1) return Infinity;
+    const t = (e2x * qx + e2y * qy + e2z * qz) * inv;
+    return t > 1e-4 ? t : Infinity;
+  }
+  function pick(cx, cy) {
+    const { o, d, f } = screenRay(cx, cy);
+    let best = Infinity, hit = null;
+    for (let n = 0; n < ntB; n++) {
+      const t = rayTri(o, d, bodyDyn, bodyIdx[n * 3] * 6, bodyIdx[n * 3 + 1] * 6, bodyIdx[n * 3 + 2] * 6);
+      if (t < best) { best = t; hit = { kind: 'body' }; }
+    }
+    const ntT = tentIdx.length / 3;
+    for (let n = 0; n < ntT; n++) {
+      const t = rayTri(o, d, tentDyn, tentIdx[n * 3] * 6, tentIdx[n * 3 + 1] * 6, tentIdx[n * 3 + 2] * 6);
+      if (t < best) {
+        best = t;
+        const vi = tentIdx[n * 3];
+        hit = { kind: 'tent', tent: Math.floor(vi / VPT), s: ringS[Math.floor((vi % VPT) / VPR)] };
+      }
+    }
+    if (!hit) return null;
+    hit.point = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
+    hit.planeN = f;
+    return hit;
+  }
+
+  // Forgiving hit test for the desktop pet, in screen space: the body as overlapping discs around its
+  // shell (so it follows squash and stretch) plus every limb particle, with a few pixels of slack.
+  let lastVP = null;
+  function projectParticle(i, out) {
+    const m = lastVP, x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
+    const cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+    const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+    out[0] = (cx / cw * 0.5 + 0.5) * canvas.clientWidth;
+    out[1] = (0.5 - cy / cw * 0.5) * canvas.clientHeight;
+    out[2] = canvas.clientHeight / (2 * cw * Math.tan(cam.fovy / 2)); // px per world unit at that depth
+    return out;
+  }
+  const _pp = [0, 0, 0];
+  function nearestParticle(cx, cy, slackPx) {
+    if (!lastVP) return -1;
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < NP; i++) {
+      projectParticle(i, _pp);
+      const r = (i < BODY_N ? 0.36 : RAD[i] + 0.05) * _pp[2] + slackPx;
+      const d = Math.hypot(_pp[0] - cx, _pp[1] - cy);
+      if (d < r && d - r < bestD) { bestD = d - r; best = i; }
+    }
+    return best;
+  }
+  function hitTest(cx, cy) { return nearestParticle(cx, cy, 6) >= 0; }
+  // exact mesh pick first; on the pet, fall back to the nearest part within the forgiving area
+  function pickLoose(cx, cy) {
+    const hit = pick(cx, cy);
+    if (hit || !PET) return hit;
+    const i = nearestParticle(cx, cy, 6);
+    if (i < 0) return null;
+    const point = [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]];
+    const planeN = norm3(sub3(cam.focus, cam.eye));
+    if (i < BODY_N) return { kind: 'body', point, planeN };
+    const t = Math.floor((i - BODY_N) / NS), k = (i - BODY_N) % NS;
+    return { kind: 'tent', tent: t, s: k / (NS - 1), point, planeN };
+  }
+
+  // ---------------- interaction
+  const pointers = new Map();
+  let mode = null, gesture = null, hover = null, hoverDirty = false;
+  const dragT = [0, 0, 0], dragPrev = [0, 0, 0];
+  let surprise = 0, poke = 0;
+
+  function startGrab(hit, id, x, y) {
+    const pt = hit.point;
+    const dist2 = (i) => (P[i * 3] - pt[0]) ** 2 + (P[i * 3 + 1] - pt[1]) ** 2 + (P[i * 3 + 2] - pt[2]) ** 2;
+    grab.items = [];
+    if (hit.kind === 'body') {
+      let core = 0, bd = 1e9;
+      for (let i = 0; i < BODY_N; i++) { const e = dist2(i); if (e < bd) { bd = e; core = i; } }
+      grab.core = core;
+      for (const i of CL) {
+        if (i === core) continue;
+        const e = dist2(i);
+        if (e < 0.5 * 0.5) grab.items.push({ i, w: Math.exp(-e / 0.07) });
+      }
+    } else {
+      const k = clamp(Math.round(hit.s * (NS - 1)), 2, NS - 1);
+      grab.core = tIndex(hit.tent, k);
+      for (const [dk, w] of [[-2, 0.25], [-1, 0.6], [1, 0.6], [2, 0.25]]) {
+        const kk = k + dk;
+        if (kk >= 2 && kk < NS) grab.items.push({ i: tIndex(hit.tent, kk), w });
+      }
+    }
+    for (const it of grab.items) { it.ox = P[it.i * 3] - pt[0]; it.oy = P[it.i * 3 + 1] - pt[1]; it.oz = P[it.i * 3 + 2] - pt[2]; }
+    const c = grab.core * 3;
+    grab.off = [P[c] - pt[0], P[c + 1] - pt[1], P[c + 2] - pt[2]];
+    grab.coreW = W[grab.core]; W[grab.core] = 0;
+    grab.kind = hit.kind; grab.tent = hit.tent ?? -1; grab.active = true;
+    dragT[0] = dragPrev[0] = pt[0]; dragT[1] = dragPrev[1] = pt[1]; dragT[2] = dragPrev[2] = pt[2];
+    gesture = { id, x, y, sx: x, sy: y, t0: performance.now(), moved: 0, hit, plane: { p: pt.slice(), n: hit.planeN } };
+    mode = 'grab';
+    canvas.style.cursor = 'grabbing';
+  }
+
+  function releaseGrab() {
+    if (!grab.active) return;
+    W[grab.core] = grab.coreW;
+    // a little extra follow-through so flicks feel like throws
+    const c = grab.core * 3;
+    let vx = V[c], vy = V[c + 1], vz = V[c + 2];
+    const sp = Math.hypot(vx, vy, vz);
+    if (sp > 14) { vx *= 14 / sp; vy *= 14 / sp; vz *= 14 / sp; }
+    if (sp > 2.5) {
+      let ax = 0, ay = 0, az = 0;
+      for (let i = 0; i < NP; i++) { ax += V[i * 3]; ay += V[i * 3 + 1]; az += V[i * 3 + 2]; }
+      ax /= NP; ay /= NP; az /= NP;
+      const k = grab.kind === 'body' ? 0.4 : 0.25;
+      for (let i = 0; i < NP; i++) { V[i * 3] += (vx - ax) * k; V[i * 3 + 1] += (vy - ay) * k; V[i * 3 + 2] += (vz - az) * k; }
+    }
+    grab.active = false; grab.items = [];
+  }
+
+  function boop(hit) {
+    const pt = hit.point;
+    poke = 1;
+    if (hit.kind === 'body') {
+      const O = bodyOrigin([0, 0, 0]);
+      for (const i of CL) {
+        const o = i * 3, e = (P[o] - pt[0]) ** 2 + (P[o + 1] - pt[1]) ** 2 + (P[o + 2] - pt[2]) ** 2;
+        if (e > 0.6 * 0.6) continue;
+        const w = Math.exp(-e / 0.09);
+        const n = norm3([P[o] - O[0], P[o + 1] - O[1], P[o + 2] - O[2]]);
+        V[o] -= n[0] * 3.4 * w; V[o + 1] -= n[1] * 3.4 * w; V[o + 2] -= n[2] * 3.4 * w;
+      }
+    } else {
+      const k0 = hit.s * (NS - 1);
+      for (let k = 2; k < NS; k++) {
+        const w = Math.exp(-((k - k0) ** 2) / 6), o = tIndex(hit.tent, k) * 3;
+        V[o + 1] += 4.2 * w;
+      }
+    }
+  }
+
+  function dragTargetFrom(x, y) {
+    const { o, d } = screenRay(x, y);
+    const pl = gesture.plane;
+    const den = dot3(d, pl.n);
+    if (Math.abs(den) < 1e-5) return;
+    const t = dot3(sub3(pl.p, o), pl.n) / den;
+    if (t <= 0) return;
+    let px = o[0] + d[0] * t, py = o[1] + d[1] * t, pz = o[2] + d[2] * t;
+    if (BOX.on) {
+      px = clamp(px, BOX.x0 + 0.3, BOX.x1 - 0.3); py = clamp(py, -0.5, BOX.y1 - 0.3); pz = clamp(pz, BOX.z0, BOX.z1);
+    } else {
+      py = clamp(py, -0.5, 5.5);
+      const hr = Math.hypot(px, pz);
+      if (hr > WALL - 0.3) { px *= (WALL - 0.3) / hr; pz *= (WALL - 0.3) / hr; }
+    }
+    dragT[0] = px; dragT[1] = py; dragT[2] = pz;
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.focus({ preventScroll: true });
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    if (pointers.size === 1) {
+      const hit = pickLoose(e.clientX, e.clientY);
+      if (hit) startGrab(hit, e.pointerId, e.clientX, e.clientY);
+      else if (!PET) { mode = 'orbit'; gesture = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.style.cursor = 'move'; }
+    } else if (pointers.size === 2 && mode !== 'grab') {
+      const [a, b] = [...pointers.values()];
+      mode = 'pinch';
+      gesture = { d0: Math.hypot(a.x - b.x, a.y - b.y), dist0: cam.distT, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const p = pointers.get(e.pointerId);
+    if (!p) { hover = { x: e.clientX, y: e.clientY }; hoverDirty = true; return; }
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (mode === 'grab' && gesture.id === e.pointerId) {
+      gesture.x = e.clientX; gesture.y = e.clientY;
+      gesture.moved = Math.max(gesture.moved, Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy));
+    } else if (mode === 'orbit' && gesture.id === e.pointerId) {
+      cam.yawT = clamp(cam.yawT - dx * 0.0065, -YAW_LIM, YAW_LIM);
+      cam.pitchT = clamp(cam.pitchT + dy * 0.005, PITCH_MIN, PITCH_MAX);
+    } else if (mode === 'pinch' && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      cam.distT = clamp(gesture.dist0 * gesture.d0 / Math.max(d, 1), DIST_MIN, DIST_MAX);
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      cam.yawT = clamp(cam.yawT - (mx - gesture.mx) * 0.005, -YAW_LIM, YAW_LIM);
+      cam.pitchT = clamp(cam.pitchT + (my - gesture.my) * 0.004, PITCH_MIN, PITCH_MAX);
+      gesture.mx = mx; gesture.my = my;
+    }
+  });
+  const endPointer = (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (mode === 'grab' && gesture.id === e.pointerId) {
+      const quick = performance.now() - gesture.t0 < 260 && gesture.moved < 8;
+      const hit = gesture.hit;
+      releaseGrab();
+      if (quick && e.type === 'pointerup') boop(hit);
+      mode = null; gesture = null;
+    } else if (mode === 'orbit' && gesture.id === e.pointerId) { mode = null; gesture = null; }
+    else if (mode === 'pinch' && pointers.size < 2) { mode = null; gesture = null; }
+    canvas.style.cursor = '';
+    hover = { x: e.clientX, y: e.clientY }; hoverDirty = true;
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('lostpointercapture', endPointer);
+  canvas.addEventListener('pointerleave', () => { if (!pointers.size) { hover = null; canvas.style.cursor = ''; } });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (PET) return;
+    const k = e.deltaMode === 1 ? 0.05 : 0.0012;
+    cam.distT = clamp(cam.distT * Math.exp(e.deltaY * k), DIST_MIN, DIST_MAX);
+  }, { passive: false });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.addEventListener('blur', () => { releaseGrab(); pointers.clear(); mode = null; gesture = null; });
+
+  // actions
+  let interactive = null;
+  function setInteractive(on) {
+    if (!PET || !petBridge || on === interactive) return;
+    interactive = on;
+    petBridge.setInteractive(on);
+  }
+  canvas.addEventListener('pointerdown', () => setInteractive(true), true);
+  const doReset = () => { releaseGrab(); squash.v = 0; resetSim(0.9, 0); poke = 0.6; };
+  const doDrop = () => {
+    releaseGrab();
+    const O = bodyOrigin([0, 0, 0]);
+    const lift = Math.max(0, 3.4 - O[1]);
+    const ax = norm3([Math.random() - 0.5, 0.3, Math.random() - 0.5]), w = 3 + Math.random() * 2;
+    for (let i = 0; i < NP; i++) {
+      const o = i * 3;
+      P[o + 1] += lift; PP[o + 1] += lift;
+      const r = [P[o] - O[0], P[o + 1] - lift - O[1], P[o + 2] - O[2]];
+      const sp = cross3(ax, r);
+      V[o] = sp[0] * w; V[o + 1] = sp[1] * w; V[o + 2] = sp[2] * w;
+    }
+    poke = 1;
+  };
+  const doWiggle = () => {
+    // flap the arms and kick the legs, like she's about to sprint
+    const R = SM.R;
+    const ph = performance.now() * 0.001;
+    for (let t = 0; t < NT; t++) {
+      const L = LIMB[t];
+      const side = [R[0] * L.side, R[3] * L.side, R[6] * L.side];
+      const up = [R[1], R[4], R[7]], fwd = [R[2], R[5], R[8]];
+      const kick = Math.sin(ph * 3 + t * Math.PI);
+      for (let k = 3; k < NS; k++) {
+        const s = k / (NS - 1), o = tIndex(t, k) * 3;
+        const v = L.kind === 0
+          ? [side[0] * 1.5 + up[0] * 4.2, side[1] * 1.5 + up[1] * 4.2, side[2] * 1.5 + up[2] * 4.2]
+          : [up[0] * (2.6 + 1.6 * kick) + fwd[0] * 1.2, up[1] * (2.6 + 1.6 * kick) + fwd[1] * 1.2, up[2] * (2.6 + 1.6 * kick) + fwd[2] * 1.2];
+        V[o] += v[0] * s; V[o + 1] += v[1] * s; V[o + 2] += v[2] * s;
+      }
+    }
+    for (let j = 0; j < BODY_N; j++) V[j * 3 + 1] += 1.6;
+    poke = 0.8;
+  };
+  document.getElementById('b-reset').addEventListener('click', doReset);
+  document.getElementById('b-drop').addEventListener('click', doDrop);
+  document.getElementById('b-wiggle').addEventListener('click', doWiggle);
+  // the desktop app's tray menu drives these
+  window.toyAction = (a) => ({ reset: doReset, drop: doDrop, wiggle: doWiggle })[a]?.();
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLButtonElement) return;
+    if (e.key === 'r' || e.key === 'R') doReset();
+    else if (e.key === 'd' || e.key === 'D') doDrop();
+    else if (e.key === 'w' || e.key === 'W') doWiggle();
+  });
+
+  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and carry the toy
+  if (params.has('embed')) {
+    const TOY = params.get('id') || '';
+    const send = (m) => parent.postMessage({ toy: TOY, ...m }, '*');
+    const UPX = 1.9 / PET_SIZE; // world units per CSS px at the toy's depth
+    let catGrab = false;
+    const dropCatGrab = () => { if (catGrab) { catGrab = false; releaseGrab(); mode = null; gesture = null; } };
+    // a person grabbing the toy wins over the cat
+    canvas.addEventListener('pointerdown', dropCatGrab, true);
+    addEventListener('message', (e) => {
+      if (e.source !== parent) return;
+      const m = e.data || {};
+      if (m.type === 'place') {
+        const dx = (m.x - canvas.clientWidth / 2) * UPX - bodyOrigin([0, 0, 0])[0];
+        for (let i = 0; i < NP; i++) { P[i * 3] += dx; PP[i * 3] += dx; }
+        SM.c[0] += dx;
+      } else if (m.type === 'poke') {
+        // a paw swipe or a pounce: shove the parts near (x, y) along (dx, dy) in screen terms
+        let i0 = nearestParticle(m.x, m.y, 40);
+        if (i0 < 0) i0 = 0;
+        const c = [P[i0 * 3], P[i0 * 3 + 1], P[i0 * 3 + 2]], s = m.power || 4, lift = m.lift ?? 2;
+        for (let i = 0; i < NP; i++) {
+          const o = i * 3, d2 = (P[o] - c[0]) ** 2 + (P[o + 1] - c[1]) ** 2 + (P[o + 2] - c[2]) ** 2;
+          const w = 0.35 + 0.65 * Math.exp(-d2 / 0.5);
+          V[o] += (m.dx || 0) * s * w; V[o + 1] += (-(m.dy || 0) * s + lift) * w; V[o + 2] += (m.dz || 0) * s * w;
+        }
+        poke = 1;
+      } else if (m.type === 'grab') {
+        if (grab.active) return;
+        const hit = pickLoose(m.x, m.y);
+        if (hit) { startGrab(hit, 'cat', m.x, m.y); catGrab = true; }
+      } else if (m.type === 'drag') {
+        if (catGrab && gesture) { gesture.x = m.x; gesture.y = m.y; }
+      } else if (m.type === 'release') {
+        dropCatGrab();
+      } else if (m.type === 'action') {
+        window.toyAction(m.action);
+      }
+    });
+    const pp = [0, 0, 0];
+    setInterval(() => {
+      if (!lastVP) return;
+      let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+      for (let i = 0; i < NP; i++) {
+        projectParticle(i, pp);
+        l = Math.min(l, pp[0]); r = Math.max(r, pp[0]); t = Math.min(t, pp[1]); b = Math.max(b, pp[1]);
+      }
+      let vx = 0, vy = 0;
+      for (let j = 0; j < BODY_N; j++) { vx += V[j * 3]; vy += V[j * 3 + 1]; }
+      if (catGrab && !grab.active) catGrab = false;
+      send({ type: 'state', l, r, t, b, z: bodyOrigin([0, 0, 0])[2] / UPX,
+        held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX });
+    }, 100);
+    send({ type: 'ready' });
+  }
+
+  statParticles.textContent = `${NP} particles`;
+
+  // ---------------- frame
+  resetSim(0.9, 0);
+  updateRest(0);
+  let last = performance.now(), simTime = 0, acc = 0, fpsT = 0, fpsN = 0, started = false;
+  const sphereCount = 1 + NT * (NS - 2);
+
+  function frame(now) {
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    last = now;
+    resize();
+    updateCamera(dt);
+
+    // physics at a fixed 600 Hz, drag target interpolated across the frame
+    if (grab.active) dragTargetFrom(gesture.x, gesture.y);
+    let sqT = 0;
+    if (grab.active && grab.kind === 'body') {
+      const y0 = gesture.plane.p[1];
+      sqT = clamp((y0 - dragT[1]) / (y0 + 0.15), 0, 0.6);
+    }
+    squash.v += (sqT - squash.v) * (1 - Math.exp(-dt * (sqT > squash.v ? 14 : 22)));
+    acc = Math.min(acc + dt, 1 / 20);
+    const n = Math.floor(acc / H);
+    acc -= n * H;
+    simTime += dt;
+    updateRest(simTime);
+    for (let s = 0; s < n; s++) {
+      const t = (s + 1) / n;
+      substep(dragPrev[0] + (dragT[0] - dragPrev[0]) * t, dragPrev[1] + (dragT[1] - dragPrev[1]) * t, dragPrev[2] + (dragT[2] - dragPrev[2]) * t);
+    }
+    dragPrev[0] = dragT[0]; dragPrev[1] = dragT[1]; dragPrev[2] = dragT[2];
+
+    buildBody();
+    buildLimbs();
+    buildEyes();
+
+    // expression: the embroidered smile becomes an "o" when stretched, flung or squished
+    let vx = 0, vy = 0, vz = 0;
+    for (let j = 0; j < BODY_N; j++) { vx += V[j * 3]; vy += V[j * 3 + 1]; vz += V[j * 3 + 2]; }
+    const speed = Math.hypot(vx, vy, vz) / BODY_N;
+    poke = Math.max(0, poke - dt * 1.6);
+    const want = clamp((bodyStretch - 0.035) * 7 + (grab.active ? 0.3 : 0) + Math.max(0, speed - 2.2) * 0.15 + poke + squash.v * 1.8, 0, 1);
+    surprise += (want - surprise) * (1 - Math.exp(-dt * (want > surprise ? 12 : 2.5)));
+
+    if (PET && !pointers.size && lastVP) {
+      // the toy moves even when the mouse doesn't, so check every frame, not just on mouse moves
+      const c = petCursor || hover;
+      const over = !!c && hitTest(c.x, c.y);
+      canvas.style.cursor = over ? 'grab' : '';
+      setInteractive(over);
+    } else if (hoverDirty && hover && !pointers.size) {
+      hoverDirty = false;
+      const over = !!pick(hover.x, hover.y);
+      canvas.style.cursor = over ? 'grab' : '';
+      setInteractive(over);
+    }
+
+    // uniforms
+    const view = m4look(cam.eye, cam.focus, [0, 1, 0]);
+    const proj = m4persp(cam.fovy, cam.aspect, 0.1, 60);
+    lastVP = m4mul(proj, view);
+    const lo = bodyOrigin([0, 0, 0]);
+    const lc = PET ? [lo[0], 0.6, 0] : [cam.focus[0], 0.6, cam.focus[2]];
+    const lightView = m4look([lc[0] + KEY_DIR[0] * 12, lc[1] + KEY_DIR[1] * 12, lc[2] + KEY_DIR[2] * 12], lc, [0, 1, 0]);
+    const lightProj = m4ortho(-3.6, 3.6, -3.6, 3.6, 2, 24);
+    frameU.set(m4mul(proj, view), 0);
+    frameU.set(m4mul(lightProj, lightView), 16);
+    frameU.set([cam.eye[0], cam.eye[1], cam.eye[2], simTime], 32);
+    frameU.set([KEY_DIR[0], KEY_DIR[1], KEY_DIR[2], 0], 36);
+    frameU.set([surprise, simTime, surprise, 0], 40);
+    frameU.set([canvas.width, canvas.height, 1 / canvas.width, 1 / canvas.height], 44);
+    frameU.set(PET ? [lo[0], 0, lo[2], sphereCount] : [cam.focus[0], cam.focus[1], cam.focus[2], sphereCount], 48);
+    const O = bodyOrigin([0, 0, 0]), R = SM.R;
+    let so = 52;
+    frameU.set([O[0] + R[1] * 0.06, O[1] + R[4] * 0.06, O[2] + R[7] * 0.06, 0.86], so); so += 4;
+    for (let t = 0; t < NT; t++) for (let k = 2; k < NS; k++) {
+      const i = tIndex(t, k);
+      frameU[so] = P[i * 3]; frameU[so + 1] = P[i * 3 + 1]; frameU[so + 2] = P[i * 3 + 2]; frameU[so + 3] = RAD[i] * 0.95; so += 4;
+    }
+    device.queue.writeBuffer(frameBuf, 0, frameU);
+    device.queue.writeBuffer(eyeBuf, 0, eyeU);
+    device.queue.writeBuffer(bodyDynBuf, 0, bodyDyn);
+    device.queue.writeBuffer(tentDynBuf, 0, tentDyn);
+
+    const enc = device.createCommandEncoder();
+    {
+      const pass = enc.beginRenderPass({ colorAttachments: [], depthStencilAttachment: { view: shadowView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' } });
+      pass.setBindGroup(0, bgShadow);
+      pass.setPipeline(pShadow);
+      pass.setVertexBuffer(0, bodyDynBuf); pass.setIndexBuffer(bodyIdxBuf, 'uint32'); pass.drawIndexed(bodyIdx.length);
+      pass.setVertexBuffer(0, tentDynBuf); pass.setIndexBuffer(tentIdxBuf, 'uint32'); pass.drawIndexed(tentIdx.length);
+      pass.setPipeline(pShadowEye);
+      pass.setVertexBuffer(0, eyeVB); pass.setIndexBuffer(eyeIB, 'uint32'); pass.drawIndexed(eyeMesh.ib.length, 2);
+      pass.end();
+    }
+    {
+      const pass = enc.beginRenderPass({
+        colorAttachments: [{ view: msaaView, resolveTarget: ctx.getCurrentTexture().createView(), clearValue: PET ? { r: 0, g: 0, b: 0, a: 0 } : { r: 0.95, g: 0.91, b: 0.89, a: 1 }, loadOp: 'clear', storeOp: 'discard' }],
+        depthStencilAttachment: { view: depthView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
+      });
+      pass.setBindGroup(0, bgMain);
+      if (!PET) { pass.setPipeline(pBg); pass.draw(3); }
+      pass.setPipeline(pFloor); pass.draw(6);
+      pass.setPipeline(pBody);
+      pass.setVertexBuffer(0, bodyDynBuf); pass.setVertexBuffer(1, bodyDirBuf); pass.setIndexBuffer(bodyIdxBuf, 'uint32'); pass.drawIndexed(bodyIdx.length);
+      pass.setPipeline(pTent);
+      pass.setVertexBuffer(0, tentDynBuf); pass.setVertexBuffer(1, tentAttrBuf); pass.setIndexBuffer(tentIdxBuf, 'uint32'); pass.drawIndexed(tentIdx.length);
+      pass.setPipeline(pEye);
+      pass.setVertexBuffer(0, eyeVB); pass.setIndexBuffer(eyeIB, 'uint32'); pass.drawIndexed(eyeMesh.ib.length, 2);
+      pass.end();
+    }
+    device.queue.submit([enc.finish()]);
+
+    if (!started) { started = true; canvas.classList.add('ready'); }
+    fpsT += dt; fpsN++;
+    if (fpsT > 0.5) { statFps.textContent = `${Math.round(fpsN / fpsT)} fps`; fpsT = 0; fpsN = 0; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+}
+
+main().catch((e) => { console.error(e); fail('Could not start WebGPU: ' + (e && e.message ? e.message : e)); });
+})();
+</script>
+</body>
+</html>

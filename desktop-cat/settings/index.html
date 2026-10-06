@@ -34,6 +34,20 @@
   </section>
 
   <section>
+    <h2>貓跳臺同公仔</h2>
+    <label class="field">貓跳臺
+      <select id="tree">
+        <option value="right">放喺右邊</option><option value="left">放喺左邊</option><option value="off">唔要</option>
+      </select>
+    </label>
+    <p class="hint">貓貓會自己爬上去、喺頂層張床瞓覺、抓柱、拍個波波。</p>
+    <div class="field"><span>出嚟玩嘅公仔</span></div>
+    <div class="checks" id="toyChecks"></div>
+    <label class="field">公仔大細<input type="range" id="toySize" min="60" max="200" step="10"></label>
+    <p class="hint">公仔係你自己整嘅軟膠公仔，用 WebGPU 畫。貓貓會撥佢、撲佢、咬住佢周圍行，攰嘅時候仲會攬住佢瞓。你都可以拖佢、掟佢。公仔越多，部電腦越辛苦。</p>
+  </section>
+
+  <section>
     <h2>提醒</h2>
     <label class="field">每隔
       <select id="every">
@@ -76,6 +90,7 @@
       <li>滑鼠喺佢身上掃嚟掃去：掃毛，佢會呼嚕呼嚕</li>
       <li>撳住拖走：揸起佢，放手佢會跌返落地</li>
       <li>滑鼠喺螢幕底部快快郁：佢可能會撲過嚟玩</li>
+      <li>拖公仔、掟公仔：貓貓見到會追過去玩</li>
       <li>右撳貓貓，或者撳工作列 / 選單列嘅貓貓圖示：開選單</li>
     </ul>
   </section>
