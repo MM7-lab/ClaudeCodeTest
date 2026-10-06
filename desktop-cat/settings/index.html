@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>貓貓設定</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>🐾 <span id="title">麻糬</span>設定</h1>
+    <p class="status"><span id="status">…</span></p>
+    <div class="row">
+      <button id="btnPause" type="button">暫停提醒</button>
+      <button id="btnTest" type="button">即刻提醒一次</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>貓貓</h2>
+    <label class="field">名<input type="text" id="name" maxlength="20" autocomplete="off"></label>
+    <div class="field"><span>毛色</span>
+      <div class="coats" id="coats" role="radiogroup" aria-label="毛色">
+        <button type="button" role="radio" data-coat="orange" style="--c:#f3a35c" title="橙色虎斑"></button>
+        <button type="button" role="radio" data-coat="grey" style="--c:#aab4bf" title="灰色虎斑"></button>
+        <button type="button" role="radio" data-coat="black" style="--c:#3a3942" title="黑貓"></button>
+        <button type="button" role="radio" data-coat="white" style="--c:#fbf8f3" title="白貓"></button>
+        <button type="button" role="radio" data-coat="tuxedo" style="--c:linear-gradient(90deg,#34333b 50%,#fbf8f3 50%)" title="黑白貓"></button>
+      </div>
+    </div>
+    <p class="hint" id="coatName"></p>
+    <label class="field">大細<input type="range" id="size" min="0.6" max="1.6" step="0.1"></label>
+  </section>
+
+  <section>
+    <h2>提醒</h2>
+    <label class="field">每隔
+      <select id="every">
+        <option value="15">15 分鐘</option><option value="20">20 分鐘</option>
+        <option value="30">30 分鐘</option><option value="45">45 分鐘</option>
+        <option value="60">60 分鐘</option><option value="90">90 分鐘</option>
+      </select>
+    </label>
+    <div class="checks">
+      <label><input type="checkbox" data-type="water"> 💧 飲水</label>
+      <label><input type="checkbox" data-type="rest"> 🙆 休息、伸展</label>
+      <label><input type="checkbox" data-type="toilet"> 🚽 去廁所</label>
+      <label><input type="checkbox" id="chatty"> 💬 間中講吓鼓勵說話</label>
+    </div>
+    <p class="hint">提醒會輪住嚟：飲水 → 休息 → 飲水 → 去廁所。唔理佢嘅話，每 5 分鐘會再喵一次（最多 3 次）。如果你離開電腦超過 5 分鐘，貓貓會當你休息咗，重新計時。</p>
+  </section>
+
+  <section>
+    <h2>聲音同其他</h2>
+    <label class="field">喵喵聲<input type="checkbox" id="sound"></label>
+    <label class="field">音量<input type="range" id="volume" min="0" max="1" step="0.05"></label>
+    <label class="field">開機自動啟動<input type="checkbox" id="autostart"></label>
+  </section>
+
+  <section>
+    <h2>今日紀錄</h2>
+    <div class="stats">
+      <div><b id="stWater">0</b><small>💧 杯水</small></div>
+      <div><b id="stRest">0</b><small>🙆 次休息</small></div>
+      <div><b id="stToilet">0</b><small>🚽 次廁所</small></div>
+      <div><b id="stPets">0</b><small>🐾 次摸摸</small></div>
+    </div>
+    <div class="row end"><button id="btnReset" type="button">清零</button></div>
+  </section>
+
+  <section class="tips">
+    <h2>點樣同貓貓玩</h2>
+    <ul>
+      <li>撳一下貓貓：摸摸佢 💗</li>
+      <li>滑鼠喺佢身上掃嚟掃去：掃毛，佢會呼嚕呼嚕</li>
+      <li>撳住拖走：揸起佢，放手佢會跌返落地</li>
+      <li>滑鼠喺螢幕底部快快郁：佢可能會撲過嚟玩</li>
+      <li>右撳貓貓，或者撳工作列 / 選單列嘅貓貓圖示：開選單</li>
+    </ul>
+  </section>
+</main>
+<script src="settings.js"></script>
+</body>
+</html>

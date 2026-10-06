@@ -1,0 +1,44 @@
+:root {
+  --bg: #fbf6ef; --card: #ffffff; --ink: #3b302a; --muted: #8a7a6e; --soft: #efe5da; --accent: #e9875b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1f1b19; --card: #2a2522; --ink: #f3ebe3; --muted: #b3a497; --soft: #3b3430; --accent: #f09a6e; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 "Microsoft JhengHei", "PingFang HK", "Noto Sans HK", "Noto Sans CJK TC", sans-serif;
+}
+main { padding: 18px 16px 28px; max-width: 520px; margin: 0 auto; }
+header, section { background: var(--card); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+.status { margin: 0 0 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; margin-top: 10px; }
+button, input, select { font: inherit; color: inherit; }
+button {
+  cursor: pointer; border: 1px solid var(--soft); background: var(--bg); border-radius: 999px; padding: 6px 14px;
+}
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; }
+.field input[type=text], .field select {
+  background: var(--bg); border: 1px solid var(--soft); border-radius: 10px; padding: 5px 10px; width: 170px;
+}
+input[type=range] { accent-color: var(--accent); width: 170px; }
+input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.checks label { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.coats { display: flex; gap: 10px; }
+.coats button {
+  width: 32px; height: 32px; padding: 0; border-radius: 50%; background: var(--c);
+  border: 3px solid var(--card); box-shadow: 0 0 0 1px var(--soft);
+}
+.coats button[aria-checked=true] { box-shadow: 0 0 0 3px var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.stats div { background: var(--bg); border-radius: 12px; padding: 8px 4px; }
+.stats b { display: block; font-size: 22px; }
+.stats small { color: var(--muted); }
+.tips ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; }

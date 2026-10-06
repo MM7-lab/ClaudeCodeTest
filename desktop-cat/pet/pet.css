@@ -1,0 +1,42 @@
+html, body {
+  margin: 0; width: 100%; height: 100%; overflow: hidden;
+  background: transparent;
+  font: 15px/1.45 "Microsoft JhengHei", "PingFang HK", "Noto Sans HK", "Noto Sans CJK TC", sans-serif;
+  user-select: none; -webkit-user-select: none;
+}
+canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+[hidden] { display: none !important; }
+
+.bubble {
+  --arrow-x: 50%;
+  position: fixed; left: 0; top: 0; max-width: 260px; padding: 10px 14px;
+  background: #fffaf3; color: #3b302a; border-radius: 16px; text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18); animation: pop .22s ease-out;
+}
+.bubble::after {
+  content: ""; position: absolute; left: var(--arrow-x); bottom: -9px; margin-left: -9px;
+  border: 9px solid transparent; border-bottom: 0; border-top-color: #fffaf3;
+}
+.actions { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.actions button {
+  font: inherit; font-size: 13px; cursor: pointer; border-radius: 999px; padding: 5px 12px;
+  border: 1px solid #e3d4c4; background: #f6efe7; color: #3b302a;
+}
+.actions button:hover { border-color: #e9875b; }
+.actions .done { background: #3f9e6e; border-color: #3f9e6e; color: #fff; font-weight: 600; }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+#fx { position: fixed; inset: 0; pointer-events: none; }
+.heart { position: absolute; font-size: 22px; animation: floatup 1.6s ease-out forwards; }
+@keyframes floatup {
+  from { transform: translate(-50%, 0) scale(.6); opacity: 0; }
+  20% { opacity: 1; }
+  to { transform: translate(-50%, -80px) scale(1.1); opacity: 0; }
+}
+
+.zzz { position: fixed; left: 0; top: 0; pointer-events: none; font-weight: 700; color: #6d6a80;
+  text-shadow: 0 0 4px #fff, 0 0 8px #fff; }
+.zzz span { position: absolute; opacity: 0; animation: zz 3s ease-in-out infinite; }
+.zzz span:nth-child(2) { animation-delay: 1s; font-size: 1.2em; }
+.zzz span:nth-child(3) { animation-delay: 2s; font-size: 1.45em; }
+@keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(24px, -44px); opacity: 0; } }

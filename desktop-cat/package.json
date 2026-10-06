@@ -1,0 +1,84 @@
+{
+  "name": "desktop-cat",
+  "productName": "DesktopCat",
+  "version": "1.0.0",
+  "description": "桌面貓貓：喺你桌面行嚟行去嘅 3D 貓，定時提你飲水、休息、去廁所",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "MM7 Lab",
+  "build": {
+    "appId": "hk.mm7lab.desktopcat",
+    "productName": "DesktopCat",
+    "artifactName": "DesktopCat-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "pet/**",
+      "settings/**",
+      "assets/**",
+      "node_modules/three/build/three.module.js",
+      "node_modules/three/build/three.core.js",
+      "node_modules/three/package.json",
+      "node_modules/three/LICENSE",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "portable": {
+      "artifactName": "DesktopCat-${version}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "shortcutName": "桌面貓貓",
+      "uninstallDisplayName": "桌面貓貓"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.lifestyle",
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    }
+  },
+  "repository": "github:MM7-lab/ClaudeCodeTest"
+}

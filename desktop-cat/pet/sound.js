@@ -1,0 +1,59 @@
+// Synthesised cat noises, so the app needs no audio files.
+export function makeSound(getSettings) {
+  let ctx = null;
+  function ac() {
+    try {
+      if (!ctx) ctx = new AudioContext();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  const on = () => getSettings().sound;
+  const vol = () => getSettings().volume;
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  function voice(t, f0, f1, f2, len, gain) {
+    const c = ctx, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f1, t + len * 0.3);
+    o.frequency.linearRampToValueAtTime(f2, t + len);
+    f.type = 'bandpass'; f.Q.value = 3;
+    f.frequency.setValueAtTime(1200, t);
+    f.frequency.linearRampToValueAtTime(2100, t + len * 0.3);
+    f.frequency.linearRampToValueAtTime(900, t + len);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.05);
+    o.connect(f).connect(g).connect(c.destination);
+    o.start(t); o.stop(t + len + 0.1);
+  }
+
+  return {
+    meow(times = 1) {
+      if (!on() || !ac()) return;
+      for (let i = 0; i < times; i++) {
+        const p = rand(0.9, 1.15);
+        voice(ctx.currentTime + i * 0.7, 520 * p, 820 * p, 600 * p, 0.5, vol() * 0.35);
+      }
+    },
+    chirp() {
+      if (!on() || !ac()) return;
+      voice(ctx.currentTime, 480, 880, 760, 0.18, vol() * 0.25);
+    },
+    purr() {
+      if (!on() || !ac()) return;
+      const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),
+            am = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 55;
+      lfo.frequency.value = 24; lg.gain.value = 0.5; am.gain.value = 0.5;
+      f.type = 'lowpass'; f.frequency.value = 320;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol() * 0.2, t + 0.15);
+      g.gain.linearRampToValueAtTime(0.0001, t + 1.4);
+      lfo.connect(lg).connect(am.gain);
+      o.connect(f).connect(am).connect(g).connect(ctx.destination);
+      o.start(t); lfo.start(t); o.stop(t + 1.45); lfo.stop(t + 1.45);
+    },
+  };
+}
