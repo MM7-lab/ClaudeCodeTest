@@ -1,6 +1,12 @@
 // Synthesised cat noises, so the app needs no audio files.
 export function makeSound(getSettings) {
-  let ctx = null;
+  let ctx = null, idle = null;
+  // Close the audio stream again shortly after each sound: an open, silent stream keeps the
+  // computer's audio driver busy the whole time the cat is running.
+  function rest(seconds) {
+    clearTimeout(idle);
+    idle = setTimeout(() => { if (ctx && ctx.state === 'running') ctx.suspend(); }, (seconds + 0.5) * 1000);
+  }
   function ac() {
     try {
       if (!ctx) ctx = new AudioContext();
@@ -36,10 +42,12 @@ export function makeSound(getSettings) {
         const p = rand(0.9, 1.15);
         voice(ctx.currentTime + i * 0.7, 520 * p, 820 * p, 600 * p, 0.5, vol() * 0.35);
       }
+      rest(times * 0.7);
     },
     chirp() {
       if (!on() || !ac()) return;
       voice(ctx.currentTime, 480, 880, 760, 0.18, vol() * 0.25);
+      rest(0.3);
     },
     scratch() {
       if (!on() || !ac()) return;
@@ -53,6 +61,7 @@ export function makeSound(getSettings) {
         src.connect(f).connect(g).connect(ctx.destination);
         src.start(t);
       }
+      rest(0.5);
     },
     purr() {
       if (!on() || !ac()) return;
@@ -67,6 +76,7 @@ export function makeSound(getSettings) {
       lfo.connect(lg).connect(am.gain);
       o.connect(f).connect(am).connect(g).connect(ctx.destination);
       o.start(t); lfo.start(t); o.stop(t + 1.45); lfo.stop(t + 1.45);
+      rest(1.5);
     },
   };
 }

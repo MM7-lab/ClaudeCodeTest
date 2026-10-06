@@ -36,7 +36,7 @@ const TOYS = [
 const DEFAULTS = {
   name: '麻糬', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
-  chatty: true, sound: true, volume: 0.6, autostart: false,
+  chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 100,
 };
 
@@ -51,7 +51,16 @@ function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-function loadSettings() { const s = { ...DEFAULTS, ...readJson('settings.json', {}) }; s.types = { ...DEFAULTS.types, ...s.types }; return s; }
+// Settings saved before version 2 had the sound on by default; a user's PC crashed in its
+// audio driver while the cat was running, so sound now starts off until switched on again.
+const SETTINGS_VERSION = 2;
+function loadSettings() {
+  const saved = readJson('settings.json', {});
+  const s = { ...DEFAULTS, ...saved };
+  s.types = { ...DEFAULTS.types, ...s.types };
+  if (saved.settingsVersion !== SETTINGS_VERSION) { s.sound = false; s.settingsVersion = SETTINGS_VERSION; }
+  return s;
+}
 function loadStats() { const s = readJson('stats.json', null); return s && s.date === today() ? s : { date: today(), water: 0, rest: 0, toilet: 0, pets: 0 }; }
 
 let S = DEFAULTS, stats = null;

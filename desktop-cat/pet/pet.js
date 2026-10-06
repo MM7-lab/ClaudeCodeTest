@@ -635,7 +635,9 @@ $('btnDone').addEventListener('click', () => api.answer(true));
 $('btnLater').addEventListener('click', () => api.answer(false));
 
 function applySettings(s) {
+  const soundWasOn = S.sound;
   S = { ...S, ...s };
+  if (S.sound && soundWasOn === false && frameStarted) sound.meow(); // let them hear it when switched on
   cat.setCoat(S.coat);
   placeTree();
   toys.set(S.toys || [], Math.round(S.toySize || 100));
@@ -786,7 +788,7 @@ function placeOverlays() {
   }
 }
 
-let last = performance.now(), acc = 0, shownOnce = false;
+let last = performance.now(), acc = 0, shownOnce = false, frameStarted = false;
 function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000;
@@ -850,6 +852,7 @@ api.getState().then(state => {
   ai.x = rand(x0, x1) * 0.5;
   ai.y = H * 0.55;
   go('fall', { welcome: true });
+  frameStarted = true;
   requestAnimationFrame(frame);
 });
 addEventListener('resize', resize);
