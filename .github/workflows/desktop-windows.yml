@@ -7,6 +7,7 @@ on:
     paths:
       - desktop/**
       - baby-bear/**
+      - hello-kitty/**
       - moomin/**
       - turbo-granny/**
       - plush-octopus/**
