@@ -198,7 +198,7 @@ const H = 1 / 600;            // fixed sub-step
 const SM_ALPHA = 0.0024;      // marshmallow: a softer pull back to shape (≈ 4–5 Hz jiggle)
 const SM_BETA = 0.4;          // keeps more squash/stretch, so she oozes back slowly (softer + higher goes unstable)
 const SHELL_K = 0.02, ROOT_K = 0.08;
-const AIR = 0.25, BODY_DAMP = 0.0042, TENT_DAMP = 0.01;  // less damping: wobbles longer
+const AIR = 0.25, BODY_DAMP = 0.0055, TENT_DAMP = 0.01;  // a little less damping than the others: wobbles longer
 const FRICTION = 0.12, WALL = 4.6, FLAT = 0.94;
 const tIndex = (t, k) => BODY_N + t * NS + k;
 // short round arms and legs
@@ -215,15 +215,16 @@ const bumpAt = (x, y, z, dir, height, radius, power) => {
   return height * Math.pow(Math.max(0, 1 - (a / radius) ** 2), power);
 };
 function headShape(x, y, z) {
-  // a big, wide head on a small body
-  const head = smooth(-0.3, 0.12, y);
-  const sx = 0.8 + 0.52 * head, sz = 0.78 + 0.2 * head;
-  const sy = y > 0 ? 0.92 : 0.86;
-  const neck = 1 - 0.07 * Math.exp(-((y + 0.2) ** 2) / 0.01);
-  // pointed round ears, the bow, a tiny tail
-  const b = bumpAt(x, y, z, EARS[0], 0.3, 0.27, 0.45) + bumpAt(x, y, z, EARS[1], 0.3, 0.27, 0.45)
-    + bumpAt(x, y, z, BOW_L1, 0.17, 0.16, 0.6) + bumpAt(x, y, z, BOW_L2, 0.17, 0.16, 0.6)
-    + bumpAt(x, y, z, BOW, 0.2, 0.075, 0.5) + bumpAt(x, y, z, TAIL, 0.08, 0.14, 0.5);
+  // round all over: a big, gently wide head that blends smoothly into a round body
+  const head = smooth(-0.75, 0.35, y);
+  const sx = 0.9 + 0.25 * head, sz = 0.86 + 0.12 * head;
+  // a softly flattened seat (still round to the eye) stops her rolling around like a ball
+  const sy = (0.94 + 0.06 * smooth(-0.2, 0.4, y)) * (1 - 0.1 * smooth(-0.5, -0.9, y));
+  const neck = 1 - 0.035 * Math.exp(-((y + 0.2) ** 2) / 0.02);
+  // low, dome-shaped ears; plump round bow loops and knot; a tiny tail
+  const b = bumpAt(x, y, z, EARS[0], 0.2, 0.33, 0.8) + bumpAt(x, y, z, EARS[1], 0.2, 0.33, 0.8)
+    + bumpAt(x, y, z, BOW_L1, 0.15, 0.17, 0.9) + bumpAt(x, y, z, BOW_L2, 0.15, 0.17, 0.9)
+    + bumpAt(x, y, z, BOW, 0.16, 0.08, 0.8) + bumpAt(x, y, z, TAIL, 0.07, 0.15, 0.8);
   return [(x * sx + x * b) * neck, y * sy + y * b, (z * sz + z * b) * neck];
 }
 
@@ -1250,10 +1251,10 @@ fn segDist(p: vec2f, a: vec2f, b: vec2f) -> f32 {
   // ---- red bow: two puffy loops and a knot, with pleats running into the knot
   let aL = min(acos(clamp(dot(d, BOW_L1), -1.0, 1.0)), acos(clamp(dot(d, BOW_L2), -1.0, 1.0)));
   let aK = acos(clamp(dot(d, BOW_C), -1.0, 1.0));
-  let bow = max(1.0 - smoothstep(0.15 - ew, 0.15 + ew, aL), 1.0 - smoothstep(0.072 - ew, 0.072 + ew, aK));
-  let knotEdge = exp(-sq((aK - 0.07) / 0.008)) * bow;
+  let bow = max(1.0 - smoothstep(0.16 - ew, 0.16 + ew, aL), 1.0 - smoothstep(0.077 - ew, 0.077 + ew, aK));
+  let knotEdge = exp(-sq((aK - 0.076) / 0.01)) * bow * 0.6;
   let pleat = (0.5 + 0.5 * cos(aK * 120.0)) * smoothstep(0.08, 0.2, aK) * bow;
-  let loopEdge = exp(-sq((aL - 0.15) / 0.01));
+  let loopEdge = exp(-sq((aL - 0.16) / 0.014)) * 0.6;
 
   // ---- pink dress below the neck, with a scalloped hem line at the top edge
   let neckLine = -0.18 + 0.012 * cos(az * 22.0);
@@ -1519,7 +1520,7 @@ async function main() {
   // ---------------- camera
   const FOVY = 32 * Math.PI / 180;
   const KEY_DIR = norm3([-0.55, 0.78, 0.42]);
-  const cam = { yaw: 0.3, pitch: 0.3, dist: 7.0, yawT: 0.3, pitchT: 0.3, distT: 7.0, focus: [0, 0.82, 0], eye: [0, 0, 0], aspect: 1, fovy: FOVY };
+  const cam = { yaw: 0.3, pitch: 0.3, dist: 7.4, yawT: 0.3, pitchT: 0.3, distT: 7.4, focus: [0, 0.82, 0], eye: [0, 0, 0], aspect: 1, fovy: FOVY };
   const YAW_LIM = 1.3, PITCH_MIN = 0.06, PITCH_MAX = 1.05, DIST_MIN = 3.4, DIST_MAX = 9.0;
   function petCamera() {
     const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
