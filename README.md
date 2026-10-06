@@ -9,6 +9,7 @@
 | `floor-planner/index.html` | 工具本體（亦係 Claude Artifact 嗰個版本） |
 | `docs/index.html` | 網上版（GitHub Pages），由 `floor-planner/build_pages.py` 產生 |
 | `docs/plan-data.json` | 網上版一打開就載入嘅平面圖同建議方案 |
+| `plush-octopus/index.html` | 獨立 WebGPU 示範：可以拉、揸、掟嘅 3D 毛公仔八爪魚（直接用 Chrome／Edge／Safari 26+ 開） |
 
 ## 放上網（GitHub Pages）
 
