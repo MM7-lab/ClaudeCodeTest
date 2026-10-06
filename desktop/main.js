@@ -5,6 +5,8 @@ const path = require('node:path');
 // WebGPU is on by default on Windows; this also lets it run on GPUs
 // Chromium has not yet allow-listed.
 app.commandLine.appendSwitch('enable-unsafe-webgpu');
+// Windows otherwise decides a see-through window is 'hidden' and pauses it, freezing the toy.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 const TOYS = [
   { id: 'baby-bear', label: '熊啤啤' },
@@ -56,16 +58,18 @@ function createPet() {
     title: 'Plush Toy Box',
     icon: ICON,
     show: false,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   pet.once('ready-to-show', () => { if (settings.petVisible) pet.showInactive(); });
-  pet.on('closed', () => { pet = null; settings.petVisible = false; saveSettings(); refreshTray(); });
+  // closing (quitting, or Alt+F4) is not the same as choosing 'Hide toy', so nothing is saved here
+  pet.on('closed', () => { pet = null; refreshTray(); });
   guardNavigation(pet);
   loadPetToy();
 }
 function loadPetToy() {
   if (!pet) return;
   setInteractive(false);
+  lastCursor = ''; // resend the cursor to the freshly loaded page
   pet.loadFile(toyFile(settings.toy), { query: { pet: '1', size: String(settings.size) } });
 }
 function setInteractive(on) {
@@ -73,6 +77,19 @@ function setInteractive(on) {
   // ignored = clicks fall through to whatever is underneath; mouse moves are still forwarded so the page can tell when the toy is hovered
   pet?.setIgnoreMouseEvents(!on, { forward: true });
 }
+// Tell the page where the cursor is ~30 times a second. Forwarded mouse events only arrive when the
+// mouse moves, but the toy moves on its own, so the page re-checks against this every frame.
+let lastCursor = '';
+setInterval(() => {
+  if (!pet || !pet.isVisible() || pet.webContents.isLoading()) return;
+  const p = screen.getCursorScreenPoint();
+  const b = pet.getContentBounds();
+  const msg = { x: p.x - b.x, y: p.y - b.y };
+  const key = `${msg.x},${msg.y}`;
+  if (key === lastCursor) return;
+  lastCursor = key;
+  pet.webContents.send('pet:cursor', msg);
+}, 33);
 ipcMain.on('pet:interactive', (e, on) => {
   if (pet && e.sender === pet.webContents) setInteractive(on);
 });
@@ -184,7 +201,9 @@ if (!app.requestSingleInstanceLock()) {
     tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 }));
     tray.setToolTip('Plush Toy Box');
     tray.on('click', () => tray.popUpContextMenu());
-    if (settings.petVisible) createPet();
+    // always start with the toy on the desktop; 'Hide toy' only lasts for the session
+    settings.petVisible = true;
+    createPet();
     refreshTray();
     if (!settings.seenHint && process.platform === 'win32') {
       tray.displayBalloon({ iconType: 'info', title: 'Plush Toy Box', content: 'Your toy is on the desktop. Click this tray icon to change toy or size, or to quit.' });

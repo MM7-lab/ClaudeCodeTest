@@ -1328,6 +1328,8 @@ const PET = params.has('pet');
 const PET_SIZE = clamp(Number(params.get('size')) || 300, 120, 900); // on-screen height of the toy, CSS px
 if (PET) document.documentElement.classList.add('pet');
 const petBridge = window.petBridge; // provided by the desktop app's preload script, absent on the web
+let petCursor = null;              // latest cursor position from the desktop app, CSS px
+petBridge?.onCursor?.((p) => { petCursor = p; });
 const statParticles = document.getElementById('st-particles');
 const statFps = document.getElementById('st-fps');
 
@@ -1535,6 +1537,44 @@ async function main() {
     return hit;
   }
 
+  // Forgiving hit test for the desktop pet, in screen space: the body as overlapping discs around its
+  // shell (so it follows squash and stretch) plus every limb particle, with a few pixels of slack.
+  let lastVP = null;
+  function projectParticle(i, out) {
+    const m = lastVP, x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
+    const cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+    const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+    out[0] = (cx / cw * 0.5 + 0.5) * canvas.clientWidth;
+    out[1] = (0.5 - cy / cw * 0.5) * canvas.clientHeight;
+    out[2] = canvas.clientHeight / (2 * cw * Math.tan(cam.fovy / 2)); // px per world unit at that depth
+    return out;
+  }
+  const _pp = [0, 0, 0];
+  function nearestParticle(cx, cy, slackPx) {
+    if (!lastVP) return -1;
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < NP; i++) {
+      projectParticle(i, _pp);
+      const r = (i < BODY_N ? 0.36 : RAD[i] + 0.05) * _pp[2] + slackPx;
+      const d = Math.hypot(_pp[0] - cx, _pp[1] - cy);
+      if (d < r && d - r < bestD) { bestD = d - r; best = i; }
+    }
+    return best;
+  }
+  function hitTest(cx, cy) { return nearestParticle(cx, cy, 6) >= 0; }
+  // exact mesh pick first; on the pet, fall back to the nearest part within the forgiving area
+  function pickLoose(cx, cy) {
+    const hit = pick(cx, cy);
+    if (hit || !PET) return hit;
+    const i = nearestParticle(cx, cy, 6);
+    if (i < 0) return null;
+    const point = [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]];
+    const planeN = norm3(sub3(cam.focus, cam.eye));
+    if (i < BODY_N) return { kind: 'body', point, planeN };
+    const t = Math.floor((i - BODY_N) / NS), k = (i - BODY_N) % NS;
+    return { kind: 'tent', tent: t, s: k / (NS - 1), point, planeN };
+  }
+
   // ---------------- interaction
   const pointers = new Map();
   let mode = null, gesture = null, hover = null, hoverDirty = false;
@@ -1635,7 +1675,7 @@ async function main() {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     if (pointers.size === 1) {
-      const hit = pick(e.clientX, e.clientY);
+      const hit = pickLoose(e.clientX, e.clientY);
       if (hit) startGrab(hit, e.pointerId, e.clientX, e.clientY);
       else if (!PET) { mode = 'orbit'; gesture = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.style.cursor = 'move'; }
     } else if (pointers.size === 2 && mode !== 'grab') {
@@ -1795,7 +1835,13 @@ async function main() {
     const want = clamp((bodyStretch - 0.035) * 7 + (grab.active ? 0.3 : 0) + Math.max(0, speed - 2.2) * 0.15 + poke + squash.v * 1.8, 0, 1);
     surprise += (want - surprise) * (1 - Math.exp(-dt * (want > surprise ? 12 : 2.5)));
 
-    if (hoverDirty && hover && !pointers.size) {
+    if (PET && !pointers.size && lastVP) {
+      // the toy moves even when the mouse doesn't, so check every frame, not just on mouse moves
+      const c = petCursor || hover;
+      const over = !!c && hitTest(c.x, c.y);
+      canvas.style.cursor = over ? 'grab' : '';
+      setInteractive(over);
+    } else if (hoverDirty && hover && !pointers.size) {
       hoverDirty = false;
       const over = !!pick(hover.x, hover.y);
       canvas.style.cursor = over ? 'grab' : '';
@@ -1805,6 +1851,7 @@ async function main() {
     // uniforms
     const view = m4look(cam.eye, cam.focus, [0, 1, 0]);
     const proj = m4persp(cam.fovy, cam.aspect, 0.1, 60);
+    lastVP = m4mul(proj, view);
     const lo = bodyOrigin([0, 0, 0]);
     const lc = PET ? [lo[0], 0.6, 0] : [cam.focus[0], 0.6, cam.focus[2]];
     const lightView = m4look([lc[0] + KEY_DIR[0] * 12, lc[1] + KEY_DIR[1] * 12, lc[2] + KEY_DIR[2] * 12], lc, [0, 1, 0]);
