@@ -11,6 +11,7 @@
 | `docs/plan-data.json` | 網上版一打開就載入嘅平面圖同建議方案 |
 | `plush-octopus/index.html` | 獨立 WebGPU 示範：可以拉、揸、掟嘅 3D 毛公仔八爪魚（直接用 Chrome／Edge／Safari 26+ 開） |
 | `turbo-granny/index.html` | 同一個引擎嘅「高速婆婆」毛公仔版本：拉、揸、掟、壓扁都得 |
+| `moomin/index.html` | 同一個引擎嘅姆明毛公仔（非官方 fan art）：拉、揸、掟、壓扁，條尾會擺 |
 
 ## 放上網（GitHub Pages）
 
