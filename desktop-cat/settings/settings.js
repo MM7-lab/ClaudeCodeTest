@@ -84,6 +84,14 @@ $('tree').addEventListener('change', () => save({ tree: $('tree').value }));
 $('toySize').addEventListener('change', () => save({ toySize: Number($('toySize').value) }));
 $('forceWebGPU').addEventListener('change', () => save({ forceWebGPU: $('forceWebGPU').checked }));
 $('btnRestart').addEventListener('click', () => api.restart());
+$('btnCopyDiag').addEventListener('click', async () => {
+  $('diag').textContent = await api.copyDiagnostics();
+  $('btnCopyDiag').textContent = '複製咗 ✓';
+  setTimeout(() => { $('btnCopyDiag').textContent = '複製診斷資料'; }, 2000);
+});
+const showDiag = async () => { $('diag').textContent = await api.diagnostics(); };
+showDiag();
+setInterval(showDiag, 5000);
 $('btnPause').addEventListener('click', async () => { const s = await api.getState(); api.setPaused(s.timer.running); setTimeout(refresh, 100); });
 $('btnTest').addEventListener('click', () => { api.testReminder(); setTimeout(refresh, 100); });
 $('btnReset').addEventListener('click', async () => renderStats(await api.resetStats()));

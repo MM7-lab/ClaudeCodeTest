@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -275,6 +275,7 @@ function menuItems() {
       })),
     },
     { label: '設定…', click: openSettings },
+    { label: '複製診斷資料', click: async () => { clipboard.writeText(await diagnostics()); notify('已複製診斷資料', '而家可以貼俾幫你整貓貓嘅人。'); } },
     { type: 'separator' },
     { label: '離開（Ctrl+Alt+Q）', click: () => app.quit() },
   ];
@@ -309,11 +310,43 @@ ipcMain.handle('get-state', () => ({
   settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS, toyStatus,
   webgpu: app.getGPUFeatureStatus().webgpu || 'unknown',
 }));
-ipcMain.on('toy-status', (_e, id, state, msg) => {
-  if (!TOYS.some(t => t.id === id)) return;
+ipcMain.on('toy-status', (_e, id, state, msg, rect) => {
+  if (!TOYS.some(t => t.id === id) || !['loading', 'ready', 'failed'].includes(state)) return;
+  const was = toyStatus[id] && toyStatus[id].state;
   toyStatus[id] = { state, msg: msg ? String(msg).slice(0, 300) : '' };
-  if (state === 'failed') offerForceWebGPU();
+  if (rect && typeof rect === 'object') toyStatus[id].rect = ['l', 'r', 't', 'b'].map(k => Math.round(Number(rect[k]) || 0));
+  if (state === 'failed' && was !== 'failed') offerForceWebGPU();
 });
+
+// A plain-text report for troubleshooting: system, graphics chips, WebGPU, and each toy.
+const VENDORS = { 0x8086: 'Intel', 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x1414: 'Microsoft' };
+async function diagnostics() {
+  const lines = [`桌面貓貓 ${app.getVersion()} 診斷資料（${new Date().toLocaleString('zh-HK')}）`];
+  lines.push(`系統：${process.platform} ${require('os').release()} ${process.arch}`);
+  const d = screen.getPrimaryDisplay();
+  lines.push(`螢幕：${d.size.width}x${d.size.height}，縮放 ${Math.round(d.scaleFactor * 100)}%，工作區 ${d.workArea.width}x${d.workArea.height}`);
+  try {
+    const info = await app.getGPUInfo('basic');
+    for (const g of info.gpuDevice || []) {
+      const hex = n => (n >>> 0).toString(16).padStart(4, '0');
+      lines.push(`顯示卡：${VENDORS[g.vendorId] || '其他'} ${hex(g.vendorId)}:${hex(g.deviceId)}${g.driverVersion ? ' 驅動 ' + g.driverVersion : ''}${g.active ? '（使用中）' : ''}`);
+    }
+  } catch (e) { lines.push('顯示卡：讀唔到（' + e.message + '）'); }
+  const fs2 = app.getGPUFeatureStatus();
+  lines.push(`WebGPU：${fs2.webgpu}；WebGL：${fs2.webgl}；硬件加速：${fs2.gpu_compositing}`);
+  lines.push(`強制開 WebGPU：${S.forceWebGPU ? '有' : '冇'}（今次啟動${app.commandLine.hasSwitch('enable-unsafe-webgpu') ? '有' : '冇'}用）`);
+  lines.push(`貓貓視窗：${pet ? (petReady ? '出咗嚟' : '未畫到') : '冇'}${pet ? '，位置 ' + JSON.stringify(pet.getBounds()) : ''}`);
+  lines.push(`公仔（大細 ${S.toySize}）：`);
+  for (const id of S.toys) {
+    const t = toyStatus[id], label = TOYS.find(x => x.id === id).label;
+    if (!t) { lines.push(`- ${label}：未開始`); continue; }
+    const where = t.rect ? `，畫面位置 x ${t.rect[0]}–${t.rect[1]}，y ${t.rect[2]}–${t.rect[3]}` : '';
+    lines.push(`- ${label}：${{ loading: '載入中', ready: '出咗嚟', failed: '出唔到' }[t.state]}${t.msg ? '（' + t.msg + '）' : ''}${where}`);
+  }
+  return lines.join('\n');
+}
+ipcMain.handle('diagnostics', () => diagnostics());
+ipcMain.handle('copy-diagnostics', async () => { const t = await diagnostics(); clipboard.writeText(t); return t; });
 // Toys need WebGPU. If Chromium hasn't allow-listed this computer's graphics chip, offer (once)
 // to switch it on anyway — the same switch the Plush Toy Box app uses — and restart.
 function offerForceWebGPU() {

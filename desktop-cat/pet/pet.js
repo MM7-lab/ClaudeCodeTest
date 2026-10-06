@@ -77,6 +77,10 @@ const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
   // wait until the cat has landed and said hello, so this isn't drawn over
   if (ai.mode !== 'fall') tellFailedToys();
 });
+// keep the main process up to date with where each toy is drawn (for the diagnostics report)
+setInterval(() => {
+  for (const t of toys.live()) api.toyStatus?.(t.id, 'ready', '', { l: t.state.l, r: t.state.r, t: t.state.t, b: t.state.b });
+}, 5000);
 function tellFailedToys() {
   if (!failedToys.length) return;
   say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 部電腦可能唔俾用 WebGPU，設定入面有得試`, 9000);
