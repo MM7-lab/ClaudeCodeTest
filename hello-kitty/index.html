@@ -72,17 +72,17 @@
 <canvas id="gl" tabindex="0" aria-label="Interactive 3D plush Hello Kitty. Drag her to pull and throw; drag the background to orbit."></canvas>
 
 <header class="ui mast">
-  <div class="kicker">Soft Objects &nbsp;/&nbsp; No. 12 &nbsp;/&nbsp; Kitty White</div>
+  <div class="kicker">Soft Objects &nbsp;/&nbsp; No. 12 &nbsp;/&nbsp; Marshmallow</div>
   <h1>Hello <em>Kitty</em></h1>
-  <p class="dek">A white plush kitten with a red bow on her left ear, a yellow felt nose and stitched whiskers. Simulated live as a soft body and drawn with WebGPU.</p>
+  <p class="dek">Hello Kitty as a squishy marshmallow: press her flat and watch her ooze back, with a strawberry bow and a dusting of sugar. Simulated live as a soft body and drawn with WebGPU.</p>
   <p class="fine">Unofficial fan piece. Hello Kitty © Sanrio Co., Ltd.</p>
 </header>
 
 <aside class="ui meta" aria-label="Specimen notes">
   <dl>
-    <dt>Fur</dt><dd>White minky</dd>
-    <dt>Bow</dt><dd>Red, left ear</dd>
-    <dt>Nose</dt><dd>Yellow felt</dd>
+    <dt>Texture</dt><dd>Marshmallow</dd>
+    <dt>Bow</dt><dd>Strawberry, left ear</dd>
+    <dt>Squish</dt><dd>Nearly flat</dd>
     <dt>Whiskers</dt><dd>Three a side</dd>
     <dt>Body</dt><dd id="st-particles">—</dd>
     <dt>Frame</dt><dd id="st-fps">—</dd>
@@ -195,10 +195,10 @@ const NP = BODY_N + NT * NS;
 const ORIGIN = [0, 0.82, 0];  // rest position of the body centre
 const GRAVITY = -17;
 const H = 1 / 600;            // fixed sub-step
-const SM_ALPHA = 0.0036;      // shape-matching pull per sub-step (≈ 5–6 Hz jiggle)
-const SM_BETA = 0.3;          // how much linear (squash/stretch) deformation the goal keeps
+const SM_ALPHA = 0.0024;      // marshmallow: a softer pull back to shape (≈ 4–5 Hz jiggle)
+const SM_BETA = 0.4;          // keeps more squash/stretch, so she oozes back slowly (softer + higher goes unstable)
 const SHELL_K = 0.02, ROOT_K = 0.08;
-const AIR = 0.25, BODY_DAMP = 0.0065, TENT_DAMP = 0.012;
+const AIR = 0.25, BODY_DAMP = 0.0042, TENT_DAMP = 0.01;  // less damping: wobbles longer
 const FRICTION = 0.12, WALL = 4.6, FLAT = 0.94;
 const tIndex = (t, k) => BODY_N + t * NS + k;
 // short round arms and legs
@@ -349,7 +349,7 @@ const grab = { active: false, core: -1, coreW: 0, items: [], off: [0, 0, 0], kin
 // Desktop-pet mode swaps the round play mat for the screen: walls at its edges, ceiling at its top.
 const BOX = { on: false, x0: -5, x1: 5, z0: -1, z1: 1, y1: 9 };
 const BOUNCE = 0.45;
-const squash = { v: 0 }; // 0..0.6 — pressing the head flattens its rest shape (volume-preserving)
+const squash = { v: 0 }; // 0..0.75 — pressing the head flattens its rest shape (volume-preserving)
 
 // Per-frame rest-pose update: breathing, gentle sway, idle limb drift.
 function updateRest(time) {
@@ -953,10 +953,10 @@ const FILL_COL = vec3f(0.78, 0.85, 1.0) * 0.42;
 const RIM_COL = vec3f(1.0, 0.9, 0.86) * 1.1;
 const SKY_COL = vec3f(0.66, 0.66, 0.70) * 0.55;
 const GROUND_COL = vec3f(0.66, 0.48, 0.42) * 0.36;
-const WHITE = vec3f(0.7, 0.69, 0.66);
-const BOW_RED = vec3f(0.7, 0.02, 0.04);
-const NOSE_YELLOW = vec3f(0.92, 0.62, 0.04);
-const DRESS = vec3f(0.85, 0.32, 0.48);
+const WHITE = vec3f(0.8, 0.75, 0.7);        // marshmallow: warm, creamy white
+const BOW_RED = vec3f(0.82, 0.12, 0.2);     // strawberry
+const NOSE_YELLOW = vec3f(0.95, 0.7, 0.18);
+const DRESS = vec3f(0.92, 0.5, 0.62);
 const THREAD = vec3f(0.03, 0.012, 0.008);
 const FLOOR_ALB = vec3f(0.46, 0.39, 0.355);
 const BOW_C = vec3f(0.4205, 0.84101, 0.34041);
@@ -1118,6 +1118,29 @@ fn shadeFabric(base: vec3f, N: vec3f, V: vec3f, sh: f32, ao: f32, sheenAmt: f32)
   return c;
 }
 
+fn mallowLight(L: vec3f, col: vec3f, N: vec3f, V: vec3f, base: vec3f) -> vec3f {
+  let NoL = dot(N, L);
+  let diff = clamp((NoL + 0.6) / 1.6, 0.0, 1.0);
+  // light soaks into the foam and comes back warmer near the shadow edge
+  let scatter = mix(vec3f(1.0, 0.8, 0.72), vec3f(1.0), clamp(NoL * 1.3 + 0.35, 0.0, 1.0));
+  return col * (base * diff * scatter + ggx(N, V, L, 0.55) * 0.03);
+}
+fn shadeMallow(base: vec3f, N: vec3f, V: vec3f, sh: f32, ao: f32) -> vec3f {
+  let NoV = max(dot(N, V), 0.001);
+  var c = mallowLight(F.keyDir.xyz, KEY_COL * sh, N, V, base);
+  c += mallowLight(FILL_DIR, FILL_COL, N, V, base);
+  c += mallowLight(RIM_DIR, RIM_COL, N, V, base);
+  c *= mix(1.0, ao, 0.45);
+  let hemi = mix(GROUND_COL, SKY_COL, N.y * 0.5 + 0.5);
+  c += base * hemi * ao * 1.1;
+  // translucency: back and rim light glowing through the thin, puffy edges
+  let edge = pow(1.0 - NoV, 2.0);
+  let thru = pow(clamp(dot(V, -RIM_DIR), 0.0, 1.0), 2.0) * RIM_COL + pow(clamp(dot(V, -F.keyDir.xyz), 0.0, 1.0), 2.0) * KEY_COL * 0.4;
+  c += base * vec3f(1.0, 0.78, 0.68) * thru * edge * 0.55;
+  c += base * vec3f(1.0, 0.85, 0.8) * edge * hemi * 0.35 * ao;
+  return c;
+}
+
 fn softbox(R: vec3f, D: vec3f, size: vec2f) -> f32 {
   let t = normalize(cross(D, vec3f(0.0, 1.0, 0.0)));
   let b = cross(t, D);
@@ -1264,14 +1287,17 @@ fn segDist(p: vec2f, a: vec2f, b: vec2f) -> f32 {
   let cv = d.y * 80.0 + abs(fract(cu) - 0.5) * 1.6;
   let knitLod = 1.0 - smoothstep(0.3, 1.0, max(fwidth(cu), fwidth(cv)));
   let knit = (0.5 + 0.5 * sin(cv * 6.2831853)) * knitLod;
-  let pile = (fz - 0.5) * 0.0011 * lod + (fz2 - 0.5) * 0.0016;
-  let h = mix(pile, knit * 0.0018, dress) - 0.003 * dressEdge
+  // marshmallow skin: smooth, with soft dimples and a dusting of sugar
+  let dust = smoothstep(0.8, 0.9, vnoise(d * 260.0)) * lod;
+  let pile = (fz2 - 0.5) * 0.0022 + dust * 0.0006;
+  let h = mix(pile, pile * 0.7, dress) - 0.003 * dressEdge
     + bow * (0.002 * pleat) - 0.004 * knotEdge - 0.003 * loopEdge
     + 0.004 * nose * threadH(max(length(nc) - 0.0, 0.0), 1.05) + 0.003 * threadH(dW, ww) * whisk - 0.003 * pucker;
   let N = perturb(P, N0, h);
 
   var base = WHITE * (0.95 + 0.08 * patchN) * (0.96 + 0.08 * mix(0.5, fz, lod));
-  base = mix(base, DRESS * (0.88 + 0.2 * knit), dress);
+  base = mix(base, DRESS * (0.96 + 0.06 * patchN), dress);
+  base = mix(base, vec3f(0.95, 0.93, 0.9), dust * 0.45);
   base = mix(base, BOW_RED * (0.9 + 0.15 * pleat), bow);
   base = mix(base, NOSE_YELLOW * (0.95 + 0.08 * fz), nose);
   base = mix(base, THREAD, whisk);
@@ -1279,8 +1305,7 @@ fn segDist(p: vec2f, a: vec2f, b: vec2f) -> f32 {
 
   let ao = sphereAO(P, N0) * eyeAO * (1.0 - 0.3 * knotEdge);
   let sh = shadowAt(P, N0, in.clip.xy, 0.004);
-  let sheenAmt = mix(mix(1.05, 0.55, dress), 0.8, bow) * (1.0 - whisk);
-  var col = shadeFabric(base, N, V, sh, ao, sheenAmt);
+  var col = mix(shadeMallow(base, N, V, sh, ao), shadeFabric(base, N, V, sh, ao, 0.6), whisk);
   col += vec3f(1.0) * whisk * (KEY_COL * sh * ggx(N, V, F.keyDir.xyz, 0.3)) * 0.06;
   return finish(col, in.clip.xy);
 }
@@ -1307,12 +1332,14 @@ fn segDist(p: vec2f, a: vec2f, b: vec2f) -> f32 {
   let lod = 1.0 - smoothstep(0.25, 0.9, length(fwidth(tp)));
   let fz = vnoise(tp);
   let patchN = vnoise(tp * 0.03 + 5.0);
-  let N = perturb(P, N0, (fz - 0.5) * 0.0011 * lod);
+  let dust = smoothstep(0.8, 0.9, vnoise(tp * 2.2)) * lod;
+  let N = perturb(P, N0, (patchN - 0.5) * 0.002 + dust * 0.0006);
 
-  let base = WHITE * (0.95 + 0.08 * patchN) * (0.96 + 0.08 * mix(0.5, fz, lod));
+  var base = WHITE * (0.95 + 0.08 * patchN);
+  base = mix(base, vec3f(0.95, 0.93, 0.9), dust * 0.45);
   let ao = sphereAO(P, N0);
   let sh = shadowAt(P, N0, in.clip.xy, 0.004);
-  return finish(shadeFabric(base, N, V, sh, ao, 1.05), in.clip.xy);
+  return finish(shadeMallow(base, N, V, sh, ao), in.clip.xy);
 }
 
 // ---------------- glossy safety eyes
@@ -1676,7 +1703,7 @@ async function main() {
         if (e > 0.6 * 0.6) continue;
         const w = Math.exp(-e / 0.09);
         const n = norm3([P[o] - O[0], P[o + 1] - O[1], P[o + 2] - O[2]]);
-        V[o] -= n[0] * 3.4 * w; V[o + 1] -= n[1] * 3.4 * w; V[o + 2] -= n[2] * 3.4 * w;
+        V[o] -= n[0] * 4.6 * w; V[o + 1] -= n[1] * 4.6 * w; V[o + 2] -= n[2] * 4.6 * w;
       }
     } else {
       const k0 = hit.s * (NS - 1);
@@ -1844,7 +1871,7 @@ async function main() {
     let sqT = 0;
     if (grab.active && grab.kind === 'body') {
       const y0 = gesture.plane.p[1];
-      sqT = clamp((y0 - dragT[1]) / (y0 + 0.15), 0, 0.6);
+      sqT = clamp((y0 - dragT[1]) / (y0 + 0.15), 0, 0.75);   // marshmallow squashes nearly flat
     }
     squash.v += (sqT - squash.v) * (1 - Math.exp(-dt * (sqT > squash.v ? 14 : 22)));
     acc = Math.min(acc + dt, 1 / 20);
