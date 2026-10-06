@@ -2,13 +2,13 @@
   "name": "plush-toy-box",
   "productName": "Plush Toy Box",
   "version": "1.0.0",
-  "description": "Desktop toy box for the WebGPU soft-body plush toys.",
+  "description": "Plush Toy Box: the WebGPU soft-body plush toys as a desktop pet and a toy box window.",
   "main": "main.js",
   "private": true,
   "scripts": {
     "sync": "node scripts/sync-toys.mjs",
     "start": "npm run sync && electron .",
-    "pack:win": "npm run sync && electron-packager . \"Plush Toy Box\" --platform=win32 --arch=x64 --out=dist --overwrite --asar --ignore=^/dist --ignore=^/scripts --ignore=^/node_modules --ignore=^/.gitignore --ignore=^/launcher --app-copyright=\"Plush Toy Box\"",
+    "pack:win": "npm run sync && node scripts/pack-win.mjs",
     "pack:edge": "npm run sync && node scripts/pack-edge.mjs"
   },
   "devDependencies": {

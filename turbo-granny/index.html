@@ -49,6 +49,11 @@
   .actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #fallback { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: var(--paper); }
   #fallback[hidden] { display: none; }
+  /* desktop-pet mode (?pet): a see-through page with only the toy on it */
+  html.pet, html.pet body { background: transparent; }
+  html.pet .ui { display: none; }
+  html.pet #gl { transition: none; }
+  html.pet #fallback { inset: auto 24px 24px auto; max-width: 360px; border-radius: 14px; box-shadow: 0 8px 30px rgba(0, 0, 0, .18); }
   .fb-card { max-width: 440px; }
   .fb-card h2 { font: 400 34px/1.05 var(--serif); margin: .3em 0 .4em; }
   .fb-card h2 em { color: var(--accent); }
@@ -323,6 +328,9 @@ const SM = {
 };
 
 const grab = { active: false, core: -1, coreW: 0, items: [], off: [0, 0, 0], kind: '', tent: -1 };
+// Desktop-pet mode swaps the round play mat for the screen: walls at its edges, ceiling at its top.
+const BOX = { on: false, x0: -5, x1: 5, z0: -1, z1: 1, y1: 9 };
+const BOUNCE = 0.45;
 const squash = { v: 0 }; // 0..0.6 — pressing the head flattens its rest shape (volume-preserving)
 
 // Per-frame rest-pose update: breathing, gentle sway, idle limb drift.
@@ -378,6 +386,15 @@ function shapeMatch(upright) {
       const ang = Math.atan2(sn, uy) * 0.004;
       quatToM3(quatAxisAngle(-uz / sn, 0, ux / sn, ang), _Up);
       m3mul(_Up, SM.R, _Ru);
+    }
+    if (BOX.on && uy > 0.8) {
+      // desktop pet: slowly turn back to face the viewer once sitting upright
+      const fx = _Ru[2], fz = _Ru[8];
+      const yaw = Math.atan2(fx, fz);
+      if (Math.abs(yaw) > 1e-3) {
+        quatToM3(quatAxisAngle(0, 1, 0, -yaw * 0.003), _Up);
+        _T.set(_Ru); m3mul(_Up, _T, _Ru);
+      }
     }
   }
   m3mul(_A, SM.AqqInv, _T);
@@ -447,9 +464,18 @@ function collide() {
       P[o] -= (P[o] - PP[o]) * FRICTION;
       P[o + 2] -= (P[o + 2] - PP[o + 2]) * FRICTION;
     }
-    if (P[o + 1] > 9) P[o + 1] = 9;
-    const hr = Math.hypot(P[o], P[o + 2]);
-    if (hr > WALL) { const s = WALL / hr; P[o] *= s; P[o + 2] *= s; }
+    if (BOX.on) {
+      // clamp to the box and reflect the motion into the previous position, so it bounces
+      if (P[o] < BOX.x0) { const v = P[o] - PP[o]; P[o] = BOX.x0; PP[o] = BOX.x0 + v * BOUNCE; }
+      else if (P[o] > BOX.x1) { const v = P[o] - PP[o]; P[o] = BOX.x1; PP[o] = BOX.x1 + v * BOUNCE; }
+      if (P[o + 2] < BOX.z0) { const v = P[o + 2] - PP[o + 2]; P[o + 2] = BOX.z0; PP[o + 2] = BOX.z0 + v * BOUNCE; }
+      else if (P[o + 2] > BOX.z1) { const v = P[o + 2] - PP[o + 2]; P[o + 2] = BOX.z1; PP[o + 2] = BOX.z1 + v * BOUNCE; }
+      if (P[o + 1] > BOX.y1) { const v = P[o + 1] - PP[o + 1]; P[o + 1] = BOX.y1; PP[o + 1] = BOX.y1 + v * BOUNCE; }
+    } else {
+      if (P[o + 1] > 9) P[o + 1] = 9;
+      const hr = Math.hypot(P[o], P[o + 2]);
+      if (hr > WALL) { const s = WALL / hr; P[o] *= s; P[o + 2] *= s; }
+    }
   }
   // limbs vs the body (an egg-shaped ellipsoid in the body frame)
   const R = SM.R; bodyOrigin(_O);
@@ -1115,6 +1141,17 @@ struct FOut { @builtin(position) clip: vec4f, @location(0) wpos: vec3f };
   return vec4f(mix(lit, bgColor(in.clip.xy * F.res.zw), fade), 1.0);
 }
 
+// floor for desktop-pet mode: only the soft shadow, as premultiplied alpha over the desktop
+@fragment fn fs_floor_pet(in: FOut) -> @location(0) vec4f {
+  let P = in.wpos;
+  let N = vec3f(0.0, 1.0, 0.0);
+  let sh = shadowAt(P, N, in.clip.xy, 0.0075);
+  let ao = sphereAO(P, N);
+  let dark = clamp((1.0 - sh) * 0.3 + (1.0 - ao) * 0.6, 0.0, 0.6);
+  let a = dark * (1.0 - smoothstep(2.0, 4.5, length(P.xz - F.focus.xz)));
+  return vec4f(vec3f(0.06, 0.04, 0.03) * a, a);
+}
+
 // ---------------- head
 @vertex fn vs_body(@location(0) p: vec3f, @location(1) n: vec3f, @location(2) d: vec3f) -> VOut {
   var o: VOut;
@@ -1372,6 +1409,12 @@ struct EOut {
 // App
 
 const canvas = document.getElementById('gl');
+// ?pet: the toy alone on a see-through page (used by the desktop app's desktop-pet window)
+const params = new URLSearchParams(location.search);
+const PET = params.has('pet');
+const PET_SIZE = clamp(Number(params.get('size')) || 300, 120, 900); // on-screen height of the toy, CSS px
+if (PET) document.documentElement.classList.add('pet');
+const petBridge = window.petBridge; // provided by the desktop app's preload script, absent on the web
 const statParticles = document.getElementById('st-particles');
 const statFps = document.getElementById('st-fps');
 
@@ -1394,7 +1437,7 @@ async function main() {
 
   const ctx = canvas.getContext('webgpu');
   const format = navigator.gpu.getPreferredCanvasFormat();
-  ctx.configure({ device, format, alphaMode: 'opaque' });
+  ctx.configure({ device, format, alphaMode: PET ? 'premultiplied' : 'opaque' });
 
   async function compile(code, label) {
     const m = device.createShaderModule({ code, label });
@@ -1475,7 +1518,7 @@ async function main() {
     depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less', depthBias: 2, depthBiasSlopeScale: 2.0, depthBiasClamp: 0.01 },
   });
   const pBg = mainPipe('vs_bg', 'fs_bg', [], false, 'always');
-  const pFloor = mainPipe('vs_floor', 'fs_floor', []);
+  const pFloor = mainPipe('vs_floor', PET ? 'fs_floor_pet' : 'fs_floor', []);
   const pBody = mainPipe('vs_body', 'fs_body', [dynLayout, dirLayout]);
   const pTent = mainPipe('vs_tent', 'fs_tent', [dynLayout, attrLayout]);
   const pEye = mainPipe('vs_eye', 'fs_eye', [dynLayout]);
@@ -1484,7 +1527,7 @@ async function main() {
 
   let msaaTex = null, depthTex = null, msaaView = null, depthView = null;
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, PET ? 1.5 : 2);
     const max = device.limits.maxTextureDimension2D;
     const w = Math.max(1, Math.min(max, Math.round(canvas.clientWidth * dpr)));
     const h = Math.max(1, Math.min(max, Math.round(canvas.clientHeight * dpr)));
@@ -1501,7 +1544,20 @@ async function main() {
   const KEY_DIR = norm3([-0.55, 0.78, 0.42]);
   const cam = { yaw: 0.3, pitch: 0.3, dist: 5.6, yawT: 0.3, pitchT: 0.3, distT: 5.6, focus: [0, 0.72, 0], eye: [0, 0, 0], aspect: 1, fovy: FOVY };
   const YAW_LIM = 1.3, PITCH_MIN = 0.06, PITCH_MAX = 1.05, DIST_MIN = 3.4, DIST_MAX = 9.0;
+  function petCamera() {
+    const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+    const unitsPerPx = 1.9 / PET_SIZE;               // the toys are about 1.9 units tall
+    const visH = h * unitsPerPx, visW = w * unitsPerPx;
+    cam.fovy = 18 * Math.PI / 180;
+    cam.aspect = canvas.width / canvas.height;
+    const dist = (visH / 2) / Math.tan(cam.fovy / 2), pitch = 0.1;
+    cam.focus = [0, visH / 2 - 0.4, 0];               // floor sits a little above the screen bottom
+    cam.eye = [0, cam.focus[1] + dist * Math.sin(pitch), dist * Math.cos(pitch)];
+    BOX.on = true;
+    BOX.x0 = -visW / 2 + 0.08; BOX.x1 = visW / 2 - 0.08; BOX.z0 = -2.2; BOX.z1 = 2.2; BOX.y1 = visH - 0.1;
+  }
   function updateCamera(dt) {
+    if (PET) { petCamera(); return; }
     const k = 1 - Math.exp(-dt * 9);
     cam.yaw += (cam.yawT - cam.yaw) * k;
     cam.pitch += (cam.pitchT - cam.pitch) * k;
@@ -1651,9 +1707,13 @@ async function main() {
     const t = dot3(sub3(pl.p, o), pl.n) / den;
     if (t <= 0) return;
     let px = o[0] + d[0] * t, py = o[1] + d[1] * t, pz = o[2] + d[2] * t;
-    py = clamp(py, -0.5, 5.5);
-    const hr = Math.hypot(px, pz);
-    if (hr > WALL - 0.3) { px *= (WALL - 0.3) / hr; pz *= (WALL - 0.3) / hr; }
+    if (BOX.on) {
+      px = clamp(px, BOX.x0 + 0.3, BOX.x1 - 0.3); py = clamp(py, -0.5, BOX.y1 - 0.3); pz = clamp(pz, BOX.z0, BOX.z1);
+    } else {
+      py = clamp(py, -0.5, 5.5);
+      const hr = Math.hypot(px, pz);
+      if (hr > WALL - 0.3) { px *= (WALL - 0.3) / hr; pz *= (WALL - 0.3) / hr; }
+    }
     dragT[0] = px; dragT[1] = py; dragT[2] = pz;
   }
 
@@ -1664,7 +1724,7 @@ async function main() {
     if (pointers.size === 1) {
       const hit = pick(e.clientX, e.clientY);
       if (hit) startGrab(hit, e.pointerId, e.clientX, e.clientY);
-      else { mode = 'orbit'; gesture = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.style.cursor = 'move'; }
+      else if (!PET) { mode = 'orbit'; gesture = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.style.cursor = 'move'; }
     } else if (pointers.size === 2 && mode !== 'grab') {
       const [a, b] = [...pointers.values()];
       mode = 'pinch';
@@ -1712,6 +1772,7 @@ async function main() {
   canvas.addEventListener('pointerleave', () => { if (!pointers.size) { hover = null; canvas.style.cursor = ''; } });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (PET) return;
     const k = e.deltaMode === 1 ? 0.05 : 0.0012;
     cam.distT = clamp(cam.distT * Math.exp(e.deltaY * k), DIST_MIN, DIST_MAX);
   }, { passive: false });
@@ -1719,6 +1780,13 @@ async function main() {
   window.addEventListener('blur', () => { releaseGrab(); pointers.clear(); mode = null; gesture = null; });
 
   // actions
+  let interactive = null;
+  function setInteractive(on) {
+    if (!PET || !petBridge || on === interactive) return;
+    interactive = on;
+    petBridge.setInteractive(on);
+  }
+  canvas.addEventListener('pointerdown', () => setInteractive(true), true);
   const doReset = () => { releaseGrab(); squash.v = 0; resetSim(0.9, 0); poke = 0.6; };
   const doDrop = () => {
     releaseGrab();
@@ -1757,6 +1825,8 @@ async function main() {
   document.getElementById('b-reset').addEventListener('click', doReset);
   document.getElementById('b-drop').addEventListener('click', doDrop);
   document.getElementById('b-wiggle').addEventListener('click', doWiggle);
+  // the desktop app's tray menu drives these
+  window.toyAction = (a) => ({ reset: doReset, drop: doDrop, wiggle: doWiggle })[a]?.();
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLButtonElement) return;
     if (e.key === 'r' || e.key === 'R') doReset();
@@ -1811,13 +1881,16 @@ async function main() {
 
     if (hoverDirty && hover && !pointers.size) {
       hoverDirty = false;
-      canvas.style.cursor = pick(hover.x, hover.y) ? 'grab' : '';
+      const over = !!pick(hover.x, hover.y);
+      canvas.style.cursor = over ? 'grab' : '';
+      setInteractive(over);
     }
 
     // uniforms
     const view = m4look(cam.eye, cam.focus, [0, 1, 0]);
     const proj = m4persp(cam.fovy, cam.aspect, 0.1, 60);
-    const lc = [cam.focus[0], 0.6, cam.focus[2]];
+    const lo = bodyOrigin([0, 0, 0]);
+    const lc = PET ? [lo[0], 0.6, 0] : [cam.focus[0], 0.6, cam.focus[2]];
     const lightView = m4look([lc[0] + KEY_DIR[0] * 12, lc[1] + KEY_DIR[1] * 12, lc[2] + KEY_DIR[2] * 12], lc, [0, 1, 0]);
     const lightProj = m4ortho(-3.6, 3.6, -3.6, 3.6, 2, 24);
     frameU.set(m4mul(proj, view), 0);
@@ -1826,7 +1899,7 @@ async function main() {
     frameU.set([KEY_DIR[0], KEY_DIR[1], KEY_DIR[2], 0], 36);
     frameU.set([surprise, simTime, surprise, 0], 40);
     frameU.set([canvas.width, canvas.height, 1 / canvas.width, 1 / canvas.height], 44);
-    frameU.set([cam.focus[0], cam.focus[1], cam.focus[2], sphereCount], 48);
+    frameU.set(PET ? [lo[0], 0, lo[2], sphereCount] : [cam.focus[0], cam.focus[1], cam.focus[2], sphereCount], 48);
     const O = bodyOrigin([0, 0, 0]), R = SM.R;
     let so = 52;
     frameU.set([O[0] + R[1] * 0.06, O[1] + R[4] * 0.06, O[2] + R[7] * 0.06, 0.86], so); so += 4;
@@ -1852,11 +1925,11 @@ async function main() {
     }
     {
       const pass = enc.beginRenderPass({
-        colorAttachments: [{ view: msaaView, resolveTarget: ctx.getCurrentTexture().createView(), clearValue: { r: 0.95, g: 0.91, b: 0.89, a: 1 }, loadOp: 'clear', storeOp: 'discard' }],
+        colorAttachments: [{ view: msaaView, resolveTarget: ctx.getCurrentTexture().createView(), clearValue: PET ? { r: 0, g: 0, b: 0, a: 0 } : { r: 0.95, g: 0.91, b: 0.89, a: 1 }, loadOp: 'clear', storeOp: 'discard' }],
         depthStencilAttachment: { view: depthView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
       });
       pass.setBindGroup(0, bgMain);
-      pass.setPipeline(pBg); pass.draw(3);
+      if (!PET) { pass.setPipeline(pBg); pass.draw(3); }
       pass.setPipeline(pFloor); pass.draw(6);
       pass.setPipeline(pBody);
       pass.setVertexBuffer(0, bodyDynBuf); pass.setVertexBuffer(1, bodyDirBuf); pass.setIndexBuffer(bodyIdxBuf, 'uint32'); pass.drawIndexed(bodyIdx.length);

@@ -1,0 +1,40 @@
+name: Desktop app (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/plush-octopus-webgpu-a3zy0z]
+    paths:
+      - desktop/**
+      - baby-bear/**
+      - moomin/**
+      - turbo-granny/**
+      - plush-octopus/**
+      - .github/workflows/desktop-windows.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1' # the packager fetches the Windows build itself
+      - name: Package
+        run: npm run pack:win
+      - name: Upload the app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plush-Toy-Box-Windows
+          path: desktop/dist/Plush Toy Box-win32-x64/
+          retention-days: 30
