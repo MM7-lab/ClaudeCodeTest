@@ -52,14 +52,20 @@ function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-// Settings saved before version 2 had the sound on by default; a user's PC crashed in its
-// audio driver while the cat was running, so sound now starts off until switched on again.
-const SETTINGS_VERSION = 2;
+// One-off changes to settings saved by older versions:
+// 2: sound had been on by default; a user's PC crashed in its audio driver while the cat was
+//    running, so sound starts off until switched on again.
+// 3: toys now draw with WebGL, so the risky forced-WebGPU switch goes back off.
+const SETTINGS_VERSION = 3;
 function loadSettings() {
   const saved = readJson('settings.json', {});
   const s = { ...DEFAULTS, ...saved };
   s.types = { ...DEFAULTS.types, ...s.types };
-  if (saved.settingsVersion !== SETTINGS_VERSION) { s.sound = false; s.settingsVersion = SETTINGS_VERSION; }
+  const v = saved.settingsVersion || 1;
+  if (v < 2) s.sound = false;
+  if (v < 3) s.forceWebGPU = false;
+  s.settingsVersion = SETTINGS_VERSION;
+  if (v !== SETTINGS_VERSION) writeJson('settings.json', s);
   return s;
 }
 function loadStats() { const s = readJson('stats.json', null); return s && s.date === today() ? s : { date: today(), water: 0, rest: 0, toilet: 0, pets: 0 }; }
@@ -311,7 +317,7 @@ ipcMain.handle('get-state', () => ({
 }));
 ipcMain.on('toy-status', (_e, id, state, msg, rect) => {
   if (!TOYS.some(t => t.id === id) || !['loading', 'ready', 'failed'].includes(state)) return;
-  toyStatus[id] = { state, msg: msg ? String(msg).slice(0, 300) : '' };
+  toyStatus[id] = { state, msg: msg ? String(msg).slice(0, 1500) : '' };
   if (rect && typeof rect === 'object') toyStatus[id].rect = ['l', 'r', 't', 'b'].map(k => Math.round(Number(rect[k]) || 0));
 });
 
@@ -380,7 +386,10 @@ ipcMain.handle('save-settings', (_e, patch) => {
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // Only when the user chose it (after the toys couldn't start): let WebGPU run on graphics chips
 // Chromium hasn't allow-listed. Switches must be set before the app is ready.
-if (readJson('settings.json', {}).forceWebGPU === true) app.commandLine.appendSwitch('enable-unsafe-webgpu');
+{
+  const saved = readJson('settings.json', {});
+  if (saved.forceWebGPU === true && (saved.settingsVersion || 1) >= 3) app.commandLine.appendSwitch('enable-unsafe-webgpu');
+}
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {

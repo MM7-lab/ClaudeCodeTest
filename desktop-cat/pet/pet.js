@@ -75,7 +75,7 @@ document.body.append(toyBack, toyFront);
 const toyBackCtx = toyBack.getContext('2d'), toyFrontCtx = toyFront.getContext('2d');
 const failedToys = [];
 const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
-  api.toyStatus?.(t.id, state, msg);
+  api.toyStatus?.(t.id, state, state === 'failed' ? [msg, history(t.id)].filter(Boolean).join('；') : msg);
   if (state !== 'failed') return;
   console.warn('toy failed', t.id, msg);
   failedToys.push(t.name);
@@ -85,13 +85,16 @@ const toys = new ToyBox(document.body, BOTTOM, placeToy, (t, state, msg) => {
 // keep the main process up to date with where each toy is drawn (for the diagnostics report)
 setInterval(() => {
   for (const t of toys.live()) {
-    const s = t.state;
+    const s = t.state, g = s.gl;
     const info = [`用 ${t.modeName} 畫`, t.adapter && `顯示卡：${t.adapter}`,
-      s.drawn === true ? '有畫到 ✓' : s.drawn === false ? '畫唔到嘢' : '', t.frame ? '經貓貓畫布顯示' : '直接顯示',
-      s.errors ? `${s.errors} 個錯誤：${s.error}` : ''].filter(Boolean).join('；');
+      g && `材質程式 ${g.ready}/${g.started} 編譯好`, g && g.error,
+      s.drawn === true ? '有畫到 ✓' : s.drawn === false ? '畫唔到嘢' : '未有畫面',
+      t.frames ? `經貓貓畫布顯示（收到 ${t.frames} 次）` : '未收到畫面',
+      s.errors ? `${s.errors} 個錯誤：${s.error}` : '', history(t.id)].filter(Boolean).join('；');
     api.toyStatus?.(t.id, 'ready', info, { l: s.l, r: s.r, t: s.t, b: s.b });
   }
 }, 5000);
+const history = id => (toys.history[id] || []).length ? '之前：' + toys.history[id].join(' → ') : '';
 function tellFailedToys() {
   if (!failedToys.length) return;
   say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 右撳我揀「複製診斷資料」，貼俾幫你整貓貓嘅人`, 9000);

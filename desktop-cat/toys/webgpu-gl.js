@@ -10,6 +10,15 @@
 // z to GL's range), which keeps shadow-map lookups right; the final blit to the canvas flips
 // the picture back. window.__toyRect (set by the toy each frame) limits drawing to the area
 // around the toy, which matters with several full-screen toys on a laptop GPU.
+//
+// Shaders compile in the background (KHR_parallel_shader_compile) and only when first used:
+// Windows translates them once more to Direct3D, which can take a long time on older PCs, and
+// waiting for that would freeze the toy. Draws are skipped until their program is ready.
+//
+// The drawn area is read back (asynchronously, through pixel buffers) and posted to the cat
+// app as plain pixels, which it draws on its own canvas.
+//
+// For the cat app's diagnostics: window.__glState = { started, ready, failed, error, drawn }.
 (() => {
   const q = new URLSearchParams(location.search);
   if (!q.has('embed') || q.get('gpu') === 'webgpu') return;
@@ -22,7 +31,10 @@
     Object.defineProperty(window, k, { value: v, configurable: true, writable: true });
   }
 
-  let gl = null, glCanvas = null, device = null;
+  let gl = null, glCanvas = null, device = null, PAR = null;
+  const TOY = q.get('id') || '';
+  const state = window.__glState = { started: 0, ready: 0, failed: '', error: '', drawn: null, frames: 0 };
+  window.__toyGL = true;
 
   const COMPARE = g => ({ never: g.NEVER, less: g.LESS, equal: g.EQUAL, 'less-equal': g.LEQUAL, greater: g.GREATER,
     'not-equal': g.NOTEQUAL, 'greater-equal': g.GEQUAL, always: g.ALWAYS });
@@ -83,30 +95,49 @@
     }
   }
 
-  function compile(type, src, name) {
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(`GLSL ${name}: ${gl.getShaderInfoLog(s)}`);
-    return s;
-  }
   const EMPTY_FS = '#version 300 es\nprecision highp float;\nvoid main() {}\n';
 
   class Pipe {
     constructor(d) {
-      const vk = `${d.vertex.module.label}:${d.vertex.entryPoint}`;
-      const fk = d.fragment ? `${d.fragment.module.label}:${d.fragment.entryPoint}` : null;
-      const vsrc = SHADERS[vk], fsrc = fk ? SHADERS[fk] : EMPTY_FS;
-      if (!vsrc || !fsrc) throw new Error(`no GLSL for ${vsrc ? fk : vk}`);
-      const p = this.prog = gl.createProgram();
-      gl.attachShader(p, compile(gl.VERTEX_SHADER, vsrc, vk));
-      gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsrc, fk || 'empty'));
-      gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`GLSL link ${vk}: ${gl.getProgramInfoLog(p)}`);
+      this.vk = `${d.vertex.module.label}:${d.vertex.entryPoint}`;
+      this.fk = d.fragment ? `${d.fragment.module.label}:${d.fragment.entryPoint}` : null;
+      this.vsrc = SHADERS[this.vk];
+      this.fsrc = this.fk ? SHADERS[this.fk] : EMPTY_FS;
+      if (!this.vsrc || !this.fsrc) throw new Error(`no GLSL for ${this.vsrc ? this.fk : this.vk}`);
+      this.buffers = d.vertex.buffers || [];
+      this.depth = d.depthStencil || null;
+      this.status = 'new'; // new -> compiling -> ready | failed
+    }
+    // Start compiling (first use only); returns true once the program can draw.
+    use() {
+      if (this.status === 'ready') return true;
+      if (this.status === 'failed') return false;
+      if (this.status === 'new') {
+        const p = this.prog = gl.createProgram();
+        this.vs = gl.createShader(gl.VERTEX_SHADER);
+        this.fs = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(this.vs, this.vsrc); gl.compileShader(this.vs);
+        gl.shaderSource(this.fs, this.fsrc); gl.compileShader(this.fs);
+        gl.attachShader(p, this.vs); gl.attachShader(p, this.fs);
+        gl.linkProgram(p);
+        this.status = 'compiling';
+        this.t0 = performance.now();
+        state.started++;
+        return false;
+      }
+      if (PAR && !gl.getProgramParameter(this.prog, PAR.COMPLETION_STATUS_KHR)) return false;
+      if (!gl.getProgramParameter(this.prog, gl.LINK_STATUS)) {
+        const log = [gl.getShaderInfoLog(this.vs), gl.getShaderInfoLog(this.fs), gl.getProgramInfoLog(this.prog)]
+          .filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 300);
+        this.status = 'failed';
+        if (!state.failed) state.failed = `${this.fk || this.vk}: ${log || 'link failed'}`;
+        return false;
+      }
+      const p = this.prog;
       gl.useProgram(p);
       // naga names bindings _group_<g>_binding_<b>_<stage>: uniform blocks bind to slot <b>,
       // combined texture-samplers to texture unit <b>
-      const both = vsrc + fsrc;
+      const both = this.vsrc + this.fsrc;
       for (const m of both.matchAll(/uniform (\w+) \{ \w+ _group_\d+_binding_(\d+)_\w+; \}/g)) {
         const idx = gl.getUniformBlockIndex(p, m[1]);
         if (idx !== gl.INVALID_INDEX) gl.uniformBlockBinding(p, idx, Number(m[2]));
@@ -117,8 +148,10 @@
       }
       const fi = gl.getUniformLocation(p, 'naga_vs_first_instance');
       if (fi) gl.uniform1ui(fi, 0);
-      this.buffers = d.vertex.buffers || [];
-      this.depth = d.depthStencil || null;
+      this.status = 'ready';
+      state.ready++;
+      state.compileMs = Math.max(state.compileMs || 0, Math.round(performance.now() - this.t0));
+      return true;
     }
   }
 
@@ -159,6 +192,9 @@
     }
     setPipeline(p) {
       this.p = p;
+      // still compiling (or broken): skip this pipeline's draws for now
+      this.skip = !p.use();
+      if (this.skip) return;
       gl.useProgram(p.prog);
       gl.disable(gl.CULL_FACE);
       gl.disable(gl.BLEND);
@@ -200,8 +236,9 @@
         }
       });
     }
-    draw(n, inst = 1, first = 0) { this.attribs(); gl.drawArraysInstanced(gl.TRIANGLES, first, n, inst); }
+    draw(n, inst = 1, first = 0) { if (this.skip) return; this.attribs(); gl.drawArraysInstanced(gl.TRIANGLES, first, n, inst); }
     drawIndexed(n, inst = 1, firstIndex = 0) {
+      if (this.skip) return;
       this.attribs();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ib.b);
       gl.drawElementsInstanced(gl.TRIANGLES, n, this.itype, firstIndex * this.isize, inst);
@@ -219,6 +256,7 @@
       this.features = new Set();
       this.lost = new Promise(res => glCanvas.addEventListener('webglcontextlost', () => res({ reason: 'unknown', message: 'WebGL context lost' })));
       this.fbos = new Map();
+      this.n = 0;
       gl.bindVertexArray(gl.createVertexArray());
       this.queue = {
         writeBuffer(buf, offset, data, dataOffset = 0, size) {
@@ -284,6 +322,47 @@
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, mid);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       gl.blitFramebuffer(x, y, x + w, y + h, x, H - y, x + w, H - y - h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      if (rect) this.readBack(mid, rect);
+    }
+    // Copy the drawn area into a pixel buffer now and pick it up a frame or two later, when the
+    // GPU is done (no stall). The frame is upside down, so its rows already run top to bottom.
+    readBack(fbo, [x, y, w, h]) {
+      // one read in flight at a time: start the next once the last one has been picked up
+      const pb = this.pb || (this.pb = { b: gl.createBuffer(), size: 0, fence: null });
+      if (pb.fence) {
+        if (gl.getSyncParameter(pb.fence, gl.SYNC_STATUS) !== gl.SIGNALED) return;
+        gl.deleteSync(pb.fence); pb.fence = null;
+        this.post(pb);
+      }
+      if (++this.n % 120 === 0) {
+        const e = gl.getError();
+        if (e && !state.error) state.error = 'GL error 0x' + e.toString(16);
+      }
+      const bytes = w * h * 4;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pb.b);
+      if (pb.size < bytes) { gl.bufferData(gl.PIXEL_PACK_BUFFER, bytes, gl.STREAM_READ); pb.size = bytes; }
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo);
+      gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      Object.assign(pb, { x, y, w, h, fence: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0) });
+      gl.flush();
+    }
+    post(pb) {
+      const px = new Uint8ClampedArray(pb.w * pb.h * 4);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pb.b);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, px);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      // premultiplied -> straight alpha for ImageData; count what was drawn while at it
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        const a = px[i + 3];
+        if (a > 24) n++;
+        if (a && a < 255) { const k = 255 / a; px[i] *= k; px[i + 1] *= k; px[i + 2] *= k; }
+      }
+      state.drawn = n > 20;
+      state.frames++;
+      const kx = glCanvas.clientWidth / glCanvas.width || 1;
+      parent.postMessage({ toy: TOY, type: 'pixels', x: pb.x * kx, y: pb.y * kx, w: pb.w, h: pb.h, sw: pb.w * kx, sh: pb.h * kx, px }, '*', [px.buffer]);
     }
   }
 
@@ -294,6 +373,7 @@
         gl = glCanvas && glCanvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false });
       }
       if (!gl) return null;
+      PAR = gl.getExtension('KHR_parallel_shader_compile');
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
       const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
       return {

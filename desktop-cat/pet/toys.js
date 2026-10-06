@@ -19,6 +19,7 @@ export class ToyBox {
     Object.assign(this, { layer, floorPx, placeX, onStatus });
     this.toys = new Map();
     this.failed = new Set(); // don't keep retrying a toy that couldn't start this run
+    this.history = {};       // per toy: how each way of drawing went, for the diagnostics
     addEventListener('message', e => this.onMessage(e));
   }
 
@@ -38,22 +39,33 @@ export class ToyBox {
     el.tabIndex = -1;
     el.src = `../toys/${id}.html?pet=1&embed=1&id=${id}&size=${size}&floor=${this.floorPx}${MODES[mode].query}`;
     this.layer.append(el);
-    const t = { id, name: TOY_NAMES[id], el, size, mode, modeName: MODES[mode].name, ready: false, state: null, interactive: false, frame: null };
+    const t = { id, name: TOY_NAMES[id], el, size, mode, modeName: MODES[mode].name, ready: false, state: null, interactive: false,
+      frame: null, frames: 0, startedAt: performance.now() };
     this.toys.set(id, t);
     this.onStatus(t, 'loading', mode ? `改用 ${MODES[mode].name} 再試` : '');
     // a toy that never says hello (e.g. its graphics hang) counts as failed
     setTimeout(() => { if (this.toys.get(id) === t && !t.ready) this.fail(t, '30 秒都未出到嚟'); }, 30000);
     return t;
   }
-  // Nothing has been drawn for a while: try the next graphics chip, or give up.
-  retry(t) {
+  // Note how this attempt ended, for the diagnostics report.
+  log(t, result) {
+    const h = this.history[t.id] || (this.history[t.id] = []);
+    const g = t.state && t.state.gl;
+    const extra = [g && `材質程式 ${g.ready}/${g.started} 編譯好${g.compileMs ? `（最慢 ${(g.compileMs / 1000).toFixed(1)} 秒）` : ''}`,
+      g && g.error, t.state && t.state.error, t.frames ? `收到畫面 ${t.frames} 次` : '收唔到畫面'].filter(Boolean).join('，');
+    h.push(`${t.modeName}：${result}（${Math.round((performance.now() - t.startedAt) / 1000)} 秒；${extra}）`);
+  }
+  // Nothing has been drawn for a while: try the next way of drawing, or give up.
+  retry(t, why = '畫唔到嘢') {
+    this.log(t, why);
     this.drop(t);
     if (t.mode + 1 < MODES.length) this.create(t.id, t.size, t.mode + 1);
     else this.fail(t, '畫唔到嘢（顯示卡驅動程式可能太舊）');
   }
   drop(t) {
     t.el.remove();
-    if (t.frame) t.frame.bmp.close();
+    if (t.frame && t.frame.bmp) t.frame.bmp.close();
+    t.frame = null;
     this.toys.delete(t.id);
   }
 
@@ -71,13 +83,25 @@ export class ToyBox {
     } else if (m.type === 'state') {
       t.state = m;
       t.seenAt = performance.now();
-      if (m.drawn !== false) t.blankSince = 0;
+      // blank while its shaders are still compiling doesn't count (that can take a while on Windows)
+      const compiling = m.gl && m.gl.ready < m.gl.started;
+      if (compiling && t.seenAt - t.startedAt > 180000) { this.retry(t, '材質程式編譯咗 3 分鐘都未完'); return; }
+      if (m.drawn !== false || compiling) t.blankSince = 0;
       else if (!t.blankSince) t.blankSince = t.seenAt;
       else if (t.seenAt - t.blankSince > 8000) this.retry(t);
+    } else if (m.type === 'pixels') {
+      // plain pixels read back from the WebGL stand-in
+      const c = t.img || (t.img = document.createElement('canvas'));
+      if (c.width !== m.w || c.height !== m.h) { c.width = m.w; c.height = m.h; }
+      c.getContext('2d').putImageData(new ImageData(m.px, m.w, m.h), 0, 0);
+      t.frame = { src: c, x: m.x, y: m.y, w: m.sw, h: m.sh };
+      t.frames++;
+      if (t.el.style.opacity !== '0') t.el.style.opacity = '0';
     } else if (m.type === 'frame') {
       // a copy of the toy's corner of its canvas; we draw it ourselves (see draw())
-      if (t.frame) t.frame.bmp.close();
-      t.frame = m;
+      if (t.frame && t.frame.bmp) t.frame.bmp.close();
+      t.frame = { ...m, src: m.bmp };
+      t.frames++;
       if (t.el.style.opacity !== '0') t.el.style.opacity = '0';
     } else if (m.type === 'interactive') {
       t.interactive = !!m.on;
@@ -87,7 +111,8 @@ export class ToyBox {
   }
   fail(t, msg) {
     // couldn't start this way: try the next way before giving up
-    if (t.mode + 1 < MODES.length && this.toys.get(t.id) === t) { this.retry(t); return; }
+    if (t.mode + 1 < MODES.length && this.toys.get(t.id) === t) { this.retry(t, msg); return; }
+    if (this.toys.get(t.id) === t) this.log(t, msg);
     this.failed.add(t.id);
     this.drop(t);
     this.onStatus(t, 'failed', msg);
@@ -105,7 +130,7 @@ export class ToyBox {
       if (c.width !== f.w || c.height !== f.h) { c.width = f.w; c.height = f.h; }
       const g = c.getContext('2d');
       g.globalCompositeOperation = 'copy';
-      g.drawImage(f.bmp, 0, 0, f.w, f.h);
+      g.drawImage(f.src, 0, 0, f.w, f.h);
       g.globalCompositeOperation = 'destination-in';
       g.save();
       g.translate(f.w / 2, f.h / 2);

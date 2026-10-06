@@ -94,8 +94,13 @@ const API = `  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and ca
       if (catGrab && !grab.active) catGrab = false;
       send({ type: 'state', l, r, t, b, z: bodyOrigin([0, 0, 0])[2] / UPX,
         held: grab.active && !catGrab, carried: catGrab, speed: Math.hypot(vx, vy) / BODY_N / UPX,
-        drawn, errors: errCount, error: firstError });
+        drawn: G ? G.drawn : drawn, errors: errCount, error: firstError,
+        gl: G && { started: G.started, ready: G.ready, failed: G.failed, error: G.error, frames: G.frames, compileMs: G.compileMs } });
+      // a shader that won't compile or link under WebGL: give up on this way of drawing
+      if (G && G.failed && !sentFail) { sentFail = true; send({ type: 'failed', msg: 'WebGL：' + G.failed }); }
     }, 100);
+    const G = window.__glState; // set when drawing through the WebGL stand-in
+    let sentFail = false;
 
     // WebGPU errors don't stop the frame loop, so count them for the diagnostics report
     let errCount = 0, firstError = '';
@@ -126,6 +131,7 @@ const API = `  // ---- 桌面貓貓 (?embed): the cat can push, pounce on and ca
       const x1 = Math.min(cw, Math.ceil(r + m * 1.4)), y1 = Math.min(ch, Math.ceil(b + m * 0.5));
       if (x1 - x0 < 2 || y1 - y0 < 2) return;
       window.__toyRect = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; // the WebGL stand-in draws only around here
+      if (G) return; // and sends its own pixels
       const kx = canvas.width / cw, ky = canvas.height / ch;
       snapBusy = true;
       createImageBitmap(canvas, Math.round(x0 * kx), Math.round(y0 * ky), Math.round((x1 - x0) * kx), Math.round((y1 - y0) * ky),
@@ -159,6 +165,10 @@ const EDITS = [
   // (?adapter=hp|lp lets the cat app try the other chip if nothing gets drawn)
   ["adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });",
     () => "adapter = await navigator.gpu.requestAdapter(!params.has('embed') ? { powerPreference: 'high-performance' } : ({ hp: { powerPreference: 'high-performance' }, lp: { powerPreference: 'low-power' } }[params.get('adapter')] || {}));"],
+  // A small toy on a tall screen puts the pet camera far away (about 108 units for a 60 px toy
+  // on a 1080 px screen), past the fixed far plane of 60, so nothing was drawn at all. Fit the
+  // near and far planes around the camera distance instead.
+  ['const proj = m4persp(cam.fovy, cam.aspect, 0.1, 60);', () => "const camDist = Math.hypot(cam.eye[0] - cam.focus[0], cam.eye[1] - cam.focus[1], cam.eye[2] - cam.focus[2]);\n    const proj = PET ? m4persp(cam.fovy, cam.aspect, Math.max(0.1, camDist - 30), camDist + 30) : m4persp(cam.fovy, cam.aspect, 0.1, 60);"],
   // smaller shadow map inside the cat app: the toys are small there, and laptops thank us
   ['const SHADOW_SIZE = 2048;', () => "const SHADOW_SIZE = params.has('embed') ? 1024 : 2048;"],
   // the cat app copies frames out of the canvas
