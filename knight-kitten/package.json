@@ -1,0 +1,6 @@
+{
+  "name": "knight-kitten",
+  "private": true,
+  "scripts": { "export": "node export.mjs" },
+  "devDependencies": { "three": "0.147.0" }
+}

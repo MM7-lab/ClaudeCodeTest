@@ -1,0 +1,293 @@
+<title>小貓騎士</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@900&display=swap">
+<style>
+/* 版面：左邊大舞台展示模型，右邊一張「騎士名牌」放設定；手機上下排 */
+:root {
+  --bg: #f4eef2;
+  --panel: #fffbfd;
+  --fg: #2a2530;
+  --muted: #6e6474;
+  --line: #e2d5de;
+  --accent: #d9568a;
+  --accent-fg: #ffffff;
+  --steel: #8a8fa0;
+  --f-display: "Noto Serif TC", "Songti TC", serif;
+  --f-latin: "Cinzel", "Times New Roman", serif;
+  --f-body: "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17151d; --panel: #1f1c26;
+    --fg: #f1ebf2; --muted: #a79eae; --line: #342f3d; --accent: #f07fa8; --accent-fg: #1b1520; --steel: #9ea4b5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17151d; --panel: #1f1c26;
+  --fg: #f1ebf2; --muted: #a79eae; --line: #342f3d; --accent: #f07fa8; --accent-fg: #1b1520; --steel: #9ea4b5;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 32px; padding-inline: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { position: relative; aspect-ratio: 5 / 4; max-width: 100%; border-radius: 18px; overflow: hidden;
+  background: linear-gradient(#d3d8da, #7f8c6c); border: 1px solid var(--line); }
+@media (max-width: 560px) { .stage { aspect-ratio: 4 / 5; } }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hint { position: absolute; left: 14px; bottom: 12px; font-size: 12px; color: #f4f6f2; text-shadow: 0 1px 2px rgba(0,0,0,.45); pointer-events: none; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #3c4436; }
+
+.plate { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px; display: grid; gap: 18px; }
+.eyebrow { font-family: var(--f-latin); font-size: 12px; letter-spacing: 0.24em; color: var(--steel); }
+h1 { font-family: var(--f-display); font-weight: 900; font-size: 34px; line-height: 1.15; margin: 4px 0 0; text-wrap: balance; }
+.motto { margin: 0; font-size: 15px; color: var(--muted); border-left: 3px solid var(--accent); padding-left: 12px; }
+.group { display: grid; gap: 8px; }
+.label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+.chip .dot { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+.chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button.btn { font: inherit; font-size: 14px; font-weight: 500; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; color: var(--fg); cursor: pointer; }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 700; }
+button.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+dl.spec { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+dl.spec dt { color: var(--muted); }
+dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+</style>
+
+<div class="wrap">
+  <div class="stage" id="stage">
+    <div class="msg" id="msg">載入緊 3D 模型…</div>
+    <div class="hint">拖曳旋轉 · 雙指或滾輪縮放</div>
+  </div>
+
+  <aside class="plate">
+    <div>
+      <div class="eyebrow">KNIGHT KITTEN</div>
+      <h1>小貓騎士</h1>
+    </div>
+    <p class="motto">雖然好細隻、壓力好大，但今日都要硬住頭皮撐過去。</p>
+
+    <div class="group">
+      <div class="label">毛色</div>
+      <div class="chips" id="furs">
+        <button class="chip" data-fur="tabby" aria-pressed="true"><span class="dot" style="background:#a8927b"></span>虎斑（原圖）</button>
+        <button class="chip" data-fur="orange" aria-pressed="false"><span class="dot" style="background:#e2a062"></span>橘貓</button>
+        <button class="chip" data-fur="grey" aria-pressed="false"><span class="dot" style="background:#a9adb6"></span>灰貓</button>
+        <button class="chip" data-fur="black" aria-pressed="false"><span class="dot" style="background:#3a3840"></span>黑貓</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="label">動作</div>
+      <div class="row">
+        <button class="btn primary" id="cheer">撐住！</button>
+        <button class="btn" id="spin" aria-pressed="true">自動旋轉</button>
+        <button class="btn" id="reset">重設視角</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="label">模型規格</div>
+      <dl class="spec">
+        <dt>高度（連劍）</dt><dd id="s-h">–</dd>
+        <dt>闊 × 深</dt><dd id="s-wd">–</dd>
+        <dt>零件</dt><dd id="s-parts">–</dd>
+        <dt>三角面</dt><dd id="s-tris">–</dd>
+      </dl>
+      <p class="note">1 單位 = 1 cm。3D 打印用嘅 STL 喺 repo 嘅 knight-kitten 資料夾（打印版冇鬚同披風）。</p>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="model.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const msg = document.getElementById('msg');
+  if (!window.THREE || !window.buildKnightKitten) { msg.textContent = '載入唔到 3D 程式庫，請檢查網絡後重新整理。'; return; }
+
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+  catch (e) { msg.textContent = '呢部裝置唔支援 WebGL，睇唔到 3D 模型。'; return; }
+  msg.hidden = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.82;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  stage.prepend(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+
+  // 霧氣天空：上淺灰、近地平線灰綠
+  const MIST = 0xc3c9c6;
+  const sky = document.createElement('canvas');
+  sky.width = 2; sky.height = 256;
+  const sg = sky.getContext('2d');
+  const grad = sg.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, '#d9dee0');
+  grad.addColorStop(0.7, '#c3c9c6');
+  grad.addColorStop(1, '#a9b2a0');
+  sg.fillStyle = grad; sg.fillRect(0, 0, 2, 256);
+  scene.background = new THREE.CanvasTexture(sky);
+  scene.background.encoding = THREE.sRGBEncoding;
+  scene.fog = new THREE.Fog(MIST, 19, 46);
+
+  // 自製環境光（俾金屬盔甲有反光）
+  const envScene = new THREE.Scene();
+  const skyGeo = new THREE.SphereGeometry(20, 32, 16);
+  const cols = [];
+  const pos = skyGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getY(i) / 20 + 1) / 2;
+    const c = new THREE.Color(0x2a2530).lerp(new THREE.Color(0xc9bfc8), Math.pow(t, 1.4));
+    cols.push(c.r, c.g, c.b);
+  }
+  skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  envScene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const panel = (w, h, p, c) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.set(p[0], p[1], p[2]); m.lookAt(0, 0, 0); envScene.add(m); };
+  panel(10, 6, [8, 10, 10], 0xf2f2f2);
+  panel(6, 10, [-12, 4, 4], 0xffd6e4);
+  panel(14, 3, [0, 6, -14], 0xdfe6ff);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(envScene, 0.03).texture;
+
+  scene.add(new THREE.HemisphereLight(0xe3e8ea, 0x55603f, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 1.25);
+  key.position.set(4, 9, 6);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -5, right: 5, top: 8, bottom: -3, near: 1, far: 30 });
+  key.shadow.bias = -0.0005;
+  key.shadow.radius = 4;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xdfe6ff, 0.7);
+  rim.position.set(-5, 5, -6);
+  scene.add(rim);
+
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: 0x5f6e47, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 草：用 InstancedMesh 撒一圈，避開隻貓企嘅位置
+  const bladeGeo = new THREE.ConeGeometry(0.035, 0.6, 3);
+  bladeGeo.translate(0, 0.3, 0);
+  const GRASS = 2600;
+  const grass = new THREE.InstancedMesh(bladeGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), GRASS);
+  const dummy = new THREE.Object3D();
+  const gc = new THREE.Color();
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < GRASS; i++) {
+    const r = 1.6 + Math.pow(rnd(), 0.7) * 12, a = rnd() * Math.PI * 2;
+    dummy.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    dummy.rotation.set((rnd() - 0.5) * 0.5, rnd() * Math.PI, (rnd() - 0.5) * 0.5);
+    const h = 0.6 + rnd() * 1.4;
+    dummy.scale.set(1, h, 1);
+    dummy.updateMatrix();
+    grass.setMatrixAt(i, dummy.matrix);
+    grass.setColorAt(i, gc.setHSL(0.22 + rnd() * 0.06, 0.25 + rnd() * 0.2, 0.3 + rnd() * 0.16));
+  }
+  grass.receiveShadow = true;
+  scene.add(grass);
+
+  const kitten = buildKnightKitten(THREE, { fur: 'tabby' });
+  scene.add(kitten);
+  const { head, eyes, cape } = kitten.userData;
+  const headY = head.position.y;
+
+  // 規格
+  const box = new THREE.Box3().setFromObject(kitten);
+  const size = box.getSize(new THREE.Vector3());
+  let parts = 0, tris = 0;
+  kitten.traverse(o => { if (o.isMesh) { parts++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+  const cm = v => v.toFixed(1) + ' cm';
+  document.getElementById('s-h').textContent = cm(size.y);
+  document.getElementById('s-wd').textContent = size.x.toFixed(1) + ' × ' + cm(size.z);
+  document.getElementById('s-parts').textContent = parts;
+  document.getElementById('s-tris').textContent = Math.round(tris).toLocaleString('en');
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.minDistance = 5;
+  controls.maxDistance = 24;
+  controls.maxPolarAngle = Math.PI * 0.53;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  controls.autoRotate = !reduced;
+  controls.autoRotateSpeed = 0.8;
+  const home = () => { camera.position.set(1.2, 3.4, 15); controls.target.set(0, 3.5, 0); controls.update(); };
+  home();
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+
+  // 介面
+  const furBtns = [...document.querySelectorAll('#furs .chip')];
+  furBtns.forEach(b => b.addEventListener('click', () => {
+    kitten.userData.setFur(b.dataset.fur);
+    furBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  const spinBtn = document.getElementById('spin');
+  spinBtn.setAttribute('aria-pressed', String(controls.autoRotate));
+  spinBtn.addEventListener('click', () => {
+    controls.autoRotate = !controls.autoRotate;
+    spinBtn.setAttribute('aria-pressed', String(controls.autoRotate));
+  });
+  document.getElementById('reset').addEventListener('click', home);
+  let cheerT = -1;
+  document.getElementById('cheer').addEventListener('click', () => { cheerT = 0; });
+
+  // 動畫：呼吸、眨眼、「撐住！」跳一下再點頭
+  const clock = new THREE.Clock();
+  let nextBlink = 2, blinkT = -1;
+  renderer.setAnimationLoop(() => {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const t = clock.elapsedTime;
+    if (!reduced) {
+      head.position.y = headY + Math.sin(t * 2) * 0.025;
+      if (cape) cape.userData.wave(t);
+    }
+
+    if (t > nextBlink) { blinkT = 0; nextBlink = t + 2.5 + Math.random() * 3; }
+    let lid = 1;
+    if (blinkT >= 0) { blinkT += dt; lid = Math.max(0.08, Math.abs(1 - blinkT / 0.08)); if (blinkT > 0.16) { blinkT = -1; lid = 1; } }
+    eyes.forEach(e => { e.scale.y = lid; });
+
+    kitten.position.y = 0;
+    head.rotation.x = 0;
+    if (cheerT >= 0) {
+      cheerT += dt;
+      const p = cheerT / 0.9;
+      if (p < 1) {
+        kitten.position.y = Math.max(0, Math.sin(Math.min(p / 0.5, 1) * Math.PI)) * 0.45;
+        head.rotation.x = p > 0.5 ? Math.sin((p - 0.5) / 0.5 * Math.PI) * 0.22 : 0;
+      } else cheerT = -1;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  });
+})();
+</script>
