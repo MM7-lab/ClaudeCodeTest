@@ -7,6 +7,7 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
 const buildKnightKitten = createRequire(import.meta.url)('./model.js');
+THREE.ColorManagement.legacyMode = false;   // 色碼當 sRGB，GLB 顏色先會同網頁一樣
 const heightMm = Number(process.argv[2]) || 100;
 
 // GLTFExporter 喺 Node 要用 FileReader

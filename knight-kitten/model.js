@@ -18,6 +18,9 @@
 
   const std = (color, roughness, metalness) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness: metalness || 0 });
+  // 打磨過嘅金屬：全金屬 + 一層薄清漆，反光會有兩重高光
+  const metal = (color, roughness, coat) =>
+    new THREE.MeshPhysicalMaterial({ color, roughness, metalness: 1, clearcoat: coat || 0, clearcoatRoughness: 0.08 });
   const M = {
     fur:       std(fur.base, 0.95),
     furDark:   std(fur.dark, 0.95),
@@ -28,11 +31,11 @@
     nose:      std(0xd98a8a, 0.5),
     eye:       std(0x141217, 0.1),
     shine:     new THREE.MeshBasicMaterial({ color: 0xffffff }),
-    steel:     std(0xc4c8cf, 0.3, 0.9),
-    steelDark: std(0x80868f, 0.42, 0.85),
-    mail:      std(0x5d6168, 0.65, 0.8),
-    blade:     std(0x9aa0a8, 0.25, 0.95),
-    brass:     std(0xb58a45, 0.35, 1),
+    steel:     metal(0xd6d9de, 0.14, 0.35),
+    steelDark: metal(0xa3a8b0, 0.26, 0.2),
+    mail:      metal(0x8d939b, 0.42),
+    blade:     metal(0xc3c7cc, 0.1, 0.5),
+    brass:     metal(0xc9a05a, 0.22, 0.3),
     leather:   std(0x5e3a22, 0.8),
     cape:      std(0xece4d4, 0.9),
   };
@@ -54,17 +57,17 @@
     return m;
   }
   const sphere = (r, w, h) => new THREE.SphereGeometry(r, w || 32, h || 24);
-  const lathe = (pts, segs) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), segs || 48);
+  const lathe = (pts, segs) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), segs || 96);
 
   // 兩點之間嘅圓柱（手臂、腳用），兩端加圓球令關節圓潤
   function limb(a, b, r, mat, parent, caps) {
     const dir = new THREE.Vector3().subVectors(b, a);
-    const m = mesh(new THREE.CylinderGeometry(r, r, dir.length(), 24), mat, parent);
+    const m = mesh(new THREE.CylinderGeometry(r, r, dir.length(), 48), mat, parent);
     m.position.copy(a).addScaledVector(dir, 0.5);
     m.quaternion.setFromUnitVectors(Y, dir.normalize());
     if (caps !== false) {
-      mesh(sphere(r, 20, 14), mat, parent, [a.x, a.y, a.z]);
-      mesh(sphere(r, 20, 14), mat, parent, [b.x, b.y, b.z]);
+      mesh(sphere(r, 40, 28), mat, parent, [a.x, a.y, a.z]);
+      mesh(sphere(r, 40, 28), mat, parent, [b.x, b.y, b.z]);
     }
     return m;
   }
@@ -76,11 +79,16 @@
   mesh(lathe([[0, 0.95], [0.82, 1.0], [0.95, 1.25], [0.97, 1.6], [0.88, 1.95],
               [0.66, 2.25], [0.36, 2.42], [0, 2.44]]), M.steel, body, null, null, [1, 1, 0.88], 'Cuirass');
   mesh(new THREE.BoxGeometry(0.05, 1.05, 0.06), M.steelDark, body, [0, 1.62, 0.84], [-0.1, 0, 0]);
+  mesh(new THREE.TorusGeometry(0.83, 0.035, 12, 96), M.steel, body, [0, 1.0, 0], [Math.PI / 2, 0, 0], [1, 0.88, 1], 'CuirassRoll');
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.3;
+    mesh(sphere(0.035, 12, 8), M.brass, body, [Math.sin(a) * 0.9, 1.2, Math.cos(a) * 0.9 * 0.88]);
+  }
   // 胸甲上嘅凸線花紋
   for (const s of [-1, 1]) {
     mesh(new THREE.TorusGeometry(0.22, 0.022, 8, 28, Math.PI), M.steelDark, body, [0.3 * s, 1.75, 0.8], [-0.2, 0.3 * s, 0]);
   }
-  mesh(new THREE.TorusGeometry(0.56, 0.09, 14, 48), M.steel, body, [0, 2.36, 0.02], [Math.PI / 2, 0, 0], [1, 0.9, 1], 'Gorget');
+  mesh(new THREE.TorusGeometry(0.56, 0.09, 20, 96), M.steel, body, [0, 2.36, 0.02], [Math.PI / 2, 0, 0], [1, 0.9, 1], 'Gorget');
   // 頸位一圈淺色毛
   for (let i = 0; i < 9; i++) {
     const a = Math.PI * (0.15 + 0.7 * i / 8);
@@ -92,6 +100,12 @@
   for (const s of [-1, 1]) {
     mesh(new THREE.BoxGeometry(0.5, 0.55, 0.07), M.steel, body, [0.36 * s, 0.78, 0.93], [-0.18, 0.32 * s, 0], null, 'Tasset');
     mesh(new THREE.BoxGeometry(0.44, 0.05, 0.08), M.steelDark, body, [0.36 * s, 0.98, 0.98], [-0.18, 0.32 * s, 0]);
+    const tasset = new THREE.Group();
+    tasset.position.set(0.36 * s, 0.78, 0.93);
+    tasset.rotation.set(-0.18, 0.32 * s, 0);
+    body.add(tasset);
+    for (const [x, y] of [[-0.19, 0.2], [0.19, 0.2], [-0.19, -0.2], [0.19, -0.2]]) mesh(sphere(0.03, 10, 8), M.brass, tasset, [x, y, 0.045]);
+    mesh(new THREE.BoxGeometry(0.5, 0.035, 0.09), M.steel, tasset, [0, -0.27, 0]);   // 下緣卷邊
   }
   // 腰帶、斜孭皮帶、圓形銅扣
   mesh(new THREE.TorusGeometry(0.97, 0.06, 10, 64), M.leather, body, [0, 1.08, 0], [Math.PI / 2, 0, 0], [1, 0.92, 1.4], 'Belt');
@@ -100,9 +114,21 @@
 
   // 肩甲（三層）
   for (const s of [-1, 1]) {
-    mesh(sphere(0.46), M.steel, body, [0.82 * s, 2.24, 0.02], [0, 0, -0.38 * s], [1, 0.6, 1], 'Pauldron');
-    mesh(sphere(0.4), M.steel, body, [0.9 * s, 2.06, 0.02], [0, 0, -0.42 * s], [1, 0.5, 1]);
-    mesh(sphere(0.33), M.steelDark, body, [0.96 * s, 1.9, 0.02], [0, 0, -0.46 * s], [1, 0.45, 1]);
+    const lames = [[0.46, 0.82, 2.24, 0.38, 0.6, M.steel], [0.4, 0.9, 2.06, 0.42, 0.5, M.steel], [0.33, 0.96, 1.9, 0.46, 0.45, M.steelDark]];
+    lames.forEach(([r, x, y, tilt, sy, mat], i) => {
+      const lame = new THREE.Group();
+      lame.position.set(x * s, y, 0.02);
+      lame.rotation.set(0, 0, -tilt * s);
+      body.add(lame);
+      mesh(sphere(r, 64, 40), mat, lame, null, null, [1, sy, 1], i === 0 ? 'Pauldron' : null);
+      mesh(new THREE.TorusGeometry(r * 0.97, 0.03, 10, 64), M.steel, lame, [0, -0.02, 0], [Math.PI / 2, 0, 0]);   // 卷邊
+      if (i === 0) {
+        for (let k = 0; k < 3; k++) {
+          const a = -0.6 + k * 0.6;
+          mesh(sphere(0.04, 12, 8), M.brass, lame, [Math.sin(a) * r * 0.82, 0.12, Math.cos(a) * r * 0.82]);
+        }
+      }
+    });
   }
 
   // 腳：毛毛大髀、膝甲、脛甲、鐵靴
@@ -138,9 +164,11 @@
         const u = base[i * 3], v = base[i * 3 + 1], w = base[i * 3 + 2];
         const s = u + 0.5;                                       // 0 = 膊頭，1 = 飄出去嗰端
         const flap = Math.sin(s * 6.5 - time * 4 + v * 1.6) * 0.24 * s;
+        const width = (0.5 + s * 0.9) * (1 - 0.35 * s * s);         // 尾端收窄
+        const hem = v < 0 ? Math.sin(s * 9 - time * 5) * 0.14 * s * -v * 2 : 0;   // 下擺波浪
         p.setXYZ(i,
-          0.55 - s * 3.1,
-          2.15 - s * 0.45 + v * (0.5 + s * 0.8) + Math.sin(s * 4 - time * 2.6 + v) * 0.12 * s,
+          0.55 - s * 3.0 + Math.sin(v * 3 + time) * 0.08 * s,
+          2.15 - s * 0.35 - s * s * 0.45 + v * width + hem + Math.sin(s * 4 - time * 2.6 + v) * 0.1 * s,
           -0.55 - Math.sin(s * Math.PI * 0.85) * 0.4 + flap + w * 0.06);
       }
       p.needsUpdate = true;
@@ -186,7 +214,7 @@
     const elbow = shoulder.clone().lerp(hand, 0.45).add(elbowOut);
     limb(shoulder, elbow, 0.19, M.steel, root);
     limb(elbow, hand, 0.2, M.steel, root, false);
-    mesh(sphere(0.23), M.steelDark, root, [elbow.x, elbow.y, elbow.z], null, null, 'Couter');
+    mesh(sphere(0.23, 48, 32), M.steelDark, root, [elbow.x, elbow.y, elbow.z], null, null, 'Couter');
     // 毛毛手掌包住劍柄
     mesh(sphere(0.21), M.fur, root, [hand.x, hand.y, hand.z + 0.02], null, [1.15, 0.95, 1], 'Paw');
     for (let k = -1; k <= 1; k++) {
