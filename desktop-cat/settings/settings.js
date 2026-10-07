@@ -18,6 +18,9 @@ function render(s) {
   $('volume').value = s.volume;
   $('autostart').checked = s.autostart;
   $('tree').value = s.tree;
+  $('bird').checked = !!s.bird;
+  if (document.activeElement !== $('birdName')) $('birdName').value = s.birdName || '';
+  $('cage').value = s.cage;
   $('toySize').value = s.toySize;
   $('forceWebGPU').checked = !!s.forceWebGPU;
   document.querySelectorAll('[data-toy]').forEach(c => { c.checked = s.toys.includes(c.dataset.toy); });
@@ -81,6 +84,9 @@ $('sound').addEventListener('change', () => save({ sound: $('sound').checked }))
 $('volume').addEventListener('change', () => save({ volume: Number($('volume').value) }));
 $('autostart').addEventListener('change', () => save({ autostart: $('autostart').checked }));
 $('tree').addEventListener('change', () => save({ tree: $('tree').value }));
+$('bird').addEventListener('change', () => save({ bird: $('bird').checked }));
+$('birdName').addEventListener('change', () => save({ birdName: $('birdName').value }));
+$('cage').addEventListener('change', () => save({ cage: $('cage').value }));
 $('toySize').addEventListener('change', () => save({ toySize: Number($('toySize').value) }));
 $('forceWebGPU').addEventListener('change', () => save({ forceWebGPU: $('forceWebGPU').checked }));
 $('btnRestart').addEventListener('click', () => api.restart());

@@ -2,6 +2,8 @@ import * as THREE from '../node_modules/three/build/three.module.js';
 import { Cat } from './cat.js';
 import { CatTree } from './tree.js';
 import { ToyBox, toyCenter } from './toys.js';
+import { Bird, BirdCage } from './bird.js';
+import { BirdBrain } from './birdbrain.js';
 import { makeSound } from './sound.js';
 
 const api = window.catApi;
@@ -14,7 +16,8 @@ const CHAT = ['你做得好好呀！加油 💪', '我喺度陪住你 🐾', '�
   '今日都好努力呀 🌼', '我信你得嘅 💛', '有咩唔開心，摸吓我啦 🐱'];
 const OUCH = ['嚇死我喇！😾', '喵！好高呀 😿', '安全着陸 😼'];
 
-let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80 };
+let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80,
+  bird: true, birdName: '檸檬', cage: 'left' };
 const sound = makeSound(() => S);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -68,6 +71,43 @@ const tree = new CatTree(cat.ramp);
 scene.add(tree.group);
 let treeOn = false;
 
+// ---------- the bird (雀仔) and its cage ----------
+const cage = new BirdCage(cat.ramp);
+scene.add(cage.group);
+let cageOn = false;
+const bird = new Bird(cat.ramp);
+scene.add(bird.root);
+const birdShadow = shadow.clone();
+birdShadow.material = shadow.material.clone();
+scene.add(birdShadow);
+const birdZzz = zzz.cloneNode(true);
+birdZzz.id = 'birdZzz';
+document.body.append(birdZzz);
+const brain = new BirdBrain(bird, {
+  S: () => S,
+  bounds: () => screenBounds(),
+  lane: () => LANE,
+  cage: () => (cageOn ? cage : null),
+  treeSpots: () => (treeOn ? tree.surfaces : []),
+  cat: () => {
+    // stays put while the cat keeps still; only lands once the cat has settled
+    const still = ['sit', 'sleep', 'idle', 'groom', 'remind', 'yawn', 'look'].includes(ai.mode) && !drag;
+    const head = cat.neck.localToWorld(v.set(10, 33, 0));
+    return { x: ai.x, z: ai.z, perchable: still, settled: still && ai.t > 1.5, head: { x: head.x, y: head.y, z: head.z } };
+  },
+  toys: () => toys.live().map(t => {
+    const st = t.state, z = clamp(st.z || 0, -60, 90);
+    return { id: t.id, moving: st.held || st.carried || st.speed > 60,
+      top: { x: (st.l + st.r) / 2 - W / 2, y: (H - st.t - BOTTOM + z * Math.sin(TILT)) / Math.cos(TILT) - 4 * S.size, z } };
+  }),
+  sound,
+  notes: p => notes(toScreen(v.set(p.x, p.y, p.z))),
+  hearts: p => hearts(3, toScreen(v.set(p.x, p.y, p.z))),
+  zzz: on => { birdZzz.hidden = !on; },
+});
+const birdFlying = () => S.bird && (brain.mode === 'fly' || brain.mode === 'held');
+const birdOnFloor = () => S.bird && brain.spot.kind === 'floor' && !['fly', 'held'].includes(brain.mode);
+
 // The toys' frames are drawn on these two 2D layers, behind and in front of the cat's canvas.
 const toyBack = document.createElement('canvas'), toyFront = document.createElement('canvas');
 toyBack.className = 'toy-layer'; toyFront.className = 'toy-layer front';
@@ -100,8 +140,10 @@ function tellFailedToys() {
   say(`${failedToys.splice(0).join('、')}出唔到嚟 😿 右撳我揀「複製診斷資料」，貼俾幫你整貓貓嘅人`, 9000);
 }
 function placeToy(i, n) {
-  // spread the toys out, away from the cat tree
-  const [a, b] = !treeOn ? [0.2, 0.8] : S.tree === 'left' ? [0.38, 0.85] : [0.15, 0.62];
+  // spread the toys out, away from the cat tree and the bird cage
+  const left = (treeOn && S.tree === 'left') || (cageOn && S.cage === 'left');
+  const right = (treeOn && S.tree === 'right') || (cageOn && S.cage === 'right');
+  const a = left ? 0.3 : 0.15, b = right ? 0.68 : 0.85;
   return W * (a + (b - a) * (i + 0.5) / n);
 }
 
@@ -153,6 +195,7 @@ function decide() {
       ['sleep', sleepy],
       ['climb', treeOn ? 10 : 0], ['scratch', treeOn ? 6 : 0], ['pompom', treeOn ? 6 : 0],
       ['toyPlay', playable ? 16 : 0], ['toyCarry', playable ? 5 : 0], ['toyGift', playable ? 2 : 0],
+      ['stalkBird', birdOnFloor() && Math.abs(brain.p.x - ai.x) < 600 ? 12 : 0],
     ];
   }
   let r = Math.random() * options.reduce((s, o) => s + o[1], 0);
@@ -198,6 +241,7 @@ function start(name) {
       break;
     }
     case 'toyPlay': approachToy(playableToy(), Math.random() < 0.25 ? 'pounce' : 'bat'); break;
+    case 'stalkBird': go('stalk', {}); break;
     case 'toyCarry': approachToy(playableToy(), 'carry'); break;
     case 'toyGift': approachToy(playableToy(), 'gift'); break;
     default: go('idle', { dur: 2 });
@@ -325,7 +369,7 @@ function physics(dt) {
 function update(dt) {
   ai.t += dt;
   const d = ai.data;
-  cat.gait.amp *= ['walk', 'run', 'chase', 'come', 'held', 'toyGo', 'carry'].includes(ai.mode) ? 1 : Math.exp(-dt * 8);
+  cat.gait.amp *= ['walk', 'run', 'chase', 'come', 'held', 'toyGo', 'carry', 'stalk'].includes(ai.mode) ? 1 : Math.exp(-dt * 8);
   ai.look = null;
   switch (ai.mode) {
     case 'idle': case 'sit':
@@ -427,6 +471,11 @@ function update(dt) {
     case 'jump': case 'fall': {
       const landed = physics(dt);
       if (landed < 0) break;
+      if (d.pounceBird) {
+        go('sit', { dur: 4 }); faceUser();
+        if (Math.random() < 0.6) say(pick(['飛咗咩 😿', `${S.birdName}好快呀！`, '下次一定捉到 😼']), 2500);
+        break;
+      }
       if (d.pounce && d.pounce.state) {
         const t = d.pounce, c = toyScreen(t);
         if (Math.abs(c.x - W / 2 - ai.x) < c.w * 0.7) {
@@ -456,7 +505,11 @@ function update(dt) {
       cat.target.tailSpeed = 6; cat.target.tailAmp = 0.3;
       break;
     case 'chase': updateChase(dt); break;
+    case 'stalk': updateStalk(dt); break;
   }
+  // a bird flying about is hard not to watch
+  if (!ai.look && birdFlying() && ['idle', 'sit', 'walk', 'look', 'groom'].includes(ai.mode)
+      && Math.hypot(brain.p.x - ai.x, brain.p.y - ai.y) < 600) ai.look = { ...brain.p };
   if (ai.chaseCooldown > 0) ai.chaseCooldown -= dt;
   if (ai.toyCooldown > 0) ai.toyCooldown -= dt;
   maybeChase();
@@ -539,6 +592,30 @@ function updateToyBat(dt) {
   if (!d.hit && since > 0.15 && since < 0.35) { d.hit = true; swatToy(t, side); }
 }
 
+// Creep up on the bird, wiggle, pounce. The bird always gets away.
+function updateStalk(dt) {
+  const d = ai.data;
+  if (!birdOnFloor() || ai.t > 15) { go('sit', { dur: 3 }); faceUser(); return; }
+  const bx = brain.p.x, side = bx >= ai.x ? 1 : -1;
+  ai.look = { ...brain.p };
+  if (!d.crouching) {
+    if (!walkTo(dt, bx - side * 140 * S.size, brain.p.z, 45)) return;
+    d.crouching = true; d.t0 = ai.t;
+    cat.setPose('crouch');
+    if (Math.random() < 0.4) setTimeout(() => brain.flee(), rand(300, 900)); // sometimes it notices early
+    return;
+  }
+  faceToward(side, 0);
+  cat.target.tailSpeed = 9;
+  cat.figure.position.x = Math.sin(ai.t * 30) * 1.5;
+  if (ai.t - d.t0 > 1.1) {
+    cat.figure.position.x = 0;
+    brain.flee();
+    ai.vy = 470; ai.vx = (bx - ai.x) / (2 * 470 / 1800);
+    go('jump', { pounceBird: true });
+  }
+}
+
 // ---------- playing with the mouse ----------
 const cursorWorldX = () => cursor.x - W / 2;
 const cursorNearFloor = () => cursor && cursor.y > H - 240 && cursor.y < H + 20 && cursor.x > 0 && cursor.x < W;
@@ -618,19 +695,21 @@ function ask(text) {
   bubbleActions.hidden = false;
   bubble.hidden = false;
 }
-function hearts(n = 3) {
-  if (!anchor) return;
+// floating effects: hearts over the cat (or a given screen point), music notes for the bird
+function floaters(at, n, chars, cls) {
   for (let i = 0; i < n; i++) {
     const h = document.createElement('span');
-    h.className = 'heart';
-    h.textContent = pick(['💗', '💕', '✨', '💗']);
-    h.style.left = (anchor.x + rand(-25, 25)) + 'px';
-    h.style.top = (anchor.y + 10) + 'px';
+    h.className = cls;
+    h.textContent = pick(chars);
+    h.style.left = (at.x + rand(-20, 20)) + 'px';
+    h.style.top = (at.y + 6) + 'px';
     h.style.animationDelay = (i * 150) + 'ms';
     fx.append(h);
-    setTimeout(() => h.remove(), 2000);
+    setTimeout(() => h.remove(), 2200);
   }
 }
+function hearts(n = 3, at = anchor) { if (at) floaters(at, n, ['💗', '💕', '✨', '💗'], 'heart'); }
+function notes(at) { floaters(at, 1, ['♪', '♫', '♬'], 'heart note'); }
 function petCat() {
   if (ai.mode === 'sleep') { wake(true); return; }
   hearts(); sound.purr(); ai.happy = 1.8;
@@ -646,6 +725,7 @@ api.on('reminder', r => {
   ai.yawTarget = FRONT;
   ask(r.text);
   sound.meow(2);
+  if (S.bird) brain.cheer(); // the bird comes over and sings along
 });
 api.on('nag', () => { if (ai.mode === 'remind') ai.vy = 300; sound.meow(2); });
 api.on('reminder-end', r => {
@@ -665,6 +745,7 @@ api.on('come-here', () => {
   ai.surface && ai.mode !== 'hop' ? jumpDown(comeOver) : comeOver();
 });
 api.on('toy-action', a => toys.action(a));
+api.on('bird-action', a => { if (a === 'sing' && S.bird) brain.petted(); });
 api.on('settings', s => applySettings(s));
 $('btnDone').addEventListener('click', () => api.answer(true));
 $('btnLater').addEventListener('click', () => api.answer(false));
@@ -675,7 +756,23 @@ function applySettings(s) {
   if (S.sound && soundWasOn === false && frameStarted) sound.meow(); // let them hear it when switched on
   cat.setCoat(S.coat);
   placeTree();
+  placeCage();
+  bird.root.visible = birdShadow.visible = !!S.bird;
+  if (!S.bird) birdZzz.hidden = true;
   toys.set(S.toys || [], Math.round(S.toySize || 80));
+}
+let cageKey = '';
+function placeCage() {
+  const key = `${S.cage}|${S.tree}|${W}|${S.size}`;
+  if (key === cageKey) return;
+  cageKey = key;
+  cageOn = S.cage === 'left' || S.cage === 'right';
+  cage.group.visible = cageOn;
+  if (!cageOn) return;
+  const side = S.cage === 'left' ? -1 : 1;
+  // move inwards if the cat tree already stands on that side
+  const inset = treeOn && S.tree === S.cage ? 330 : 110;
+  cage.place(side * (W / 2 - inset * S.size), -45, S.size);
 }
 let treeKey = '';
 function placeTree() {
@@ -706,13 +803,19 @@ function overCat(x, y) {
   raycaster.setFromCamera(ndc, camera);
   return raycaster.intersectObject(cat.root, true).length > 0;
 }
+function overBird(x, y) {
+  if (!S.bird) return false;
+  ndc.set(x / W * 2 - 1, -(y / H) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.intersectObject(bird.root, true).length > 0;
+}
 function overBubble(x, y) {
   if (bubble.hidden) return false;
   const b = bubble.getBoundingClientRect();
   return x > b.left - 6 && x < b.right + 6 && y > b.top - 6 && y < b.bottom + 12;
 }
 function updateCapture() {
-  const onCat = !!drag || (cursor && (overCat(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
+  const onCat = !!drag || !!birdDrag || (cursor && (overCat(cursor.x, cursor.y) || overBird(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
   const toy = onCat ? null : toys.hovered();
   // route the mouse: the cat's canvas, or the toy's own page underneath it
   canvas.style.pointerEvents = toy ? 'none' : 'auto';
@@ -722,7 +825,7 @@ function updateCapture() {
     captured = want;
     api.setThrough(!want);
   }
-  canvas.style.cursor = onCat ? (drag && drag.moved ? 'grabbing' : 'grab') : '';
+  canvas.style.cursor = onCat ? ((drag && drag.moved) || (birdDrag && birdDrag.moved) ? 'grabbing' : 'grab') : '';
 }
 let lastCursor = null, lastCursorT = 0;
 setInterval(async () => {
@@ -744,11 +847,36 @@ setInterval(async () => {
   lastCursor = c; lastCursorT = now; cursor = c;
 }, 33);
 
-function pointerWorld(e) {
+function pointerWorld(e, z = ai.z) {
   ndc.set(e.clientX / W * 2 - 1, -(e.clientY / H) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -ai.z), hit);
+  return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), hit);
 }
+// the bird: click to make it sing, drag to hold it (it flaps), let go and it flies off
+let birdDrag = null;
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || !overBird(e.clientX, e.clientY)) return;
+  e.stopImmediatePropagation();
+  canvas.setPointerCapture(e.pointerId);
+  birdDrag = { x: e.clientX, y: e.clientY, moved: false };
+});
+canvas.addEventListener('pointermove', e => {
+  if (!birdDrag) return;
+  e.stopImmediatePropagation();
+  if (!birdDrag.moved && Math.hypot(e.clientX - birdDrag.x, e.clientY - birdDrag.y) < 6) return;
+  if (!birdDrag.moved) { birdDrag.moved = true; brain.grab(); }
+  const p = pointerWorld(e, brain.p.z);
+  if (p) { brain.p.x = clamp(p.x, ...screenBounds()); brain.p.y = Math.max(0, p.y - 22 * S.size); }
+});
+const endBirdDrag = e => {
+  if (!birdDrag) return;
+  e.stopImmediatePropagation();
+  const d = birdDrag;
+  birdDrag = null;
+  if (d.moved) brain.release(); else brain.petted();
+};
+canvas.addEventListener('pointerup', endBirdDrag);
+canvas.addEventListener('pointercancel', endBirdDrag);
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !overCat(e.clientX, e.clientY)) return;
   canvas.setPointerCapture(e.pointerId);
@@ -787,7 +915,7 @@ function endDrag() {
 }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (overCat(e.clientX, e.clientY)) api.contextMenu(); });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (overCat(e.clientX, e.clientY) || overBird(e.clientX, e.clientY)) api.contextMenu(); });
 
 // ---------- frame loop ----------
 const box = new THREE.Box3(), v = new THREE.Vector3();
@@ -816,6 +944,10 @@ function placeOverlays() {
     bubble.style.setProperty('--arrow-x', clamp(anchor.x - left, 20, bw - 20) + 'px');
   }
   if (!zzz.hidden) zzz.style.transform = `translate(${anchor.x + 14}px, ${anchor.y + 6}px)`;
+  if (!birdZzz.hidden) {
+    const h = toScreen(v.set(brain.p.x, brain.p.y + 38 * S.size, brain.p.z));
+    birdZzz.style.transform = `translate(${h.x + 6}px, ${h.y}px) scale(0.75)`;
+  }
   // a toy closer to the screen than the cat (or in its mouth) draws in front of it
   const inFront = t => !!(t.state && (t.state.carried || t.state.z > ai.z + 10));
   for (const t of toys.toys.values()) t.el.style.zIndex = inFront(t) ? 3 : 1;
@@ -829,7 +961,7 @@ function frame(now) {
   last = now;
   // Calm moments render at ~30 fps to go easy on laptops.
   acc += raw;
-  const calm = ['sleep', 'sit', 'idle', 'groom', 'remind'].includes(ai.mode) && !drag;
+  const calm = ['sleep', 'sit', 'idle', 'groom', 'remind'].includes(ai.mode) && !drag && !birdFlying() && !birdDrag;
   if (acc < (calm ? 1 / 24 : 1 / 40)) return;
   const dt = Math.min(0.05, acc);
   acc = 0;
@@ -852,6 +984,22 @@ function frame(now) {
   cat.figure.scale.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5);
   cat.update(dt);
   if (treeOn) tree.update(dt);
+  if (cageOn) cage.update(dt);
+  if (S.bird) {
+    brain.update(dt);
+    bird.root.position.set(brain.p.x, brain.p.y, brain.p.z);
+    bird.root.rotation.y = brain.yaw;
+    bird.root.scale.setScalar(S.size);
+    bird.update(dt);
+    // its shadow: on whatever it stands on, or on the floor below while flying
+    const sp = brain.mode === 'fly' || brain.mode === 'held' ? null : brain.spotPos(brain.spot);
+    const gy = sp && brain.spot.kind !== 'floor' ? sp.y : 0;
+    const up = clamp((brain.p.y - gy) / 300, 0, 0.8);
+    const bs = 40 * S.size * (1 - up);
+    birdShadow.position.set(brain.p.x, gy + 0.7, brain.p.z);
+    birdShadow.scale.set(bs, bs * 0.55, 1);
+    birdShadow.material.opacity = 0.9 * (1 - up);
+  }
 
   // the shadow sits on whatever is underneath: a tree surface or the floor
   const below = ai.mode === 'hop' ? (ai.data.surface ? ai.data.surface.y : 0) : (ai.surface ? ai.surface.y : landingSurface(ai.x, ai.y)?.y || 0);
@@ -875,6 +1023,7 @@ function resize() {
   renderer.setSize(W, H, false);
   for (const c of [toyBack, toyFront]) { c.width = W; c.height = H; }
   placeTree();
+  placeCage();
   const [x0, x1] = screenBounds();
   if (!ai.surface) ai.x = clamp(ai.x, x0, x1);
 }
@@ -887,8 +1036,11 @@ api.getState().then(state => {
   ai.x = rand(x0, x1) * 0.5;
   ai.y = H * 0.55;
   go('fall', { welcome: true });
+  // the bird flies in from above to its cage (or somewhere on the floor)
+  Object.assign(brain.p, { x: clamp(ai.x + 220, x0, x1), y: H * 0.7, z: 25 });
+  brain.flyTo(cageOn ? { kind: 'roof' } : { kind: 'floor', x: clamp(ai.x + 140, x0, x1), z: 25 });
   frameStarted = true;
   requestAnimationFrame(frame);
 });
 addEventListener('resize', resize);
-if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake, tree, toys, climb, approachToy, decide };
+if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake, tree, toys, climb, approachToy, decide, bird, brain, cage };

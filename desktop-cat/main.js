@@ -39,6 +39,7 @@ const DEFAULTS = {
   chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
   forceWebGPU: false,
+  bird: true, birdName: '檸檬', cage: 'left',
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -167,6 +168,9 @@ function cleanPatch(p) {
   for (const k of ['chatty', 'sound', 'autostart']) if (typeof p[k] === 'boolean') out[k] = p[k];
   if (Number.isFinite(p.volume)) out.volume = Math.min(1, Math.max(0, p.volume));
   if (['right', 'left', 'off'].includes(p.tree)) out.tree = p.tree;
+  if (['right', 'left', 'off'].includes(p.cage)) out.cage = p.cage;
+  if (typeof p.bird === 'boolean') out.bird = p.bird;
+  if (typeof p.birdName === 'string') out.birdName = p.birdName.trim().slice(0, 20) || DEFAULTS.birdName;
   if (Array.isArray(p.toys)) out.toys = TOYS.map(t => t.id).filter(id => p.toys.includes(id));
   if (Number.isFinite(p.toySize)) out.toySize = Math.min(200, Math.max(60, Math.round(p.toySize)));
   if (typeof p.forceWebGPU === 'boolean') out.forceWebGPU = p.forceWebGPU;
@@ -271,6 +275,17 @@ function menuItems() {
         { label: '全部公仔郁一郁', click: () => sendPet('toy-action', 'wiggle') },
         { label: '公仔由天跌落嚟', click: () => sendPet('toy-action', 'drop') },
         { label: '擺返好啲公仔', click: () => sendPet('toy-action', 'reset') },
+      ],
+    },
+    {
+      label: '雀仔',
+      submenu: [
+        { label: S.bird ? '收埋雀仔' : '叫雀仔出嚟', click: () => saveAndApply({ bird: !S.bird }) },
+        { label: `叫${S.birdName}唱歌`, enabled: S.bird, click: () => sendPet('bird-action', 'sing') },
+        { type: 'separator' },
+        ...[['left', '鳥籠放喺左邊'], ['right', '鳥籠放喺右邊'], ['off', '唔要鳥籠']].map(([v, label]) => ({
+          label, type: 'radio', checked: S.cage === v, click: () => saveAndApply({ cage: v }),
+        })),
       ],
     },
     {
