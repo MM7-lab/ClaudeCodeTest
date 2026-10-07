@@ -37,6 +37,12 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   border: 3px solid var(--card); box-shadow: 0 0 0 1px var(--soft);
 }
 .coats button[aria-checked=true] { box-shadow: 0 0 0 3px var(--accent); }
+.coats.small { gap: 7px; }
+.coats.small button { width: 24px; height: 24px; border-width: 2px; }
+.bird-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.bird-row input[type=text] {
+  background: var(--bg); border: 1px solid var(--soft); border-radius: 10px; padding: 5px 10px; width: 0; flex: 1; min-width: 70px;
+}
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; text-align: center; }
 .stats div { background: var(--bg); border-radius: 12px; padding: 8px 4px; }
 .stats b { display: block; font-size: 22px; }

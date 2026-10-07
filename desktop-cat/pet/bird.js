@@ -36,8 +36,17 @@ export const BIRD_POSES = {
   preen: { headPitch: 0.4, headRoll: 0.5 },
 };
 
+// Feather colours to choose from (毛色).
+export const BIRD_COLORS = {
+  yellow: { body: 0xffd84a, belly: 0xfff2a8, wing: 0xf2c02c, tip: 0xd99a1a, crest: 0xf5c62e, cheek: 0xff8a66, line: 0x5a3d12 },
+  blue: { body: 0x86c9f4, belly: 0xe6f5ff, wing: 0x55a6dc, tip: 0x2f6fae, crest: 0xa9dcfa, cheek: 0xff9fb8, line: 0x1f3d5a },
+  green: { body: 0x9fdc6c, belly: 0xf3fbc4, wing: 0x72c24c, tip: 0x3f8f34, crest: 0xc4ec7c, cheek: 0xff8a66, line: 0x2e4a1c },
+  pink: { body: 0xffb6cb, belly: 0xffe8ef, wing: 0xff92b2, tip: 0xe0688f, crest: 0xffcadb, cheek: 0xff6f8f, line: 0x6a2a3d },
+  white: { body: 0xfbfaf6, belly: 0xffffff, wing: 0xe6e3dc, tip: 0xbab4a8, crest: 0xf0eee8, cheek: 0xffa08a, line: 0x5a5048 },
+};
+
 export class Bird {
-  constructor(ramp) {
+  constructor(ramp, color = 'yellow') {
     const toon = c => new THREE.MeshToonMaterial({ color: c, gradientMap: ramp });
     this.mats = {
       body: toon(0xffd84a), belly: toon(0xfff2a8), wing: toon(0xf2c02c), tip: toon(0xd99a1a), beak: toon(0xff9a3c),
@@ -46,6 +55,7 @@ export class Bird {
       eye: new THREE.MeshBasicMaterial({ color: 0x1b1410 }), shine: new THREE.MeshBasicMaterial({ color: 0xffffff }),
       outline: new THREE.MeshBasicMaterial({ color: 0x5a3d12, side: THREE.BackSide }),
     };
+    this.setColor(color);
     this.pose = { ...BASE };
     this.target = { ...BASE };
     this.base = { ...BASE };
@@ -120,6 +130,13 @@ export class Bird {
     for (const side of [-1, 1]) part(N, SPHERE, M.cheek, null, [7.4, 2.6, 7.6 * side], [1.2, 2.2, 3], 0).rotation.y = -0.7 * side;
   }
 
+  setColor(name) {
+    const c = BIRD_COLORS[name] || BIRD_COLORS.yellow;
+    this.color = BIRD_COLORS[name] ? name : 'yellow';
+    for (const k of ['body', 'belly', 'wing', 'tip', 'crest', 'cheek']) this.mats[k].color.set(c[k]);
+    this.mats.outline.color.set(c.line);
+  }
+
   setPose(name, over = {}) {
     this.target = { ...BASE, ...BIRD_POSES[name], ...over };
     this.base = { ...this.target };
@@ -159,21 +176,28 @@ export class Bird {
   }
 }
 
+
 // ---------------------------------------------------------------------------
-// The cage: round base, gold bars with a domed top, an open door, a perch and a swing.
+// The cage: hangs on a chain from the top of the screen. Round base, gold bars with a domed
+// top, an open door at the front, a perch and a swing. It sways a little, more when a bird lands.
 
 export class BirdCage {
   constructor(ramp) {
     const toon = c => new THREE.MeshToonMaterial({ color: c, gradientMap: ramp });
     this.mats = { base: toon(0xf4e7cf), trim: toon(0xe3c48e), bar: toon(0xd9a935), wood: toon(0xb07a45), seed: toon(0x8a5a2b),
       outline: new THREE.MeshBasicMaterial({ color: 0x5a4636, side: THREE.BackSide }) };
-    this.group = new THREE.Group();
     this.R = 48; this.TOP = 112; this.APEX = 154; this.PERCH = 58;
+    this.HANG = this.APEX + 20; // from the cage floor up to the top of the hanging ring
+    this.group = new THREE.Group(); // at the hanging point; swings about it
+    this.body = new THREE.Group();
+    this.body.position.y = -this.HANG;
+    this.group.add(this.body);
     this.build();
-    this.swing = 0;
+    this.time = Math.random() * 10; this.sway = 0; this.swayV = 0;
+    this.x = 0; this.z = 0; this.s = 1;
   }
   build() {
-    const G = this.group, M = this.mats, R = this.R;
+    const G = this.body, M = this.mats, R = this.R;
     const disc = (r, h, y, mat) => {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), mat);
       m.position.y = y;
@@ -216,6 +240,15 @@ export class BirdCage {
     const hook = new THREE.Mesh(new THREE.TorusGeometry(7, 1.6, 6, 24), M.bar);
     hook.position.y = this.APEX + 13;
     G.add(hook);
+    // the chain, up and off the top of the screen
+    const link = new THREE.TorusGeometry(4, 1.2, 5, 14);
+    for (let i = 0; i < 70; i++) {
+      const l = new THREE.Mesh(link, M.bar);
+      l.scale.set(0.8, 1.25, 1);
+      l.position.y = 2 + i * 9;
+      l.rotation.y = i % 2 ? Math.PI / 2 : 0;
+      this.group.add(l);
+    }
     // the door, swung open to the side
     const door = new THREE.Group();
     door.position.set(Math.cos(Math.PI / 2 + 0.25) * R, 11, Math.sin(Math.PI / 2 + 0.25) * R);
@@ -250,17 +283,35 @@ export class BirdCage {
     seeds.position.set(24, 17.5, 18);
     G.add(seeds);
   }
-  place(x, z, s) {
-    this.group.position.set(x, 0, z);
+  // (x, y, z): the hanging point at the top of the cage.
+  place(x, y, z, s) {
+    this.group.position.set(x, y, z);
     this.group.scale.setScalar(s);
     this.x = x; this.z = z; this.s = s;
+    this.group.updateMatrixWorld(true);
   }
-  // Where the bird can be, in world space.
-  perchSpot(off = 0) { return { x: this.x + off * this.s, y: this.PERCH * this.s, z: this.z - 4 * this.s }; }
-  roofSpot() { return { x: this.x, y: (this.APEX + 6) * this.s, z: this.z }; }
-  doorFront() { return { x: this.x - 4 * this.s, y: (this.PERCH + 6) * this.s, z: this.z + (this.R + 34) * this.s }; }
+  at(x, y, z, obj = this.body) {
+    const v = obj.localToWorld(new THREE.Vector3(x, y, z));
+    return { x: v.x, y: v.y, z: v.z };
+  }
+  // Where a bird can be, in world space. They follow the cage as it sways.
+  perchSpot(off = 0) { return this.at(off, this.PERCH, -4); }
+  swingSpot() { return this.at(0, -23.4, 0, this.swingG); }
+  roofSpot(side = 1) { return this.at(side * 16, this.APEX + 1, 0); }
+  doorFront() { return this.at(-4, this.PERCH + 6, this.R + 34); }
+  // in front of and a little above the roof: on the way to or from it, clear of the bars
+  roofFront(side = 1) { return this.at(side * 26, this.APEX + 26, this.R + 30); }
+  floorY() { return this.at(0, 11, 0).y; }
+  bottom() { return this.at(0, 0, 0).y; }
+  // a bird landed on it or took off
+  nudge(v) { this.swayV += v; }
   update(dt) {
-    this.swing += dt;
-    this.swingG.rotation.x = Math.sin(this.swing * 1.3) * 0.12;
+    this.time += dt;
+    this.swingG.rotation.x = Math.sin(this.time * 1.3) * 0.12;
+    // a damped pendulum, with a very slow drift of its own
+    this.swayV += (-this.sway * 9 - this.swayV * 1.6) * dt;
+    this.sway += this.swayV * dt;
+    this.group.rotation.z = this.sway + Math.sin(this.time * 0.8) * 0.012;
+    this.group.updateMatrixWorld(true);
   }
 }

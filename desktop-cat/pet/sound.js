@@ -51,27 +51,28 @@ export function makeSound(getSettings) {
   }
 
   return {
-    tweet() {
+    // `pitch` tells the birds apart
+    tweet(pitch = 1) {
       if (!on() || !ac()) return;
-      const t = ctx.currentTime, p = rand(0.9, 1.15);
+      const t = ctx.currentTime, p = rand(0.9, 1.15) * pitch;
       tweetAt(t, 3200 * p, 4300 * p, 0.07, vol() * 0.12);
       tweetAt(t + 0.1, 3600 * p, 2900 * p, 0.08, vol() * 0.12);
       rest(0.3);
     },
-    song() {
+    song(pitch = 1) {
       if (!on() || !ac()) return;
       let t = ctx.currentTime;
       const n = 5 + Math.floor(rand(0, 5));
       for (let i = 0; i < n; i++) {
-        const f = rand(2600, 4600), len = rand(0.05, 0.12);
+        const f = rand(2600, 4600) * pitch, len = rand(0.05, 0.12);
         tweetAt(t, f, f * rand(0.8, 1.3), len, vol() * 0.1);
         t += len + rand(0.03, 0.12);
       }
       rest(t - ctx.currentTime);
     },
-    alarm() {
+    alarm(pitch = 1) {
       if (!on() || !ac()) return;
-      for (let i = 0; i < 4; i++) tweetAt(ctx.currentTime + i * 0.09, 4800, 4200, 0.05, vol() * 0.13);
+      for (let i = 0; i < 4; i++) tweetAt(ctx.currentTime + i * 0.09, 4800 * pitch, 4200 * pitch, 0.05, vol() * 0.13);
       rest(0.45);
     },
     meow(times = 1) {
@@ -100,6 +101,28 @@ export function makeSound(getSettings) {
         src.start(t);
       }
       rest(0.5);
+    },
+    // the pig: one or two short nasal grunts
+    oink(times = 2) {
+      if (!on() || !ac()) return;
+      for (let i = 0; i < times; i++) {
+        const t = ctx.currentTime + i * 0.22, p = rand(0.9, 1.2), len = 0.14;
+        const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),
+              f = ctx.createBiquadFilter(), g = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(190 * p, t);
+        o.frequency.linearRampToValueAtTime(260 * p, t + len * 0.4);
+        o.frequency.linearRampToValueAtTime(170 * p, t + len);
+        lfo.frequency.value = 38; lg.gain.value = 40;
+        lfo.connect(lg).connect(o.frequency);
+        f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 2.5;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol() * 0.35, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(f).connect(g).connect(ctx.destination);
+        o.start(t); lfo.start(t); o.stop(t + len + 0.02); lfo.stop(t + len + 0.02);
+      }
+      rest(times * 0.22 + 0.2);
     },
     purr() {
       if (!on() || !ac()) return;

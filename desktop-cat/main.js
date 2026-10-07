@@ -33,13 +33,18 @@ const TOYS = [
   { id: 'moomin', label: '姆明' },
   { id: 'turbo-granny', label: '高速婆婆' },
 ];
+// Feather colours for the birds (雀仔), and the cage choices.
+const BIRD_COLORS = ['yellow', 'blue', 'green', 'pink', 'white'];
+const CAGES = ['both', 'left', 'right', 'off'];
+const DEFAULT_BIRDS = [{ name: '檸檬', color: 'yellow' }, { name: '藍莓', color: 'blue' }, { name: '蜜桃', color: 'pink' }];
 const DEFAULTS = {
   name: '麻糬', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
   forceWebGPU: false,
-  bird: true, birdName: '檸檬', cage: 'left',
+  birdCount: 3, birds: DEFAULT_BIRDS, cage: 'both',
+  pig: true, pigName: '布甸', pigBed: 'left',
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -57,7 +62,8 @@ function today() {
 // 2: sound had been on by default; a user's PC crashed in its audio driver while the cat was
 //    running, so sound starts off until switched on again.
 // 3: toys now draw with WebGL, so the risky forced-WebGPU switch goes back off.
-const SETTINGS_VERSION = 3;
+// 4: one bird became up to three, and the cages now hang at the top corners.
+const SETTINGS_VERSION = 4;
 function loadSettings() {
   const saved = readJson('settings.json', {});
   const s = { ...DEFAULTS, ...saved };
@@ -65,6 +71,13 @@ function loadSettings() {
   const v = saved.settingsVersion || 1;
   if (v < 2) s.sound = false;
   if (v < 3) s.forceWebGPU = false;
+  if (v < 4) {
+    if (saved.bird === false) s.birdCount = 0;
+    if (typeof saved.birdName === 'string') s.birds = [{ ...DEFAULT_BIRDS[0], name: saved.birdName }, ...DEFAULT_BIRDS.slice(1)];
+    if (saved.cage === 'off') s.cage = 'off'; else s.cage = 'both';
+    delete s.bird; delete s.birdName;
+  }
+  s.birds = cleanBirds(s.birds);
   s.settingsVersion = SETTINGS_VERSION;
   if (v !== SETTINGS_VERSION) writeJson('settings.json', s);
   return s;
@@ -168,13 +181,26 @@ function cleanPatch(p) {
   for (const k of ['chatty', 'sound', 'autostart']) if (typeof p[k] === 'boolean') out[k] = p[k];
   if (Number.isFinite(p.volume)) out.volume = Math.min(1, Math.max(0, p.volume));
   if (['right', 'left', 'off'].includes(p.tree)) out.tree = p.tree;
-  if (['right', 'left', 'off'].includes(p.cage)) out.cage = p.cage;
-  if (typeof p.bird === 'boolean') out.bird = p.bird;
-  if (typeof p.birdName === 'string') out.birdName = p.birdName.trim().slice(0, 20) || DEFAULTS.birdName;
+  if (CAGES.includes(p.cage)) out.cage = p.cage;
+  if (Number.isInteger(p.birdCount)) out.birdCount = Math.min(3, Math.max(0, p.birdCount));
+  if (Array.isArray(p.birds)) out.birds = cleanBirds(p.birds);
+  if (typeof p.pig === 'boolean') out.pig = p.pig;
+  if (typeof p.pigName === 'string') out.pigName = p.pigName.trim().slice(0, 20) || DEFAULTS.pigName;
+  if (['left', 'right', 'off'].includes(p.pigBed)) out.pigBed = p.pigBed;
   if (Array.isArray(p.toys)) out.toys = TOYS.map(t => t.id).filter(id => p.toys.includes(id));
   if (Number.isFinite(p.toySize)) out.toySize = Math.min(200, Math.max(60, Math.round(p.toySize)));
   if (typeof p.forceWebGPU === 'boolean') out.forceWebGPU = p.forceWebGPU;
   return out;
+}
+// always three birds' worth of names and colours (only the first birdCount come out)
+function cleanBirds(list) {
+  return DEFAULT_BIRDS.map((d, i) => {
+    const b = (Array.isArray(list) && list[i]) || {};
+    return {
+      name: typeof b.name === 'string' && b.name.trim() ? b.name.trim().slice(0, 20) : d.name,
+      color: BIRD_COLORS.includes(b.color) ? b.color : d.color,
+    };
+  });
 }
 function applyAutostart() {
   // Only the installed app should register itself; a dev run would register the bare Electron binary.
@@ -280,11 +306,24 @@ function menuItems() {
     {
       label: '雀仔',
       submenu: [
-        { label: S.bird ? '收埋雀仔' : '叫雀仔出嚟', click: () => saveAndApply({ bird: !S.bird }) },
-        { label: `叫${S.birdName}唱歌`, enabled: S.bird, click: () => sendPet('bird-action', 'sing') },
+        ...[[0, '唔要雀仔'], [1, '1 隻雀仔'], [2, '2 隻雀仔'], [3, '3 隻雀仔']].map(([n, label]) => ({
+          label, type: 'radio', checked: S.birdCount === n, click: () => saveAndApply({ birdCount: n }),
+        })),
+        { label: '叫雀仔唱歌', enabled: S.birdCount > 0, click: () => sendPet('bird-action', 'sing') },
         { type: 'separator' },
-        ...[['left', '鳥籠放喺左邊'], ['right', '鳥籠放喺右邊'], ['off', '唔要鳥籠']].map(([v, label]) => ({
+        ...[['both', '鳥籠吊喺左上同右上'], ['left', '鳥籠淨係吊喺左上'], ['right', '鳥籠淨係吊喺右上'], ['off', '唔要鳥籠']].map(([v, label]) => ({
           label, type: 'radio', checked: S.cage === v, click: () => saveAndApply({ cage: v }),
+        })),
+      ],
+    },
+    {
+      label: '豬仔',
+      submenu: [
+        { label: S.pig ? `收埋${S.pigName}` : `叫${S.pigName}出嚟`, click: () => saveAndApply({ pig: !S.pig }) },
+        { label: `叫${S.pigName}跳舞`, enabled: S.pig, click: () => sendPet('pig-action', 'dance') },
+        { type: 'separator' },
+        ...[['left', '豬仔床放喺左邊'], ['right', '豬仔床放喺右邊'], ['off', '唔要豬仔床']].map(([v, label]) => ({
+          label, type: 'radio', checked: S.pigBed === v, click: () => saveAndApply({ pigBed: v }),
         })),
       ],
     },

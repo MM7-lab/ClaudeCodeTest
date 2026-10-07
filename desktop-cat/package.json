@@ -1,7 +1,7 @@
 {
   "name": "desktop-cat",
   "productName": "DesktopCat",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "桌面貓貓：喺你桌面行嚟行去嘅 3D 貓，定時提你飲水、休息、去廁所",
   "main": "main.js",
   "private": true,

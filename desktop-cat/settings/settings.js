@@ -2,6 +2,7 @@
 const api = window.catApi;
 const $ = id => document.getElementById(id);
 const COAT_NAMES = { orange: '橙色虎斑', grey: '灰色虎斑', black: '黑貓', white: '白貓', tuxedo: '黑白貓' };
+const BIRD_COLORS = [['yellow', '#ffd84a', '黃色'], ['blue', '#86c9f4', '藍色'], ['green', '#9fdc6c', '綠色'], ['pink', '#ffb6cb', '粉紅色'], ['white', '#fbfaf6', '白色']];
 let S = null;
 
 function render(s) {
@@ -18,12 +19,47 @@ function render(s) {
   $('volume').value = s.volume;
   $('autostart').checked = s.autostart;
   $('tree').value = s.tree;
-  $('bird').checked = !!s.bird;
-  if (document.activeElement !== $('birdName')) $('birdName').value = s.birdName || '';
+  $('birdCount').value = String(s.birdCount);
+  renderBirds(s);
   $('cage').value = s.cage;
+  $('pig').checked = !!s.pig;
+  if (document.activeElement !== $('pigName')) $('pigName').value = s.pigName || '';
+  $('pigBed').value = s.pigBed;
   $('toySize').value = s.toySize;
   $('forceWebGPU').checked = !!s.forceWebGPU;
   document.querySelectorAll('[data-toy]').forEach(c => { c.checked = s.toys.includes(c.dataset.toy); });
+}
+// one row per bird: its name and its colour
+function renderBirds(s) {
+  const rows = $('birdRows');
+  if (rows.children.length !== 3) {
+    rows.replaceChildren(...[0, 1, 2].map(i => {
+      const row = document.createElement('div'), name = document.createElement('input'), colors = document.createElement('div');
+      row.className = 'bird-row'; row.dataset.i = i;
+      name.type = 'text'; name.maxLength = 20; name.autocomplete = 'off'; name.setAttribute('aria-label', `第 ${i + 1} 隻雀仔個名`);
+      name.addEventListener('change', () => saveBird(i, { name: name.value }));
+      colors.className = 'coats small'; colors.setAttribute('role', 'radiogroup'); colors.setAttribute('aria-label', `第 ${i + 1} 隻雀仔嘅顏色`);
+      for (const [id, css, label] of BIRD_COLORS) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.color = id; b.title = label; b.style.setProperty('--c', css);
+        b.addEventListener('click', () => saveBird(i, { color: id }));
+        colors.append(b);
+      }
+      row.append('🐤', name, colors);
+      return row;
+    }));
+  }
+  [...rows.children].forEach((row, i) => {
+    const b = s.birds[i];
+    row.hidden = i >= s.birdCount;
+    const name = row.querySelector('input');
+    if (document.activeElement !== name) name.value = b.name;
+    row.querySelectorAll('[data-color]').forEach(x => x.setAttribute('aria-checked', String(x.dataset.color === b.color)));
+  });
+}
+function saveBird(i, patch) {
+  const birds = S.birds.map((b, k) => (k === i ? { ...b, ...patch } : b));
+  save({ birds });
 }
 function buildToyChecks(list) {
   $('toyChecks').replaceChildren(...list.map(t => {
@@ -84,9 +120,11 @@ $('sound').addEventListener('change', () => save({ sound: $('sound').checked }))
 $('volume').addEventListener('change', () => save({ volume: Number($('volume').value) }));
 $('autostart').addEventListener('change', () => save({ autostart: $('autostart').checked }));
 $('tree').addEventListener('change', () => save({ tree: $('tree').value }));
-$('bird').addEventListener('change', () => save({ bird: $('bird').checked }));
-$('birdName').addEventListener('change', () => save({ birdName: $('birdName').value }));
+$('birdCount').addEventListener('change', () => save({ birdCount: Number($('birdCount').value) }));
 $('cage').addEventListener('change', () => save({ cage: $('cage').value }));
+$('pig').addEventListener('change', () => save({ pig: $('pig').checked }));
+$('pigName').addEventListener('change', () => save({ pigName: $('pigName').value }));
+$('pigBed').addEventListener('change', () => save({ pigBed: $('pigBed').value }));
 $('toySize').addEventListener('change', () => save({ toySize: Number($('toySize').value) }));
 $('forceWebGPU').addEventListener('change', () => save({ forceWebGPU: $('forceWebGPU').checked }));
 $('btnRestart').addEventListener('click', () => api.restart());
