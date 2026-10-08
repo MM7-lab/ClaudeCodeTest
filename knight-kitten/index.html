@@ -388,6 +388,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   for (const k of ['fur', 'furDark', 'furLight', 'whisker', 'pink', 'pinkSoft', 'nose', 'leather', 'cape']) KM[k].envMapIntensity = 0.3;
   Object.values(KM).forEach(m => { m.needsUpdate = true; });
   const headY = head.position.y;
+  const headTilt = head.rotation.x;
 
   // 規格
   const box = new THREE.Box3().setFromObject(kitten);
@@ -454,13 +455,13 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
     eyes.forEach(e => { e.scale.y = lid; });
 
     kitten.position.y = 0;
-    head.rotation.x = 0;
+    head.rotation.x = headTilt;
     if (cheerT >= 0) {
       cheerT += dt;
       const p = cheerT / 0.9;
       if (p < 1) {
         kitten.position.y = Math.max(0, Math.sin(Math.min(p / 0.5, 1) * Math.PI)) * 0.45;
-        head.rotation.x = p > 0.5 ? Math.sin((p - 0.5) / 0.5 * Math.PI) * 0.22 : 0;
+        head.rotation.x = headTilt + (p > 0.5 ? Math.sin((p - 0.5) / 0.5 * Math.PI) * 0.22 : 0);
       } else cheerT = -1;
     }
     controls.update();

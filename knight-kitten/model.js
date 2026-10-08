@@ -223,6 +223,7 @@
   const head = new THREE.Group();
   head.name = 'Head';
   head.position.set(0, 3.2, 0.12);
+  head.rotation.x = 0.07;   // 微微耷低頭，由眉下望上去，眼神更堅定
   root.add(head);
   mesh(sphere(1.05, 48, 36), M.fur, head, [0, 0, 0], null, [1.12, 0.97, 1], 'Skull');
   // 長毛：面邊、頭頂一嚿嚿毛
@@ -242,22 +243,28 @@
   mesh(sphere(0.075, 20, 14), M.nose, head, [0, -0.21, 1.04], [0.25, 0, 0], [1.3, 0.75, 0.75], 'Nose');
   mesh(new THREE.BoxGeometry(0.012, 0.08, 0.02), M.nose, head, [0, -0.29, 1.06]).userData.noFur = true;   // 人中
   for (const s of [-1, 1]) {
-    mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 16, Math.PI), M.eye, head, [0.06 * s, -0.36, 1.05], [0, 0, Math.PI], null, 'Mouth');
+    // 嘴角向下（∩∩），抿住嘴好認真
+    mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 16, Math.PI), M.eye, head, [0.06 * s, -0.4, 1.04], [0, 0, 0], [1, 0.7, 1], 'Mouth');
   }
 
-  // 大大對濕濕眼（略為向外垂，似有啲擔心但仍然好認真）
+  // 大大對濕濕眼，加上向鼻樑壓低嘅上眼皮同眉骨，表情嚴肅
   const eyes = [];
   for (const s of [-1, 1]) {
     const eye = new THREE.Group();
-    eye.position.set(0.38 * s, -0.02, 0.92);
-    eye.rotation.z = 0.12 * s;
+    eye.position.set(0.38 * s, -0.02, 0.95);
+    eye.rotation.z = 0.06 * s;
     head.add(eye);
     mesh(sphere(0.21, 40, 28), M.eye, eye, [0, 0, -0.02], null, [1, 1.08, 0.62], 'EyeRim');
     mesh(sphere(0.19, 40, 28), M.iris, eye, [0, 0, 0], null, [1, 1.06, 0.6], 'Iris');
     mesh(sphere(0.155, 32, 24), M.eye, eye, [0, 0, 0.035], null, [1, 1.1, 0.6], 'Pupil');      // 大瞳孔：幼貓喺陰天會擴張
     mesh(sphere(0.205, 40, 28), M.cornea, eye, [0, 0, 0.012], null, [1, 1.07, 0.66], 'Cornea');
-    mesh(sphere(0.03, 12, 10), M.shine, eye, [0.06 * s, 0.08, 0.125]);
+    mesh(sphere(0.03, 12, 10), M.shine, eye, [0.06 * s, 0.02, 0.125]);
+    // 上眼皮：毛色半球殼，蓋住眼上面兩成，眼頭一邊壓得最低
+    const lid = mesh(new THREE.SphereGeometry(0.218, 40, 16, 0, Math.PI * 2, 0, Math.PI * 0.27), M.fur, eye, [0, 0.005, 0], null, [1.06, 1.1, 0.74], 'Eyelid');
+    lid.rotation.set(0.12, 0, 0.32 * s, 'ZYX');
     eyes.push(eye);
+    // 眉骨：深色毛，向眉心壓落
+    mesh(new THREE.CapsuleGeometry(0.04, 0.3, 6, 12), M.furDark, head, [0.36 * s, 0.12, 1.0], [0, 0, Math.PI / 2 + 0.5 * s], [1, 1, 0.5], 'Brow');
   }
 
   // 細細對耳仔，向兩邊開
