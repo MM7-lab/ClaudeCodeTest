@@ -39,7 +39,7 @@
     blade:     metal(0xc3c7cc, 0.1, 0.5),
     brass:     metal(0xc9a05a, 0.22, 0.3),
     leather:   std(0x5e3a22, 0.8),
-    cape:      std(0xece4d4, 0.9),
+    cape:      new THREE.MeshPhysicalMaterial({ color: 0xeee8dc, roughness: 0.82, sheen: 0.7, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide }),
   };
 
   const root = new THREE.Group();
@@ -149,24 +149,43 @@
   const tip = tailCurve.getPoint(1);
   mesh(sphere(0.25), M.fur, body, [tip.x, tip.y, tip.z], null, [1, 0.9, 1]);
 
-  /* ---------- 白披風（向左後方飄） ---------- */
+  /* ---------- 白披風：扣喺兩邊肩胛，被風吹向左後方 ---------- */
   let cape = null;
   if (!opts.forPrint) {
-    const capeGeo = new THREE.BoxGeometry(1, 1, 1, 36, 12, 1);
-    const base = capeGeo.attributes.position.array.slice();
+    const COLS = 28, ROWS = 48, LEN = 3.7;
+    const capeGeo = new THREE.PlaneGeometry(1, 1, COLS, ROWS);
     cape = mesh(capeGeo, M.cape, root, null, null, null, 'Cape');
+    cape.castShadow = true;
+    const down = V(0, -1, -0.15).normalize();
+    const wind = V(-1, 0.08, -0.3).normalize();
+    const across = V(1, 0, 0), streamed = V(0, -1, -0.25).normalize();
+    const dir = new THREE.Vector3(), axis = new THREE.Vector3(), nrm = new THREE.Vector3();
+    const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
     cape.userData.wave = function (time) {
       const p = capeGeo.attributes.position;
+      // 陣風：慢慢強弱交替，唔會死板咁一直吹
+      const gust = 0.74 + 0.14 * Math.sin(time * 0.7) + 0.08 * Math.sin(time * 1.9 + 1.3);
       for (let i = 0; i < p.count; i++) {
-        const u = base[i * 3], v = base[i * 3 + 1], w = base[i * 3 + 2];
-        const s = u + 0.5;                                       // 0 = 膊頭，1 = 飄出去嗰端
-        const flap = Math.sin(s * 6.5 - time * 4 + v * 1.6) * 0.24 * s;
-        const width = (0.5 + s * 0.9) * (1 - 0.35 * s * s);         // 尾端收窄
-        const hem = v < 0 ? Math.sin(s * 9 - time * 5) * 0.14 * s * -v * 2 : 0;   // 下擺波浪
-        p.setXYZ(i,
-          0.55 - s * 3.0 + Math.sin(v * 3 + time) * 0.08 * s,
-          2.15 - s * 0.35 - s * s * 0.45 + v * width + hem + Math.sin(s * 4 - time * 2.6 + v) * 0.1 * s,
-          -0.55 - Math.sin(s * Math.PI * 0.85) * 0.4 + flap + w * 0.06);
+        const u = i % (COLS + 1) / COLS;                 // 0 = 右肩胛，1 = 左肩胛
+        const v = Math.floor(i / (COLS + 1)) / ROWS;     // 0 = 領口，1 = 披風尾
+        // 中線：近領口垂低，越落越俾風吹向左後方，布尾受重力微微下垂
+        dir.copy(down).lerp(wind, gust * Math.min(1, v * 1.7)).normalize();
+        const len = LEN * v;
+        let x = dir.x * len, y = 2.32 + dir.y * len - 0.5 * v * v * (1 - 0.5 * gust), z = -0.68 + dir.z * len;
+        // 闊度方向：喺膊頭係左右橫跨，被風吹起之後扭成上下，所以由正面睇到成幅布
+        const twist = smooth(0, 0.32, v) * Math.min(1, gust * 1.2);
+        axis.copy(across).lerp(streamed, twist).normalize();
+        const width = 0.96 + 0.95 * v - 0.45 * v * v * v;
+        const w = (u - 0.5) * width;
+        x += axis.x * w; y += axis.y * w; z += axis.z * w;
+        z += (2 * u - 1) * (2 * u - 1) * 0.3 * (1 - twist);   // 領口順住背部弧度
+        // 摺位同波浪：沿布面法線方向推
+        nrm.crossVectors(dir, axis).normalize();
+        const pleat = Math.sin(u * Math.PI * 3 + v * 2.2) * (0.03 + 0.06 * v) + Math.sin(u * Math.PI * 7 + 1.1) * 0.012;
+        const ripple = Math.sin(v * 6 - time * 4.2 + u * 1.6) * 0.24 * v * gust
+                     + Math.sin(v * 15 - time * 9 + u * 5) * 0.05 * v * v;
+        const off = pleat + ripple;
+        p.setXYZ(i, x + nrm.x * off, y + nrm.y * off + Math.sin(v * 5 - time * 3.1 + u * 3) * 0.1 * v * gust, z + nrm.z * off);
       }
       p.needsUpdate = true;
       capeGeo.computeVertexNormals();
@@ -174,38 +193,49 @@
     cape.userData.wave(0);
   }
 
-  /* ---------- 長劍（垂直豎喺面前偏右） ---------- */
+  /* ---------- 長劍（垂直豎喺面前偏右）：雙手大劍，長劍柄 ---------- */
   const sword = new THREE.Group();
   sword.name = 'Sword';
-  sword.position.set(-0.6, 2.15, 1.3);
+  sword.position.set(-0.62, 2.2, 1.34);
   sword.rotation.set(0.04, 0, 0.03);
   root.add(sword);
   const blade = new THREE.Shape();
-  blade.moveTo(-0.12, 0);
-  blade.lineTo(0.12, 0);
-  blade.lineTo(0.08, 4.7);
-  blade.lineTo(0, 5.15);
-  blade.lineTo(-0.08, 4.7);
+  blade.moveTo(-0.16, 0);
+  blade.lineTo(0.16, 0);
+  blade.lineTo(0.11, 5.6);
+  blade.lineTo(0, 6.2);
+  blade.lineTo(-0.11, 5.6);
   blade.closePath();
-  const bladeGeo = new THREE.ExtrudeGeometry(blade, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 2 });
-  bladeGeo.translate(0, 0, -0.025);
+  const bladeGeo = new THREE.ExtrudeGeometry(blade, { depth: 0.06, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.03, bevelSegments: 2 });
+  bladeGeo.translate(0, 0, -0.03);
   mesh(bladeGeo, M.blade, sword, null, null, null, 'Blade');
-  mesh(new THREE.BoxGeometry(0.04, 3.8, 0.11), M.steelDark, sword, [0, 2.0, 0], null, null, 'Fuller');
-  // 微微向下彎嘅護手
+  mesh(new THREE.BoxGeometry(0.05, 4.6, 0.13), M.steelDark, sword, [0, 2.45, 0], null, null, 'Fuller');
+  mesh(new THREE.BoxGeometry(0.3, 0.28, 0.11), M.steel, sword, [0, 0.16, 0], null, null, 'Ricasso');
+  // 護手：粗身、兩端向下彎、末端擴闊
+  mesh(new THREE.BoxGeometry(0.32, 0.18, 0.2), M.brass, sword, [0, -0.02, 0], null, null, 'QuillonBlock');
   for (const s of [-1, 1]) {
-    mesh(new THREE.BoxGeometry(0.46, 0.08, 0.12), M.brass, sword, [0.21 * s, -0.02, 0], [0, 0, 0.12 * s], null, 'Crossguard');
-    mesh(sphere(0.07), M.brass, sword, [0.44 * s, -0.08, 0]);
+    mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.62, 20), M.brass, sword, [0.42 * s, -0.04, 0], [0, 0, Math.PI / 2 + 0.12 * s], null, 'Crossguard');
+    mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.1, 20), M.brass, sword, [0.74 * s, -0.12, 0], [0, 0, 0.5 * s], null, 'QuillonEnd');
   }
-  mesh(new THREE.BoxGeometry(0.2, 0.14, 0.14), M.brass, sword, [0, -0.03, 0]);
-  mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.8, 20), M.leather, sword, [0, -0.47, 0], null, null, 'Grip');
-  mesh(sphere(0.12), M.brass, sword, [0, -0.92, 0], null, [1, 0.85, 1], 'Pommel');
+  // 長劍柄：皮革纏繞 + 兩頭銅箍
+  mesh(new THREE.CylinderGeometry(0.095, 0.085, 1.25, 28), M.leather, sword, [0, -0.76, 0], null, null, 'Grip');
+  for (let i = 0; i < 12; i++) {
+    mesh(new THREE.TorusGeometry(0.093, 0.016, 8, 24), M.leather, sword, [0, -0.2 - i * 0.1, 0], [Math.PI / 2 + 0.25, 0, 0]);
+  }
+  mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.09, 28), M.brass, sword, [0, -0.14, 0], null, null, 'Ferrule');
+  mesh(new THREE.CylinderGeometry(0.1, 0.11, 0.09, 28), M.brass, sword, [0, -1.38, 0], null, null, 'Ferrule');
+  // 輪形劍首
+  mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.12, 36), M.brass, sword, [0, -1.55, 0], [Math.PI / 2, 0, 0], null, 'Pommel');
+  mesh(new THREE.TorusGeometry(0.2, 0.025, 10, 36), M.brass, sword, [0, -1.55, 0]);
+  for (const s of [-1, 1]) mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 24), M.steel, sword, [0, -1.55, 0.075 * s], [Math.PI / 2, 0, 0]);
+  mesh(sphere(0.05), M.brass, sword, [0, -1.77, 0], null, null, 'PommelCap');
 
   /* ---------- 雙手（右手由側邊、左手橫過胸前握住劍柄） ---------- */
   sword.updateMatrix();
   const onGrip = y => V(0, y, 0).applyMatrix4(sword.matrix);
   const arms = [
-    { shoulder: V(-0.82, 2.08, 0.15), hand: onGrip(-0.2), elbowOut: V(-0.3, -0.35, 0.05) },
-    { shoulder: V(0.82, 2.08, 0.15), hand: onGrip(-0.58), elbowOut: V(0.2, -0.45, 0.25) },
+    { shoulder: V(-0.82, 2.08, 0.15), hand: onGrip(-0.32), elbowOut: V(-0.3, -0.35, 0.05) },
+    { shoulder: V(0.82, 2.08, 0.15), hand: onGrip(-0.86), elbowOut: V(0.2, -0.45, 0.25) },
   ];
   for (const { shoulder, hand, elbowOut } of arms) {
     const elbow = shoulder.clone().lerp(hand, 0.45).add(elbowOut);
