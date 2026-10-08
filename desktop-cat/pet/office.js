@@ -151,6 +151,8 @@ export class Worker {
     if (s === 'stretch') this.emit('stretch');
   }
   get dozing() { return this.state === 'doze'; }
+  // someone came to say hello: look up and wave
+  wave() { this.state = 'look'; this.t = 0; this.next = 3; this.emit('wave'); }
   update(dt) {
     const tg = this.a.target, b = this.a.baseTarget;
     this.t += dt;

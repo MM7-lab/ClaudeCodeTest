@@ -372,6 +372,14 @@ function menuItems() {
     { label: catHidden ? '叫佢哋出返嚟' : '收埋佢哋', click: () => showCat(catHidden) },
     { label: '辦公室模式', type: 'checkbox', checked: !!S.office, click: (item) => saveAndApply({ office: item.checked }) },
     {
+      label: '大家一齊',
+      submenu: [
+        { label: '排隊行 🎵', click: () => { showCat(true); sendPet('group-action', 'parade'); } },
+        { label: '開派對 🎉', click: () => { showCat(true); sendPet('group-action', 'party'); } },
+        { label: '開會（辦公室模式）💼', enabled: !!S.office, click: () => { showCat(true); sendPet('group-action', 'meeting'); } },
+      ],
+    },
+    {
       label: '主角',
       submenu: [
         ...MAIN_PETS.map(([k, label]) => ({ label: `${label}做主角`, type: 'radio', checked: (S.mainPet || 'cat') === k, click: () => saveAndApply({ mainPet: k }) })),

@@ -1,7 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
 
-const EVENTS = ['settings', 'stats', 'reminder', 'reminder-end', 'nag', 'say', 'come-here', 'toy-action', 'bird-action', 'pig-action'];
+const EVENTS = ['settings', 'stats', 'reminder', 'reminder-end', 'nag', 'say', 'come-here', 'toy-action', 'bird-action', 'pig-action', 'group-action'];
 
 contextBridge.exposeInMainWorld('catApi', {
   cursor: () => ipcRenderer.invoke('cursor'),

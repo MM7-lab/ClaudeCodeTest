@@ -14,7 +14,7 @@ const FRONT = -Math.PI / 2;
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const INSIDE = ['perch', 'swing']; // spots inside a cage: in and out through its door
 // Only one bird fits on these at a time.
-const SINGLE = ['roof', 'swing', 'cat', 'pig', 'toy', 'tree', 'friend', 'house'];
+const SINGLE = ['roof', 'swing', 'cat', 'pig', 'toy', 'tree', 'friend', 'house', 'furn'];
 const sameSpot = (a, b) => !!a && !!b && a.kind === b.kind && a.cage === b.cage && a.side === b.side && a.id === b.id && a.name === b.name;
 
 export class BirdBrain {
@@ -45,6 +45,7 @@ export class BirdBrain {
       case 'friend': { const f = c.friends().find(u => u.id === s.id); return f && f.perchable ? f.head : null; }
       case 'house': return c.house();
       case 'desk': { const dk = c.desk(); return dk ? dk.keyboard() : null; }
+      case 'furn': { const f = (c.furn?.() || []).find(u => u.name === s.name); return f ? f.pos : null; }
       case 'toy': { const t = c.toys().find(u => u.id === s.id); return t && !t.moving ? t.top : null; }
     }
     return null;
@@ -68,6 +69,7 @@ export class BirdBrain {
     if (c.pig() && c.pig().settled) options.push([{ kind: 'pig' }, 7]);
     for (const f of c.friends()) if (f.settled) options.push([{ kind: 'friend', id: f.id }, 4]);
     if (c.house()) options.push([{ kind: 'house' }, 6]);
+    for (const f of c.furn?.() || []) options.push([{ kind: 'furn', name: f.name }, 5]);
     for (const t of c.toys()) if (!t.moving) options.push([{ kind: 'toy', id: t.id }, 5]);
     const free = options.filter(o => !this.taken(o[0]));
     let r = Math.random() * free.reduce((s, o) => s + o[1], 0);
