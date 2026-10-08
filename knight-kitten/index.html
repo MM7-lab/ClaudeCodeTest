@@ -36,12 +36,12 @@ body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font
 @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
 
 .stage { position: relative; aspect-ratio: 5 / 4; max-width: 100%; border-radius: 18px; overflow: hidden;
-  background: linear-gradient(#d3d8da, #7f8c6c); border: 1px solid var(--line); }
+  background: linear-gradient(#59626a, #2f3a2b); border: 1px solid var(--line); }
 @media (max-width: 560px) { .stage { aspect-ratio: 4 / 5; } }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .stage canvas:active { cursor: grabbing; }
 .hint { position: absolute; left: 14px; bottom: 12px; font-size: 12px; color: #f4f6f2; text-shadow: 0 1px 2px rgba(0,0,0,.45); pointer-events: none; }
-.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #3c4436; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #e4e9e2; }
 
 .plate { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px; display: grid; gap: 18px; }
 .eyebrow { font-family: var(--f-latin); font-size: 12px; letter-spacing: 0.24em; color: var(--steel); }
@@ -137,15 +137,15 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 
-  // 霧氣天空：上淺灰、近地平線灰綠
-  const MIST = 0xc3c9c6;
+  // 陰天黃昏：上深灰藍、近地平線灰綠霧
+  const MIST = 0x6d7672;
   const sky = document.createElement('canvas');
   sky.width = 2; sky.height = 256;
   const sg = sky.getContext('2d');
   const grad = sg.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, '#d9dee0');
-  grad.addColorStop(0.7, '#c3c9c6');
-  grad.addColorStop(1, '#a9b2a0');
+  grad.addColorStop(0, '#3f474f');
+  grad.addColorStop(0.68, '#6d7672');
+  grad.addColorStop(1, '#4d5848');
   sg.fillStyle = grad; sg.fillRect(0, 0, 2, 256);
   scene.background = new THREE.CanvasTexture(sky);
   scene.background.encoding = THREE.sRGBEncoding;
@@ -156,8 +156,8 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   const skyGeo = new THREE.SphereGeometry(20, 64, 64);
   const cols = [];
   const pos = skyGeo.attributes.position;
-  const zenith = new THREE.Color(0xf2f4f5), horizon = new THREE.Color(0xd2d8d5), mistBand = new THREE.Color(0xffffff);
-  const grassNear = new THREE.Color(0x56643f), grassFar = new THREE.Color(0x2a3320);
+  const zenith = new THREE.Color(0xaab2b8), horizon = new THREE.Color(0x8a9490), mistBand = new THREE.Color(0xc9d0cd);
+  const grassNear = new THREE.Color(0x3c4a2c), grassFar = new THREE.Color(0x1a2114);
   for (let i = 0; i < pos.count; i++) {
     const h = pos.getY(i) / 20;
     let c;
@@ -247,7 +247,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   }, 10, 2);
   mailTex.encoding = THREE.sRGBEncoding;
 
-  scene.add(new THREE.HemisphereLight(0xe3e8ea, 0x55603f, 0.55));
+  scene.add(new THREE.HemisphereLight(0xb4bec6, 0x2c3522, 0.5));
   const key = new THREE.DirectionalLight(0xffffff, 1.25);
   key.position.set(4, 9, 6);
   key.castShadow = true;
@@ -260,7 +260,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   rim.position.set(-5, 5, -6);
   scene.add(rim);
 
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: 0x5f6e47, roughness: 1, envMapIntensity: 0.25 }));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: 0x323d26, roughness: 1, envMapIntensity: 0.25 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -282,7 +282,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
     dummy.scale.set(1, h, 1);
     dummy.updateMatrix();
     grass.setMatrixAt(i, dummy.matrix);
-    grass.setColorAt(i, gc.setHSL(0.22 + rnd() * 0.06, 0.25 + rnd() * 0.2, 0.3 + rnd() * 0.16));
+    grass.setColorAt(i, gc.setHSL(0.2 + rnd() * 0.07, 0.25 + rnd() * 0.2, 0.16 + rnd() * 0.12));
   }
   grass.receiveShadow = true;
   scene.add(grass);
@@ -298,6 +298,92 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   Object.assign(KM.mail, { map: mailTex, bumpMap: mailTex, bumpScale: 0.03 });
   // roughnessMap 平均約 0.46，所以將基本粗糙度乘返上去
   KM.steel.roughness = 0.3; KM.steelDark.roughness = 0.55; KM.blade.roughness = 0.22; KM.brass.roughness = 0.45;
+  // 真實毛髮：shell 技術。每個有毛嘅零件再疊 12 層，每層向外推少少、
+  // 用雜訊紋理切出一條條毛；越出越疏，毛根暗、毛尖光，再加虎紋同斑駁。
+  const strandTex = canvasTex(256, (g, n) => {
+    const img = g.createImageData(n, n);
+    for (let i = 0; i < n * n; i++) {
+      img.data[i * 4] = trnd() * 255;
+      img.data[i * 4 + 1] = img.data[i * 4 + 2] = 0;
+      img.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }, 1, 1);
+  strandTex.magFilter = THREE.NearestFilter;
+  const mottleTex = canvasTex(256, (g, n) => {
+    g.fillStyle = '#808080';
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 120; k++) {
+      const x = trnd() * n, y = trnd() * n, r = 10 + trnd() * 40, light = trnd() < 0.5;
+      const rg = g.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, light ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)');
+      rg.addColorStop(1, 'rgba(128,128,128,0)');
+      g.fillStyle = rg;
+      g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }, 1, 1);
+  const STRIPES = { tabby: 0.85, orange: 0.7, grey: 0.6, black: 0 };
+  const furUniforms = [];
+  function furPatch(mat, layer, layers, len, stripe) {
+    const u = {
+      uT: { value: layer / layers }, uLen: { value: len }, uStrand: { value: strandTex }, uMottle: { value: mottleTex },
+      uDark: { value: new THREE.Color() }, uStripe: { value: stripe },
+    };
+    furUniforms.push({ u, mat });
+    mat.defines = Object.assign({}, mat.defines, { USE_UV: '' });
+    mat.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, u);
+      sh.vertexShader = 'uniform float uT;\nuniform float uLen;\nvarying vec3 vFurPos;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n  vFurPos = position;\n  vec3 fn = normalize(objectNormal);\n  transformed += fn * uT * uLen * mix(1.0, 0.3, smoothstep(0.55, 0.95, fn.z));');
+      sh.fragmentShader = 'uniform float uT;\nuniform sampler2D uStrand;\nuniform sampler2D uMottle;\nuniform vec3 uDark;\nuniform float uStripe;\nvarying vec3 vFurPos;\n' +
+        sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  if (uT > 0.0) {
+    float n = texture2D(uStrand, vUv * vec2(3.0, 1.5)).r;
+    if (n < 0.08 + uT * 0.9) discard;
+  }
+  float mot = texture2D(uMottle, vUv * 2.0).r;
+  float band = sin(vFurPos.y * 17.0 + sin(vFurPos.x * 5.0) * 2.2 + sin(vFurPos.z * 4.0) * 1.4 + mot * 3.0) * 0.5 + 0.5;
+  vec3 furCol = mix(diffuseColor.rgb, uDark, uStripe * smoothstep(0.62, 0.92, band) * 0.5);
+  furCol *= 0.8 + 0.4 * mot;
+  furCol *= mix(0.42, 1.15, uT);
+  diffuseColor.rgb = furCol;`);
+    };
+    mat.customProgramCacheKey = () => 'fur';
+    return mat;
+  }
+  const LAYERS = 12;
+  const FURLEN = new Map([[KM.fur, 0.1], [KM.furDark, 0.06], [KM.furLight, 0.08]]);
+  const shellSets = new Map();   // 底層材質 → 每層 shell 材質
+  for (const base of kitten.userData.furMaterials) {
+    furPatch(base, 0, LAYERS, 0, base === KM.furLight ? 0 : STRIPES.tabby);
+    const mats = [];
+    for (let i = 1; i <= LAYERS; i++) {
+      const m = new THREE.MeshStandardMaterial({ color: base.color, roughness: 1, envMapIntensity: 0.3 });
+      mats.push(furPatch(m, i, LAYERS, FURLEN.get(base), base === KM.furLight ? 0 : STRIPES.tabby));
+    }
+    shellSets.set(base, mats);
+  }
+  const furMeshes = [];
+  kitten.traverse(o => { if (o.isMesh && shellSets.has(o.material) && !o.userData.noFur) furMeshes.push(o); });
+  for (const o of furMeshes) {
+    for (const m of shellSets.get(o.material)) {
+      const shell = new THREE.Mesh(o.geometry, m);
+      shell.castShadow = false;
+      shell.receiveShadow = true;
+      o.add(shell);
+    }
+  }
+  function syncFur(key) {
+    const darker = KM.furDark.color.clone().multiplyScalar(0.6);
+    for (const { u, mat } of furUniforms) {
+      const base = [...shellSets.keys()].find(b => b === mat || shellSets.get(b).includes(mat));
+      if (base && mat !== base) mat.color.copy(base.color);
+      u.uDark.value.copy(base === KM.furDark ? darker : KM.furDark.color);
+      if (base !== KM.furLight) u.uStripe.value = STRIPES[key];
+    }
+  }
+  syncFur('tabby');
+
   // 環境反射主要俾金屬用；毛、披風等非金屬只收少少，否則成隻貓會被照到發白
   for (const k of ['fur', 'furDark', 'furLight', 'whisker', 'pink', 'pinkSoft', 'nose', 'leather', 'cape']) KM[k].envMapIntensity = 0.3;
   Object.values(KM).forEach(m => { m.needsUpdate = true; });
@@ -338,6 +424,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   const furBtns = [...document.querySelectorAll('#furs .chip')];
   furBtns.forEach(b => b.addEventListener('click', () => {
     kitten.userData.setFur(b.dataset.fur);
+    syncFur(b.dataset.fur);
     furBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   }));
   const spinBtn = document.getElementById('spin');

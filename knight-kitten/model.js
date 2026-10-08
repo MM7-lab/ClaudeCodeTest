@@ -27,9 +27,11 @@
     furLight:  std(fur.light, 0.95),
     whisker:   std(0xf6f2ea, 0.8),
     pink:      std(0xf2a7bd, 0.55),
-    pinkSoft:  std(0xe8b3b5, 0.75),
-    nose:      std(0xd98a8a, 0.5),
-    eye:       std(0x141217, 0.1),
+    pinkSoft:  std(0xd9a3a0, 0.75),
+    nose:      std(0xc4837d, 0.45),
+    eye:       std(0x0b0a0c, 0.2),
+    iris:      std(0x4a3520, 0.35),
+    cornea:    new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0, metalness: 0, transparent: true, opacity: 0.12, clearcoat: 1, clearcoatRoughness: 0 }),
     shine:     new THREE.MeshBasicMaterial({ color: 0xffffff }),
     steel:     metal(0xd6d9de, 0.14, 0.35),
     steelDark: metal(0xa3a8b0, 0.26, 0.2),
@@ -146,11 +148,6 @@
   mesh(new THREE.TubeGeometry(tailCurve, 40, 0.22, 16, false), M.fur, body, null, null, null, 'Tail');
   const tip = tailCurve.getPoint(1);
   mesh(sphere(0.25), M.fur, body, [tip.x, tip.y, tip.z], null, [1, 0.9, 1]);
-  for (const t of [0.4, 0.7]) {
-    const p = tailCurve.getPoint(t);
-    const ring = mesh(new THREE.TorusGeometry(0.21, 0.04, 8, 24), M.furDark, body, [p.x, p.y, p.z]);
-    ring.lookAt(p.clone().add(tailCurve.getTangent(t)));
-  }
 
   /* ---------- 白披風（向左後方飄） ---------- */
   let cape = null;
@@ -218,7 +215,7 @@
     // 毛毛手掌包住劍柄
     mesh(sphere(0.21), M.fur, root, [hand.x, hand.y, hand.z + 0.02], null, [1.15, 0.95, 1], 'Paw');
     for (let k = -1; k <= 1; k++) {
-      mesh(sphere(0.075, 12, 10), M.furDark, root, [hand.x + 0.04, hand.y + k * 0.085, hand.z + 0.2]);
+      mesh(sphere(0.075, 12, 10), M.furDark, root, [hand.x + 0.04, hand.y + k * 0.085, hand.z + 0.2]).userData.noFur = true;
     }
   }
 
@@ -238,34 +235,30 @@
     mesh(sphere(r, 18, 14), M.fur, head, [x, y, z], null, [1, 0.7, 1]);
   }
   for (const s of [-1, 1]) {
-    mesh(sphere(0.27), M.furLight, head, [0.15 * s, -0.36, 0.86], null, [1, 0.8, 0.8]);   // 口部
-    mesh(sphere(0.12, 20, 14), M.pinkSoft, head, [0.66 * s, -0.24, 0.72], null, [1, 0.6, 0.35]);
+    mesh(sphere(0.25), M.furLight, head, [0.14 * s, -0.36, 0.84], null, [1, 0.78, 0.8], 'WhiskerPad');
   }
+  mesh(sphere(0.16), M.fur, head, [0, -0.02, 0.9], null, [0.75, 1.4, 0.7], 'NoseBridge');
   mesh(sphere(0.16), M.furLight, head, [0, -0.52, 0.84], null, [1, 0.7, 0.8]);
-  mesh(sphere(0.075, 20, 14), M.nose, head, [0, -0.22, 1.03], null, [1.3, 0.8, 0.8], 'Nose');
+  mesh(sphere(0.075, 20, 14), M.nose, head, [0, -0.21, 1.04], [0.25, 0, 0], [1.3, 0.75, 0.75], 'Nose');
+  mesh(new THREE.BoxGeometry(0.012, 0.08, 0.02), M.nose, head, [0, -0.29, 1.06]).userData.noFur = true;   // 人中
   for (const s of [-1, 1]) {
-    mesh(new THREE.TorusGeometry(0.06, 0.016, 8, 16, Math.PI), M.furDark, head, [0.06 * s, -0.35, 1.06], [0, 0, Math.PI]);
+    mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 16, Math.PI), M.eye, head, [0.06 * s, -0.36, 1.05], [0, 0, Math.PI], null, 'Mouth');
   }
 
   // 大大對濕濕眼（略為向外垂，似有啲擔心但仍然好認真）
   const eyes = [];
   for (const s of [-1, 1]) {
     const eye = new THREE.Group();
-    eye.position.set(0.38 * s, -0.02, 0.86);
+    eye.position.set(0.38 * s, -0.02, 0.92);
     eye.rotation.z = 0.12 * s;
     head.add(eye);
-    mesh(sphere(0.21), M.eye, eye, [0, 0, 0], null, [1, 1.08, 0.6], 'Eye');
-    mesh(sphere(0.06, 12, 10), M.shine, eye, [0.07 * s, 0.09, 0.11]);
-    mesh(sphere(0.03, 10, 8), M.shine, eye, [-0.05 * s, -0.08, 0.12]);
+    mesh(sphere(0.21, 40, 28), M.eye, eye, [0, 0, -0.02], null, [1, 1.08, 0.62], 'EyeRim');
+    mesh(sphere(0.19, 40, 28), M.iris, eye, [0, 0, 0], null, [1, 1.06, 0.6], 'Iris');
+    mesh(sphere(0.155, 32, 24), M.eye, eye, [0, 0, 0.035], null, [1, 1.1, 0.6], 'Pupil');      // 大瞳孔：幼貓喺陰天會擴張
+    mesh(sphere(0.205, 40, 28), M.cornea, eye, [0, 0, 0.012], null, [1, 1.07, 0.66], 'Cornea');
+    mesh(sphere(0.03, 12, 10), M.shine, eye, [0.06 * s, 0.08, 0.125]);
     eyes.push(eye);
-    // 眼頭向下嘅淺眼眉毛色
-    mesh(new THREE.CapsuleGeometry(0.035, 0.18, 6, 10), M.furDark, head, [0.36 * s, 0.3, 0.86], [0, 0, Math.PI / 2 - 0.3 * s]);
   }
-
-  // 額頭虎紋
-  [[-0.22, 0.58, 0.8, 0.25], [0, 0.64, 0.78, 0], [0.22, 0.58, 0.8, -0.25]].forEach(([x, y, z, rz]) => {
-    mesh(new THREE.CapsuleGeometry(0.03, 0.18, 6, 10), M.furDark, head, [x, y, z], [-0.6, 0, rz]);
-  });
 
   // 細細對耳仔，向兩邊開
   for (const s of [-1, 1]) {
@@ -274,7 +267,7 @@
     ear.rotation.set(-0.15, 0, -0.62 * s);
     head.add(ear);
     mesh(new THREE.ConeGeometry(0.3, 0.52, 32), M.fur, ear, [0, 0.2, 0], null, [1, 1, 0.75], 'Ear');
-    mesh(new THREE.ConeGeometry(0.18, 0.34, 24), M.pinkSoft, ear, [0, 0.16, 0.12], null, [1, 1, 0.4]);
+    mesh(new THREE.ConeGeometry(0.18, 0.34, 24), M.pinkSoft, ear, [0, 0.16, 0.12], null, [1, 1, 0.4], 'InnerEar');
     mesh(new THREE.ConeGeometry(0.08, 0.3, 12), M.furLight, ear, [0, 0.12, 0.17], null, [1, 1, 0.5]);
   }
 
@@ -300,7 +293,7 @@
   }
   mesh(sphere(0.06), M.pink, bow, [0, 0, 0.02], null, [1, 1, 0.8], 'BowKnot');
 
-  root.userData = { head, eyes, sword, cape, materials: M, furs: FURS };
+  root.userData = { head, eyes, sword, cape, materials: M, furs: FURS, furMaterials: [M.fur, M.furDark, M.furLight] };
   root.userData.setFur = function (key) {
     const f = FURS[key];
     if (!f) return;
