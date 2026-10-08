@@ -41,6 +41,8 @@ const DOG_BREEDS = BREEDS.filter(b => b.kind === 'dog').map(b => b.id);
 // the main pet (主角), who gives the reminders
 const MAIN_PETS = [['cat', '貓貓'], ['dog', '狗狗'], ['bird', '雀仔'], ['pig', '豬仔']];
 const WORD = { cat: '喵', dog: '汪', bird: '啾', pig: '噗' };
+// office furniture that can be switched on and off
+const FURNITURE = [['sofa', '梳化'], ['cooler', '飲水機'], ['shelf', '書櫃'], ['board', '白板'], ['printer', '打印機'], ['plant', '大盆栽']];
 // The plush toys (公仔) from the soft-body toy box; the cat plays with whichever are switched on.
 const TOYS = [
   { id: 'baby-bear', label: '熊啤啤' },
@@ -63,6 +65,7 @@ const DEFAULTS = {
   pig: true, pigName: '布甸', pigBed: 'left',
   friends: ['golden', 'british'], dogHouse: 'right',
   office: false, workers: ['main', 'auto'], // office mode: who works at the left and right desks
+  officeFurn: ['sofa', 'cooler', 'shelf', 'board', 'printer', 'plant'], // and which furniture is out
   screen: 'primary', // 'primary', 'follow' (follow the mouse) or a display id
 };
 
@@ -204,6 +207,7 @@ function cleanPatch(p) {
     const ok = w => ['main', 'pig', 'auto'].includes(w) || BREEDS.some(b => b.id === w);
     out.workers = [0, 1].map(i => (ok(p.workers[i]) ? p.workers[i] : 'auto'));
   }
+  if (Array.isArray(p.officeFurn)) out.officeFurn = FURNITURE.map(([k]) => k).filter(k => p.officeFurn.includes(k));
   if (Array.isArray(p.friends)) out.friends = BREEDS.map(b => b.id).filter(id => p.friends.includes(id));
   if (p.screen === 'primary' || p.screen === 'follow' || /^\d{1,20}$/.test(String(p.screen))) out.screen = String(p.screen);
   if (Number.isFinite(p.size)) out.size = Math.min(1.8, Math.max(0.5, p.size));
@@ -371,6 +375,19 @@ function menuItems() {
     { label: `叫${S.name}過嚟`, click: () => { showCat(true); sendPet('come-here'); } },
     { label: catHidden ? '叫佢哋出返嚟' : '收埋佢哋', click: () => showCat(catHidden) },
     { label: '辦公室模式', type: 'checkbox', checked: !!S.office, click: (item) => saveAndApply({ office: item.checked }) },
+    {
+      label: '辦公室家俬',
+      enabled: !!S.office,
+      submenu: [
+        ...FURNITURE.map(([k, label]) => ({
+          label, type: 'checkbox', checked: (S.officeFurn || []).includes(k),
+          click: (item) => saveAndApply({ officeFurn: item.checked ? [...(S.officeFurn || []), k] : (S.officeFurn || []).filter(x => x !== k) }),
+        })),
+        { type: 'separator' },
+        { label: '全部擺出嚟', click: () => saveAndApply({ officeFurn: FURNITURE.map(([k]) => k) }) },
+        { label: '全部收埋', click: () => saveAndApply({ officeFurn: [] }) },
+      ],
+    },
     {
       label: '大家一齊',
       submenu: [

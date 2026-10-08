@@ -23,6 +23,8 @@ function render(s) {
   $('coatRow').hidden = $('coatName').hidden = kind !== 'cat' || (s.breed || 'classic') !== 'classic';
   $('dogHouse').value = s.dogHouse || 'right';
   $('office').checked = !!s.office;
+  const furn = s.officeFurn || ['sofa', 'cooler', 'shelf', 'board', 'printer', 'plant'];
+  document.querySelectorAll('[data-furn]').forEach(c => { c.checked = furn.includes(c.dataset.furn); c.disabled = !s.office; });
   renderWorkers(s);
   document.querySelectorAll('[data-friend]').forEach(c => { c.checked = (s.friends || []).includes(c.dataset.friend); });
   if ($('screen').options.length) $('screen').value = [...$('screen').options].some(o => o.value === s.screen) ? s.screen : 'primary';
@@ -175,6 +177,8 @@ $('mainPet').addEventListener('change', () => save({ mainPet: $('mainPet').value
 $('dogBreed').addEventListener('change', () => save({ dogBreed: $('dogBreed').value }));
 $('dogHouse').addEventListener('change', () => save({ dogHouse: $('dogHouse').value }));
 $('office').addEventListener('change', () => save({ office: $('office').checked }));
+document.querySelectorAll('[data-furn]').forEach(c => c.addEventListener('change', () =>
+  save({ officeFurn: [...document.querySelectorAll('[data-furn]')].filter(x => x.checked).map(x => x.dataset.furn) })));
 for (const sel of ['worker0', 'worker1']) $(sel).addEventListener('change', () => save({ workers: [$('worker0').value, $('worker1').value] }));
 $('screen').addEventListener('change', () => save({ screen: $('screen').value }));
 $('every').addEventListener('change', () => save({ every: Number($('every').value) }));

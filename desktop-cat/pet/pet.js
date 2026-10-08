@@ -23,7 +23,7 @@ const CHAT = () => ['你做得好好呀！加油 💪', '我喺度陪住你 🐾
   '今日都好努力呀 🌼', '我信你得嘅 💛', `有咩唔開心，摸吓我啦 ${face()}`];
 const OUCH = () => ['嚇死我喇！', `${word()}！好高呀`, '安全着陸'].map(t => t + ' ' + face());
 
-let S = { name: '麻糬', mainPet: 'cat', office: false, workers: ['main', 'auto'], breed: 'classic', dogBreed: 'golden', dogHouse: 'right', coat: 'orange', size: 1, friends: [], chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80,
+let S = { name: '麻糬', mainPet: 'cat', office: false, workers: ['main', 'auto'], officeFurn: ['sofa', 'cooler', 'shelf', 'board', 'printer', 'plant'], breed: 'classic', dogBreed: 'golden', dogHouse: 'right', coat: 'orange', size: 1, friends: [], chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80,
   birdCount: 1, birds: [{ name: '檸檬', color: 'yellow' }], cage: 'both', pig: true, pigName: '布甸', pigBed: 'left' };
 const sound = makeSound(() => S);
 
@@ -352,7 +352,7 @@ const deskFor = key => { const w = workers(), k = w.indexOf(key); return k >= 0 
 const workerName = key => (key === 'main' ? S.name : key === 'pig' ? pigName() : BREEDS[key]?.label || '');
 function placeDesks() {
   officeOn = !!S.office;
-  const key = `${officeOn}|${W}|${S.size}`;
+  const key = `${officeOn}|${W}|${S.size}|${(S.officeFurn || []).join(',')}`;
   if (key !== officeKey) {
     officeKey = key;
     desks.forEach((d, k) => {
@@ -387,9 +387,16 @@ function placeFurniture() {
     }
     furnOn[k] = true; furn[k].group.visible = true;
   };
-  put('sofa', 0, -70);
-  put('cooler', -1, -80); put('shelf', 1, -85); put('board', -1, -95); put('printer', 1, -80); put('plant', -1, -80);
+  // only the pieces switched on in the settings; the first in the middle, the rest alternately left and right
+  const Z = { sofa: -70, cooler: -80, shelf: -85, board: -95, printer: -80, plant: -80 };
+  const chosen = ['sofa', 'cooler', 'shelf', 'board', 'printer', 'plant'].filter(k => (S.officeFurn || Object.keys(Z)).includes(k));
+  chosen.forEach((k, i) => put(k, i === 0 ? 0 : i % 2 ? -1 : 1, Z[k]));
   usage.clear();
+  // a piece that went away: whoever was up on it or using it gets down
+  for (const f of friends.values()) if (f.brain.up) f.brain.hopDown(() => f.brain.decide());
+  if (pigBrain.onSofa && !furnOn.sofa) pigBrain.offSofa();
+  if (ai.surface && ['sofa', 'bookshelf'].includes(ai.surface.name) && ai.mode !== 'hop') jumpDown(decide);
+  if (event && event.kind === 'meeting' && !furnOn.board) endEvent();
 }
 // where a bird can perch on the office furniture
 function furnSpots() {
