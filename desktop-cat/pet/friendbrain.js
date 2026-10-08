@@ -1,11 +1,15 @@
 // What a dog or cat friend (朋友) does. They share the cat's body and poses (cat.js) but have
-// their own simpler life: wander, sit, nap, stretch; cats groom; dogs sniff about, pant, bark,
-// play-bow and do zoomies. They visit the others, tag along after the main cat, and come and
-// cheer at reminders.
+// their own life: wander, sit, nap and stretch; cats groom and stalk birds; dogs sniff about,
+// pant, bark, play-bow and do zoomies, chase the cats, bark at birds, push the plush toys around
+// and sleep in the dog house. Everyone eats and drinks at the bowls, visits the others, cuddles
+// up to whoever is asleep, gets jealous when someone else is petted, follows the main pet and
+// comes over at reminders.
 //
-// ctx: { S(), scale(), bounds(), lane(), others(), cat(), sound: { voice(), happy() },
-//   hearts(pos), say(text, pos), zzz(on) }
-// others() lists everyone it can visit: [{ x, z, size, greet(fromX) }]
+// ctx: { S(), scale(), bounds(), lane(), main(), others(), sound: { voice(n), happy() },
+//   hearts(pos), say(text, pos), zzz(on), house(), slot(), freeSlot(), bowl(k), freeBowl(k),
+//   bird(), toy(), petted(x), desk(), effect(kind, pos) }
+// others(): [{ id, kind ('cat'|'dog'|'pig'|'main'), x, z, size, still, asleep, greet(x), flee(x), play(x) }]
+import { Worker, fitSeat, catPoints } from './office.js';
 const MIN = 60 * 1000;
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -22,23 +26,45 @@ export class FriendBrain {
     this.mode = 'idle'; this.t = 0; this.d = {};
     this.awakeSince = Date.now() - rand(0, 3) * MIN;
     this.happy = 0; this.nextLook = 0; this.squash = 0; this.pant = 0;
+    this.lastMeal = Date.now() - rand(0, 6) * MIN;
+    this.slot = null; this.bowlK = null;
+    this.breakUntil = Date.now() + rand(2, 12) * 1000; this.workUntil = 0;
+    this.worker = new Worker(animal, kind => this.ctx.effect(kind, this.headWorld()));
   }
 
   go(mode, d = {}) {
+    if (this.slot != null && mode !== 'sleep' && mode !== 'enter') { this.ctx.freeSlot(); this.slot = null; }
+    // a bowl stays ours on the way there and while eating
+    if (this.bowlK != null && mode !== 'eat' && !(mode === 'walk' && d.toBowl)) { this.ctx.freeBowl(this.bowlK); this.bowlK = null; }
     this.mode = mode; this.t = 0; this.d = d;
     const pose = { sit: 'sit', sleep: 'loaf', lie: 'loaf', groom: 'groom', stretch: 'stretch', held: 'held', fall: 'leap',
-      hop: 'leap', bark: 'sit', cheer: 'sit', greet: 'sit', crouch: 'crouch' }[mode] || 'stand';
+      hop: 'leap', jump: 'leap', bark: 'sit', cheer: 'sit', greet: 'sit', crouch: 'crouch', stalk: 'stand', bow: 'stretch',
+      eat: 'crouch', enter: 'loaf', beg: 'sit', leap: 'leap' }[mode] || 'stand';
+    if (this.mode === 'work' && mode !== 'work') this.breakUntil = Date.now() + rand(1, 2.5) * MIN;
     this.a.setPose(pose);
+    if (mode === 'work') this.worker.begin();
     this.ctx.zzz(mode === 'sleep');
   }
-  get busy() { return ['walk', 'run', 'sniff', 'follow', 'visit', 'held', 'fall', 'hop'].includes(this.mode); }
-  get still() { return ['idle', 'sit', 'sleep', 'lie', 'groom', 'cheer', 'greet', 'bark'].includes(this.mode); }
+  get busy() { return ['walk', 'run', 'sniff', 'follow', 'visit', 'held', 'fall', 'hop', 'jump', 'chase', 'flee', 'stalk', 'toy', 'enter', 'leap', 'work'].includes(this.mode); }
+  get still() { return ['idle', 'sit', 'sleep', 'lie', 'groom', 'cheer', 'greet', 'bark', 'eat', 'beg'].includes(this.mode); }
+  get working() { return this.mode === 'work' || (this.mode === 'leap' && this.d.toDesk); }
+  get asleep() { return this.mode === 'sleep'; }
   faceUser() { this.yawTarget = FRONT + (Math.cos(this.yaw) >= 0 ? 1 : -1) * 0.5; }
+  // how far its head reaches in front of its feet (to lie in the dog house doorway)
+  reach() { const s = this.a.spec; return (20 * s.len + 10 + 30 * s.head) * this.ctx.scale(); }
 
   decide() {
-    const awake = (Date.now() - this.awakeSince) / MIN, dog = this.dog;
-    const opts = [['idle', 10], ['walk', 26], ['sit', 12], ['stretch', 4], ['visit', 8], ['follow', dog ? 7 : 3],
-      ['groom', dog ? 0 : 8], ['sniff', dog ? 12 : 0], ['run', dog ? 5 : 2], ['bark', dog ? 4 : 2], ['lie', dog ? 5 : 0],
+    const c = this.ctx, awake = (Date.now() - this.awakeSince) / MIN, dog = this.dog;
+    // office mode: back to the desk after a break
+    if (c.desk() && Date.now() > this.breakUntil) return this.start('work');
+    const hungry = c.house() && Date.now() - this.lastMeal > 4 * MIN;
+    const others = c.others(), cats = others.filter(o => (o.kind === 'cat' || o.kind === 'main') && !o.asleep);
+    const dogs = others.filter(o => o.kind === 'dog' && !o.asleep), bird = c.bird();
+    const opts = [['idle', 10], ['walk', 24], ['sit', 12], ['stretch', 4], ['visit', 8], ['follow', dog ? 6 : 3],
+      ['groom', dog ? 0 : 8], ['sniff', dog ? 11 : 0], ['run', dog ? 4 : 2], ['bark', dog ? 3 : 2], ['lie', dog ? 5 : 0],
+      ['eat', hungry ? 14 : 0],
+      ['chase', dog && cats.length ? 5 : 0], ['bow', dog && (dogs.length || others.some(o => o.kind === 'pig')) ? 5 : 0],
+      ['stalk', !dog && bird ? 8 : 0], ['barkAt', dog && bird ? 6 : 0], ['toy', dog && c.toy() ? 6 : 0],
       ['sleep', awake > 7 ? 40 : awake > 3 ? 6 : 0]];
     let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
     for (const [n, w] of opts) if ((r -= w) < 0) return this.start(n);
@@ -60,46 +86,126 @@ export class FriendBrain {
         this.go('sniff', { tx, tz: rand(z0, z1), speed: 30 });
         break;
       }
-      case 'run': {
-        // zoomies: a few fast laps
-        this.go('run', { tx: this.x > 0 ? x0 + rand(0, 120) : x1 - rand(0, 120), tz: rand(z0, z1), laps: 2 + Math.floor(rand(0, 3)) });
-        break;
-      }
+      case 'run': this.zoom(2 + Math.floor(rand(0, 3))); break;
       case 'sit': this.go('sit', { dur: rand(6, 14) }); this.faceUser(); break;
       case 'lie': this.go('lie', { dur: rand(8, 20) }); this.faceUser(); break;
       case 'groom': this.go('groom', { dur: rand(4, 7) }); this.faceUser(); break;
       case 'stretch': this.go('stretch', { dur: 2.2, then: this.dog && Math.random() < 0.5 ? 'run' : null }); break;
       case 'bark': this.go('bark', { dur: rand(1.5, 2.5), n: this.dog ? 1 + Math.floor(rand(0, 3)) : 1, next: 0.2 }); this.faceUser(); break;
       case 'visit': {
-        const list = c.others().filter(o => Math.abs(o.x - this.x) > 60);
+        const list = c.others().filter(o => Math.abs(o.x - this.x) > 60 && !o.asleep);
         if (!list.length) return this.start('walk');
         list.sort((a, b) => Math.abs(a.x - this.x) - Math.abs(b.x - this.x));
         this.go('visit', { who: Math.random() < 0.6 ? list[0] : pick(list) });
         break;
       }
       case 'follow': {
-        if (!c.cat().onFloor) return this.start('walk');
+        if (!c.main().onFloor) return this.start('walk');
         this.go('follow', { dur: rand(8, 15) });
         break;
       }
-      case 'sleep': this.go('sleep', { dur: rand(40, 140) }); this.faceUser(); break;
+      case 'eat': {
+        const k = Math.random() < 0.5 ? 0 : 1, b = c.bowl(k);
+        if (!b) return this.start('idle');
+        this.bowlK = k;
+        const side = this.x < b.x ? -1 : 1;
+        this.go('walk', { tx: b.x + side * 42 * c.scale(), tz: b.z, speed: this.dog ? 80 : 60, toBowl: true,
+          then: () => { this.go('eat', { dur: rand(4, 7), k }); this.yawTarget = side < 0 ? 0 : Math.PI; } });
+        break;
+      }
+      case 'chase': {
+        // a dog chases a cat round the room; the cat runs off
+        const cats = c.others().filter(o => (o.kind === 'cat' || o.kind === 'main') && !o.asleep && o.still);
+        if (!cats.length) return this.start('walk');
+        const o = pick(cats);
+        this.go('chase', { who: o });
+        this.voice(1);
+        o.flee(this.x);
+        break;
+      }
+      case 'bow': {
+        // play bow to another dog (or the pig): bum up, tail going; then zoomies together
+        const list = c.others().filter(o => (o.kind === 'dog' || o.kind === 'pig') && !o.asleep);
+        if (!list.length) return this.start('walk');
+        const o = pick(list), side = this.x < o.x ? -1 : 1;
+        this.go('visit', { who: o, then: () => { this.go('bow', { dur: 1.4, who: o }); this.yawTarget = side < 0 ? 0 : Math.PI; o.play(this.x); } });
+        break;
+      }
+      case 'stalk': {
+        const b = c.bird();
+        if (!b) return this.start('idle');
+        this.go('stalk', { bird: b });
+        break;
+      }
+      case 'barkAt': {
+        const b = c.bird();
+        if (!b) return this.start('idle');
+        this.go('chase', { bird: b });
+        break;
+      }
+      case 'toy': {
+        const t = c.toy();
+        if (!t) return this.start('idle');
+        this.go('toy', { toy: t, pokes: 2 + Math.floor(rand(0, 4)) });
+        break;
+      }
+      case 'sleep': this.sleep(); break;
+      case 'work': {
+        // walk round to the side of the desk, then jump up onto the chair
+        const desk = c.desk();
+        if (!desk) return this.start('idle');
+        const side = desk.sideSpot(), seat = desk.seatSpot();
+        this.go('walk', { tx: side.x, tz: side.z, speed: this.dog ? 90 : 70,
+          then: () => this.go('leap', { to: { x: seat.x, y: desk.top() * 0.6, z: seat.z }, toDesk: true,
+            then: () => { this.workUntil = Date.now() + rand(4, 9) * MIN; this.go('work', { seat }); } }) });
+        break;
+      }
       default: this.go('idle', { dur: 2 });
     }
+  }
+  zoom(laps) {
+    const [x0, x1] = this.ctx.bounds();
+    this.go('run', { tx: this.x > 0 ? x0 + rand(0, 120) : x1 - rand(0, 120), tz: rand(...this.ctx.lane()), laps });
+  }
+  // dogs go home to the dog house; anyone may cuddle up next to someone already asleep
+  sleep() {
+    const c = this.ctx, house = c.house();
+    if (this.dog && house) {
+      const i = c.slot();
+      if (i != null) {
+        const sp = house.slot(i, this.reach());
+        this.go('walk', { tx: sp.x, tz: sp.door ? house.front() + 40 * house.s : sp.z, speed: 70,
+          then: () => { this.slot = i; this.go('enter', { sp }); } });
+        this.slot = i;
+        return;
+      }
+    }
+    const buddy = c.others().find(o => o.asleep && o.kind !== 'main' && Math.abs(o.x - this.x) < 500);
+    if (buddy && Math.random() < 0.6) {
+      const side = this.x < buddy.x ? -1 : 1, [x0, x1] = c.bounds();
+      this.go('walk', { tx: clamp(buddy.x + side * (40 + 45 * buddy.size), x0, x1), tz: clamp(buddy.z + 3, ...c.lane()), speed: 50,
+        then: () => { this.go('sleep', { dur: rand(40, 140) }); this.yawTarget = side < 0 ? -0.3 : Math.PI + 0.3; } });
+      return;
+    }
+    this.go('sleep', { dur: rand(40, 140) }); this.faceUser();
   }
   jump(v) { this.vy = v; this.y = Math.max(this.y, 0.01); }
   voice(times) { this.ctx.sound.voice(times); this.ctx.say(this.dog ? (this.a.spec.size < 0.8 ? '汪汪！' : '汪！') : '喵～', this.headWorld()); }
 
-  // ---------- user ----------
+  // ---------- from the user and the others ----------
   petted() {
     if (this.mode === 'sleep') { this.wake(); return; }
-    if (['held', 'fall'].includes(this.mode)) return;
+    if (['held', 'fall', 'leap'].includes(this.mode)) return;
+    // at work: a happy wriggle, but keeps working
+    if (this.mode === 'work') { this.happy = 1.6; this.ctx.hearts(this.headWorld()); this.ctx.sound.happy(); this.ctx.petted(this.x); return; }
     this.happy = 1.6;
     this.ctx.hearts(this.headWorld());
     this.ctx.sound.happy();
+    this.ctx.petted(this.x);
     if (this.dog) { this.pant = 3; if (Math.random() < 0.5) { this.go('hop', { n: 2 }); this.faceUser(); this.jump(320); return; } }
     this.go('sit', { dur: rand(4, 7) }); this.faceUser();
   }
-  wake() { this.awakeSince = Date.now(); this.go('stretch', { dur: 1.8 }); }
+  wake() { this.awakeSince = Date.now(); this.y = 0; this.go('stretch', { dur: 1.8 }); }
   grab() { this.go('held'); this.voice(1); }
   release(vx, vy) { this.vx = clamp(vx, -700, 700); this.vy = clamp(vy, -500, 700); this.go('fall'); }
   // somebody came over to say hello
@@ -110,13 +216,41 @@ export class FriendBrain {
     this.happy = 1.2;
     if (this.dog) this.pant = 2.5;
   }
-  // the reminder: come over to the main cat, sit and look at the user
+  // a dog is chasing it: run off to the far side (a cat might hiss first)
+  flee(fromX) {
+    if (this.busy && this.mode !== 'walk' || this.mode === 'sleep') return;
+    const [x0, x1] = this.ctx.bounds();
+    if (!this.dog && Math.random() < 0.5) this.ctx.say('嘶～', this.headWorld());
+    this.go('flee', { tx: fromX < this.x ? x1 - rand(0, 100) : x0 + rand(0, 100), tz: rand(...this.ctx.lane()) });
+  }
+  // invited to play: bow back, then zoomies
+  play(fromX) {
+    if (this.busy || this.mode === 'sleep') return;
+    this.go(this.dog ? 'bow' : 'sit', { dur: 1.4, then: 'run' });
+    this.yawTarget = fromX > this.x ? 0 : Math.PI;
+  }
+  // someone else got petted nearby: come and ask for some too
+  jealous(x) {
+    if (this.busy || this.mode === 'sleep' || ['eat', 'cheer'].includes(this.mode)) return;
+    const [x0, x1] = this.ctx.bounds(), side = this.x < x ? -1 : 1;
+    this.go('walk', { tx: clamp(x + side * rand(90, 140) * this.ctx.scale(), x0, x1), tz: rand(...this.ctx.lane()), speed: this.dog ? 120 : 80,
+      then: () => { this.go('beg', { dur: rand(3, 5) }); this.yawTarget = FRONT; this.ctx.say(pick(['我都要摸摸！', '仲有我呀～', '摸埋我啦 🥺']), this.headWorld()); if (this.dog) this.pant = 3; } });
+  }
+  // off the chair, down to the floor in front of the desk
+  leaveDesk(then) {
+    const desk = this.ctx.desk(), side = desk ? desk.sideSpot() : { x: this.x, z: 30 };
+    this.breakUntil = Date.now() + rand(1, 2.5) * MIN;
+    this.go('leap', { to: { x: side.x, y: 0, z: clamp(side.z + 70, ...this.ctx.lane()) }, then: then || (() => { this.go('stretch', { dur: 2 }); }) });
+  }
+  // the reminder: come over to the main pet, sit and look at the user
   cheer() {
     if (['held', 'fall'].includes(this.mode)) return;
+    if (this.mode === 'work') return this.leaveDesk(() => this.cheer());
     if (this.mode === 'sleep') this.awakeSince = Date.now();
-    const c = this.ctx, cat = c.cat(), [x0, x1] = c.bounds();
-    const tx = clamp(cat.x + (Math.random() < 0.5 ? -1 : 1) * rand(120, 260) * c.scale(), x0, x1);
-    this.go('walk', { tx, tz: clamp(cat.z + rand(-4, 12), ...c.lane()), speed: this.dog ? 150 : 110,
+    this.y = 0;
+    const c = this.ctx, m = c.main(), [x0, x1] = c.bounds();
+    const tx = clamp(m.x + (Math.random() < 0.5 ? -1 : 1) * rand(120, 260) * c.scale(), x0, x1);
+    this.go('walk', { tx, tz: clamp(m.z + rand(-4, 12), ...c.lane()), speed: this.dog ? 150 : 110,
       then: () => { this.go('cheer', { dur: 6 }); this.yawTarget = FRONT; if (this.dog) this.pant = 6; this.voice(1); } });
   }
   headWorld() { const v = this.a.neck.localToWorld(this.a.neck.position.clone().set(10, 30, 0)); return { x: v.x, y: v.y, z: v.z }; }
@@ -152,16 +286,16 @@ export class FriendBrain {
   update(dt) {
     this.t += dt;
     const d = this.d, a = this.a, c = this.ctx;
-    const moving = ['walk', 'run', 'sniff', 'follow', 'visit'].includes(this.mode);
+    const moving = ['walk', 'run', 'sniff', 'follow', 'visit', 'chase', 'flee', 'stalk', 'toy'].includes(this.mode);
     if (!moving) a.gait.amp *= Math.exp(-dt * 8);
     if (this.happy > 0) { this.happy -= dt; a.target.eyeOpen = this.happy > 0 ? 0.15 : a.baseTarget.eyeOpen; }
     // a happy (or puffed-out) dog pants with its tongue out and wags
     if (this.dog) {
       this.pant = Math.max(0, this.pant - dt);
-      const wag = this.pant > 0 || this.happy > 0 || ['greet', 'cheer'].includes(this.mode);
-      if (this.mode !== 'bark') a.target.mouth = this.pant > 0 ? 0.45 + Math.sin(this.t * 14) * 0.08 : a.baseTarget.mouth;
+      const wag = this.pant > 0 || this.happy > 0 || ['greet', 'cheer', 'bow', 'beg'].includes(this.mode);
+      if (this.mode !== 'bark' && this.mode !== 'eat') a.target.mouth = this.pant > 0 ? 0.45 + Math.sin(this.t * 14) * 0.08 : a.baseTarget.mouth;
       if (wag) { a.target.tailSpeed = 14; a.target.tailAmp = 0.45; }
-      else if (this.mode !== 'run') { a.target.tailSpeed = a.baseTarget.tailSpeed; a.target.tailAmp = a.baseTarget.tailAmp; }
+      else if (!['run', 'chase'].includes(this.mode)) { a.target.tailSpeed = a.baseTarget.tailSpeed; a.target.tailAmp = a.baseTarget.tailAmp; }
     }
     let ey = 0, ep = 0;
     switch (this.mode) {
@@ -186,28 +320,135 @@ export class FriendBrain {
           else { this.go('sit', { dur: rand(4, 7) }); this.faceUser(); if (this.dog) this.pant = 6; }
         }
         break;
+      case 'flee':
+        if (this.walkTo(dt, d.tx, d.tz, 300) || this.t > 6) { this.go('sit', { dur: rand(3, 5) }); this.faceUser(); }
+        break;
+      case 'chase': {
+        // after a cat (who runs off), or at a bird on the floor (which flies off)
+        const tgt = d.who ? c.others().find(o => o.id === d.who.id) : d.bird && c.bird();
+        if (d.bird && (!tgt || tgt.id !== d.bird.id)) { this.go('bark', { dur: 1.6, n: 2, next: 0 }); break; }
+        if (!tgt || this.t > 7) { this.go('sit', { dur: rand(3, 5) }); this.faceUser(); this.pant = 5; break; }
+        const side = this.x < tgt.x ? -1 : 1;
+        if (this.walkTo(dt, tgt.x + side * 60 * c.scale(), clamp(tgt.z, ...c.lane()), d.bird ? 200 : 260) || Math.abs(tgt.x - this.x) < 90 * c.scale()) {
+          if (d.bird) { tgt.flee(); this.go('bark', { dur: 1.6, n: 2, next: 0 }); this.yawTarget = side < 0 ? 0 : Math.PI; }
+          else if (this.t > 2.5) { this.go('sit', { dur: rand(3, 5) }); this.faceUser(); this.pant = 5; }
+        }
+        break;
+      }
+      case 'stalk': {
+        // a cat creeps up on a bird, wiggles, pounces; the bird always gets away
+        const b = c.bird();
+        if (!b || b.id !== d.bird.id || this.t > 14) { this.go('sit', { dur: 3 }); this.faceUser(); break; }
+        const side = this.x < b.x ? -1 : 1;
+        if (!d.crouch) {
+          ey = 0; ep = 0.1;
+          if (!this.walkTo(dt, b.x - side * 120 * c.scale(), clamp(b.z, ...c.lane()), 40)) break;
+          d.crouch = true; d.t0 = this.t;
+          a.setPose('crouch');
+          this.yawTarget = side > 0 ? 0 : Math.PI;
+        }
+        a.figure.position.x = Math.sin(this.t * 30) * 1.5;
+        if (this.t - d.t0 > 1.1) {
+          a.figure.position.x = 0;
+          b.flee();
+          this.vx = (b.x - this.x) / (2 * 470 / 1800); this.vy = 470;
+          this.go('jump');
+        }
+        break;
+      }
+      case 'jump': {
+        const landed = this.physics(dt);
+        if (landed < 0) break;
+        this.go('sit', { dur: rand(3, 5) }); this.faceUser();
+        if (Math.random() < 0.5) this.ctx.say(pick(['飛咗喇…', '下次啦 😼']), this.headWorld());
+        break;
+      }
+      case 'toy': {
+        // nudge a plush toy along with the nose and paws
+        const t = c.toy();
+        if (!t || t.id !== d.toy.id || this.t > 15) { this.go('sit', { dur: 3 }); this.faceUser(); break; }
+        const side = this.x < t.x ? -1 : 1;
+        if (!this.walkTo(dt, t.x - side * (t.w / 2 + 30 * c.scale()), clamp(t.z, ...c.lane()), 90)) break;
+        this.yawTarget = side > 0 ? 0 : Math.PI;
+        d.next = d.next ?? this.t + 0.4;
+        if (this.t > d.next) {
+          if (d.pokes-- <= 0) { this.go('sit', { dur: 3 }); this.faceUser(); this.pant = 3; break; }
+          d.next = this.t + rand(0.7, 1.2);
+          t.poke(side);
+          a.swat = 0.01;
+          setTimeout(() => { a.swat = 0; }, 300);
+          if (Math.random() < 0.3) this.voice(1);
+        }
+        if (a.swat > 0) a.swat += dt;
+        break;
+      }
       case 'follow': {
-        const cat = c.cat(), [x0, x1] = c.bounds();
-        if (!cat.onFloor || this.t > d.dur) { this.go('sit', { dur: rand(3, 6) }); this.faceUser(); break; }
-        const side = this.x < cat.x ? -1 : 1, tx = clamp(cat.x + side * 120 * c.scale(), x0, x1);
-        if (Math.abs(tx - this.x) > 25) this.walkTo(dt, tx, clamp(cat.z + 8, ...c.lane()), Math.abs(tx - this.x) > 220 ? 160 : 60);
+        const m = c.main(), [x0, x1] = c.bounds();
+        if (!m.onFloor || this.t > d.dur) { this.go('sit', { dur: rand(3, 6) }); this.faceUser(); break; }
+        const side = this.x < m.x ? -1 : 1, tx = clamp(m.x + side * 120 * c.scale(), x0, x1);
+        if (Math.abs(tx - this.x) > 25) this.walkTo(dt, tx, clamp(m.z + 8, ...c.lane()), Math.abs(tx - this.x) > 220 ? 160 : 60);
         else { this.yawTarget = side < 0 ? 0 : Math.PI; a.gait.amp *= Math.exp(-dt * 8); }
         break;
       }
       case 'visit': {
         const o = d.who, [x0, x1] = c.bounds();
-        if (!o || this.t > 15) { this.go('idle', { dur: 2 }); break; }
-        const side = this.x < o.x ? -1 : 1, gap = (55 * (o.size || 1) + 45 * c.scale());
-        if (!this.walkTo(dt, clamp(o.x + side * gap, x0, x1), clamp(o.z + 4, ...c.lane()), this.dog ? 80 : 60)) break;
+        const now = o && c.others().find(u => u.id === o.id);
+        if (!now || this.t > 15) { this.go('idle', { dur: 2 }); break; }
+        const side = this.x < now.x ? -1 : 1, gap = (55 * (now.size || 1) + 45 * c.scale());
+        if (!this.walkTo(dt, clamp(now.x + side * gap, x0, x1), clamp(now.z + 4, ...c.lane()), this.dog ? 80 : 60)) break;
+        if (d.then) { d.then(); break; }
         this.go(this.dog ? 'greet' : 'sit', { dur: rand(3, 6) });
         this.yawTarget = side < 0 ? -0.2 : Math.PI + 0.2;
-        o.greet && o.greet(this.x);
+        now.greet(this.x);
         c.hearts(this.headWorld());
         if (Math.random() < 0.5) this.voice(1);
         if (this.dog) this.pant = 3;
         break;
       }
-      case 'sit': case 'lie': case 'greet': case 'cheer':
+      case 'bow':
+        a.target.tailSpeed = 16; a.target.tailAmp = 0.5;
+        if (this.t > 0.5 && !d.barked) { d.barked = true; if (this.dog) this.voice(1); }
+        if (this.t > d.dur) this.zoom(2);
+        break;
+      case 'eat':
+        // head down in the bowl, bobbing
+        a.target.headPitch = 0.75 + Math.sin(this.t * (d.k ? 9 : 6)) * 0.12;
+        if (this.t > (d.say ?? 0.6)) { d.say = this.t + 1.6; c.say(d.k ? '咕嚕咕嚕' : '嚼嚼', this.headWorld()); }
+        if (this.t > d.dur) { this.lastMeal = Date.now(); this.go('sit', { dur: rand(3, 6) }); this.faceUser(); if (!this.dog) a.setPose('groom'); }
+        break;
+      case 'enter': {
+        // back into the dog house doorway (or settle on the mat), then sleep
+        const sp = d.sp, k = clamp(this.t / 0.8, 0, 1);
+        if (d.from == null) d.from = { x: this.x, z: this.z };
+        this.x = d.from.x + (sp.x - d.from.x) * k; this.z = d.from.z + (sp.z - d.from.z) * k;
+        this.yawTarget = sp.yaw;
+        if (k >= 1) { const s = this.slot; this.go('sleep', { dur: rand(60, 160), kennel: true }); this.slot = s; this.yaw = sp.yaw; }
+        break;
+      }
+      case 'leap': {
+        // a hop along an arc (onto the office chair, or down from it)
+        if (!d.from) { d.from = { x: this.x, y: this.y, z: this.z }; d.T = 0.5 + Math.abs(d.to.y - d.from.y) / 900; }
+        const k = clamp(this.t / d.T, 0, 1);
+        this.x = d.from.x + (d.to.x - d.from.x) * k; this.z = d.from.z + (d.to.z - d.from.z) * k;
+        this.y = d.from.y + (d.to.y - d.from.y) * k + (40 + Math.abs(d.to.y - d.from.y) * 0.3) * c.scale() * 4 * k * (1 - k);
+        if (Math.abs(d.to.x - d.from.x) > 4) this.yawTarget = d.to.x > d.from.x ? 0 : Math.PI;
+        if (k >= 1) { this.squash = 0.12; d.then ? d.then() : this.decide(); }
+        break;
+      }
+      case 'work': {
+        // at the desk: typing away; then a break
+        const desk = c.desk();
+        if (!desk) { this.leaveDesk(); break; }
+        this.worker.update(dt);
+        this.yawTarget = desk.seatSpot().yaw;
+        const pts = catPoints(a);
+        fitSeat(this, pts.paws, pts.eye, desk, 1 - Math.exp(-dt * 6));
+        desk.setSeat(this.y);
+        c.zzz(this.worker.dozing);
+        if (Date.now() > this.workUntil) { c.zzz(false); this.leaveDesk(); }
+        break;
+      }
+      case 'sit': case 'lie': case 'greet': case 'cheer': case 'beg':
         if (this.t > d.dur) this.decide();
         break;
       case 'groom':
@@ -244,12 +485,12 @@ export class FriendBrain {
         break;
       }
     }
-    if (this.mode !== 'groom') {
+    if (!['groom', 'eat', 'work'].includes(this.mode)) {
       const k = 1 - Math.exp(-dt * 5);
       a.extraHead.yaw += (ey - a.extraHead.yaw) * k;
       a.extraHead.pitch += (ep - a.extraHead.pitch) * k;
     }
-    if (!['hop', 'fall', 'held'].includes(this.mode)) this.y = 0;
+    if (!['hop', 'fall', 'held', 'jump', 'leap', 'work'].includes(this.mode)) this.y = 0;
     this.squash *= Math.exp(-dt * 7);
     this.yaw += angleDiff(this.yawTarget, this.yaw) * (1 - Math.exp(-dt * 7));
   }

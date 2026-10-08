@@ -3,7 +3,8 @@
 // and sleeps in its own cage. It keeps an eye on the cat and flies off when the cat gets ideas.
 //
 // ctx gives it the world: { S(), bounds(), lane(), ceiling(), cages(), home(), slot(), treeSpots(),
-//   cat(), pig(), toys(), others(), sound, notes(pos), hearts(pos), zzz(on) }
+//   cat(), pig(), friends(), house(), toys(), others(), sound, notes(pos), hearts(pos), zzz(on),
+//   desk(), effect(kind, pos) }
 // sound is this bird's own voice: { tweet(), song(), alarm() }.
 const MIN = 60 * 1000;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -13,7 +14,7 @@ const FRONT = -Math.PI / 2;
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const INSIDE = ['perch', 'swing']; // spots inside a cage: in and out through its door
 // Only one bird fits on these at a time.
-const SINGLE = ['roof', 'swing', 'cat', 'pig', 'toy', 'tree'];
+const SINGLE = ['roof', 'swing', 'cat', 'pig', 'toy', 'tree', 'friend', 'house'];
 const sameSpot = (a, b) => !!a && !!b && a.kind === b.kind && a.cage === b.cage && a.side === b.side && a.id === b.id && a.name === b.name;
 
 export class BirdBrain {
@@ -26,6 +27,7 @@ export class BirdBrain {
     this.awakeSince = Date.now() - rand(0, 2) * MIN;
     this.nextLook = 0;
     this.happy = 0;
+    this.breakUntil = Date.now() + rand(3, 15) * 1000; this.workUntil = 0;
   }
 
   // ---------- spots the bird can stand on ----------
@@ -40,6 +42,9 @@ export class BirdBrain {
       case 'tree': { const t = c.treeSpots().find(u => u.name === s.name); return t ? { x: (t.x0 + t.x1) / 2 + (s.off || 0), y: t.y, z: t.z } : null; }
       case 'cat': { const cat = c.cat(); return cat.perchable ? cat.head : null; }
       case 'pig': { const pig = c.pig(); return pig && pig.perchable ? pig.head : null; }
+      case 'friend': { const f = c.friends().find(u => u.id === s.id); return f && f.perchable ? f.head : null; }
+      case 'house': return c.house();
+      case 'desk': { const dk = c.desk(); return dk ? dk.keyboard() : null; }
       case 'toy': { const t = c.toys().find(u => u.id === s.id); return t && !t.moving ? t.top : null; }
     }
     return null;
@@ -61,6 +66,8 @@ export class BirdBrain {
     for (const t of c.treeSpots()) if (t.name !== 'base') options.push([{ kind: 'tree', name: t.name, off: rand(-6, 6) }, 5]);
     if (c.cat().settled) options.push([{ kind: 'cat' }, 8]);
     if (c.pig() && c.pig().settled) options.push([{ kind: 'pig' }, 7]);
+    for (const f of c.friends()) if (f.settled) options.push([{ kind: 'friend', id: f.id }, 4]);
+    if (c.house()) options.push([{ kind: 'house' }, 6]);
     for (const t of c.toys()) if (!t.moving) options.push([{ kind: 'toy', id: t.id }, 5]);
     const free = options.filter(o => !this.taken(o[0]));
     let r = Math.random() * free.reduce((s, o) => s + o[1], 0);
@@ -70,12 +77,18 @@ export class BirdBrain {
 
   // ---------- modes ----------
   go(mode, d = {}) {
+    if (this.mode === 'work' && mode !== 'work') this.breakUntil = Date.now() + rand(1, 2.5) * MIN;
     this.mode = mode; this.t = 0; this.d = d;
-    const pose = { fly: 'fly', held: 'held', flutter: 'flutter', peck: 'stand', sleep: 'sleep', sing: 'sing', preen: 'preen' }[mode] || 'stand';
+    const pose = { fly: 'fly', held: 'held', flutter: 'flutter', peck: 'stand', sleep: 'sleep', sing: 'sing', preen: 'preen', remind: 'sing' }[mode] || 'stand';
     this.bird.setPose(pose);
     this.ctx.zzz(mode === 'sleep');
   }
   decide() {
+    // office mode (main bird only): onto the desk to type
+    const desk = this.ctx.desk();
+    if (desk && Date.now() > this.breakUntil && !this.reminding) {
+      return this.flyTo({ kind: 'desk' }, () => { this.workUntil = Date.now() + rand(4, 9) * MIN; this.go('work', { next: 0 }); this.yawTarget = desk.seatSpot().yaw; });
+    }
     const awake = (Date.now() - this.awakeSince) / MIN, onFloor = this.spot.kind === 'floor';
     const opts = [['idle', 14], ['hop', onFloor ? 16 : 0], ['peck', onFloor ? 14 : 3], ['preen', 9], ['sing', 9], ['flutter', 5],
       ['fly', 22], ['sleep', awake > 6 ? 40 : awake > 3 ? 6 : 0]];
@@ -139,6 +152,21 @@ export class BirdBrain {
   }
   wake() { this.awakeSince = Date.now(); this.ctx.sound.tweet(); this.go('flutter', { dur: 1 }); }
 
+  // When this bird is the main pet it gives the reminders: it comes down to the floor and sings
+  // at you until you answer (the speech bubble hangs over it).
+  remind() { this.reminding = true; this.awakeSince = Date.now(); }
+  nag() { if (this.mode === 'remind') { this.d.hop = this.t; this.ctx.sound.song(); } }
+  endRemind(done) {
+    this.reminding = false;
+    if (this.mode !== 'remind') return;
+    if (done) { this.go('sing', { dur: 2.5, next: 0 }); this.ctx.sound.song(); } else this.go('idle', { dur: 2 });
+  }
+  // called over from the menu (main pet only)
+  come(x) {
+    if (this.mode === 'held') return;
+    this.flyTo({ kind: 'floor', x, z: this.ctx.lane()[0] + 10 }, () => this.go('sing', { dur: 2.5, next: 0 }));
+  }
+
   // ---------- user ----------
   petted() {
     if (this.mode === 'sleep') { this.wake(); return; }
@@ -169,6 +197,12 @@ export class BirdBrain {
     const d = this.d, b = this.bird, c = this.ctx;
     if (this.happy > 0) { this.happy -= dt; b.target.eyeOpen = this.happy > 0 ? 0.15 : b.base.eyeOpen; }
 
+    // reminding: down to the floor, then sing at the user
+    if (this.reminding && !['fly', 'held', 'remind'].includes(this.mode)) {
+      if (this.spot.kind === 'floor') { this.go('remind', { next: 0 }); this.yawTarget = FRONT; }
+      else { const [x0, x1] = c.bounds(); this.flyTo({ kind: 'floor', x: clamp(this.p.x, x0, x1), z: c.lane()[0] + 10 }); }
+      return; // the new mode starts next frame
+    }
     // stuck to a moving spot (a swaying cage, the cat, the pig, a toy)?
     if (this.mode !== 'fly' && this.mode !== 'held' && this.spot.kind !== 'floor') {
       const pos = this.spotPos(this.spot);
@@ -222,13 +256,35 @@ export class BirdBrain {
       case 'flutter':
         if (this.t > d.dur) this.decide();
         break;
+      case 'work':
+        // typing by pecking the keys
+        if (this.t > d.next) {
+          d.next = this.t + rand(0.18, 0.4);
+          b.target.pitch = 0.5; b.target.headPitch = 0.55;
+          setTimeout(() => { if (this.mode === 'work') { b.target.pitch = 0.1; b.target.headPitch = 0.1; } }, 90);
+          if (Math.random() < 0.08) c.effect('type', this.headWorld());
+        }
+        if (Date.now() > this.workUntil || !c.desk()) { this.breakUntil = Date.now() + rand(1, 2.5) * MIN; this.decide(); }
+        break;
+      case 'remind':
+        b.target.headPitch = -0.3;
+        b.target.beak = (Math.sin(this.t * 10) > 0.4) ? 0.9 : 0.1;
+        b.target.spread = d.hop != null && this.t - d.hop < 0.5 ? 0.9 : 0;
+        b.target.flapAmp = d.hop != null && this.t - d.hop < 0.5 ? 0.7 : 0;
+        b.target.flapHz = 10;
+        if (this.t > d.next) { d.next = this.t + 1.1; c.notes(this.headWorld()); }
+        this.yawTarget = FRONT;
+        break;
       case 'sleep':
         if (this.t > d.dur) this.wake();
         break;
       case 'fly': this.updateFly(dt); break;
       case 'held': break;
     }
-    if (this.mode !== 'fly' && this.mode !== 'hop' && this.mode !== 'held' && this.spot.kind === 'floor') this.p.y = 0;
+    if (this.mode !== 'fly' && this.mode !== 'hop' && this.mode !== 'held' && this.spot.kind === 'floor') {
+      // a little hop when nagging
+      this.p.y = this.mode === 'remind' && d.hop != null && this.t - d.hop < 0.5 ? Math.sin((this.t - d.hop) / 0.5 * Math.PI) * 18 * c.S().size : 0;
+    }
     this.yaw += angleDiff(this.yawTarget, this.yaw) * (1 - Math.exp(-dt * 10));
   }
 

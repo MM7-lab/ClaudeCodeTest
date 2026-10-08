@@ -18,9 +18,18 @@
   </header>
 
   <section>
-    <h2>貓貓</h2>
+    <h2>主角</h2>
+    <label class="field">邊個做主角
+      <select id="mainPet">
+        <option value="cat">貓貓</option><option value="dog">狗狗</option><option value="bird">雀仔</option><option value="pig">豬仔</option>
+      </select>
+    </label>
+    <p class="hint" id="mainHint"></p>
     <label class="field">名<input type="text" id="name" maxlength="20" autocomplete="off"></label>
-    <label class="field">品種
+    <label class="field" id="dogBreedRow">狗狗品種
+      <select id="dogBreed"></select>
+    </label>
+    <label class="field" id="breedRow">貓貓品種
       <select id="breed">
         <option value="classic">普通貓（自己揀毛色）</option>
       </select>
@@ -36,6 +45,19 @@
     </div>
     <p class="hint" id="coatName"></p>
     <label class="field">大細<input type="range" id="size" min="0.6" max="1.6" step="0.1"></label>
+    <p class="hint">主角負責提你飲水、休息同去廁所，對話框會喺佢個頭上面出；其他動物會走埋嚟一齊陪你。</p>
+  </section>
+
+  <section>
+    <h2>辦公室模式</h2>
+    <label class="field">開辦公室模式<input type="checkbox" id="office"></label>
+    <label class="field">左邊張枱
+      <select id="worker0" class="worker"></select>
+    </label>
+    <label class="field">右邊張枱
+      <select id="worker1" class="worker"></select>
+    </label>
+    <p class="hint">螢幕左右兩邊會擺兩張工作枱，有手提電腦、咖啡、盆栽同名牌。揀咗嘅兩隻會坐上櫈打字，間中諗嘢、飲咖啡、伸懶腰、望吓你，甚至瞌眼瞓。做幾分鐘會落嚟休息吓再返去；夠鐘提醒佢哋都會停手陪你。開咗呢個模式，貓跳臺、豬仔床同狗屋會暫時收埋。</p>
   </section>
 
   <section>
@@ -44,7 +66,12 @@
     <div class="checks two" id="dogChecks"></div>
     <div class="field"><span>🐱 貓貓</span></div>
     <div class="checks two" id="catChecks"></div>
-    <p class="hint">剔咗嘅朋友會由天跌落嚟，喺螢幕底部同貓貓一齊生活：周圍行、坐低、瞓覺、伸懶腰；貓貓會舔毛，狗狗會周圍索、伸脷喘氣、吠兩聲、伏低再跑圈。佢哋會互相探吓、跟住貓貓行，夠鐘提醒都會走埋嚟陪你。撳佢哋會開心，拖佢哋可以揸起，放手會跌返落地。朋友越多，部電腦越辛苦。</p>
+    <label class="field">狗屋
+      <select id="dogHouse">
+        <option value="right">放喺右邊</option><option value="left">放喺左邊</option><option value="off">唔要</option>
+      </select>
+    </label>
+    <p class="hint">剔咗嘅朋友會由天跌落嚟，喺螢幕底部同貓貓一齊生活：周圍行、坐低、瞓覺、伸懶腰；貓貓會舔毛，狗狗會周圍索、伸脷喘氣、吠兩聲、伏低再跑圈。佢哋會互相探吓、跟住主角行；狗狗會追貓貓、同其他狗狗玩、對住雀仔吠、推公仔，攰咗就返狗屋（或者門口張墊）瞓；大家都會去狗屋隔籬嘅碗度食嘢飲水，見到人哋俾你摸又會走埋嚟爭寵。夠鐘提醒都會走埋嚟陪你。撳佢哋會開心，拖佢哋可以揸起，放手會跌返落地。朋友越多，部電腦越辛苦。</p>
   </section>
 
   <section>

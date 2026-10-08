@@ -37,6 +37,10 @@ const BREEDS = [
   { id: 'chihuahua', label: '吉娃娃', kind: 'dog' },
 ];
 const CAT_BREEDS = BREEDS.filter(b => b.kind === 'cat').map(b => b.id);
+const DOG_BREEDS = BREEDS.filter(b => b.kind === 'dog').map(b => b.id);
+// the main pet (主角), who gives the reminders
+const MAIN_PETS = [['cat', '貓貓'], ['dog', '狗狗'], ['bird', '雀仔'], ['pig', '豬仔']];
+const WORD = { cat: '喵', dog: '汪', bird: '啾', pig: '噗' };
 // The plush toys (公仔) from the soft-body toy box; the cat plays with whichever are switched on.
 const TOYS = [
   { id: 'baby-bear', label: '熊啤啤' },
@@ -50,14 +54,15 @@ const BIRD_COLORS = ['yellow', 'blue', 'green', 'pink', 'white'];
 const CAGES = ['both', 'left', 'right', 'off'];
 const DEFAULT_BIRDS = [{ name: '檸檬', color: 'yellow' }, { name: '藍莓', color: 'blue' }, { name: '蜜桃', color: 'pink' }];
 const DEFAULTS = {
-  name: '麻糬', breed: 'classic', coat: 'orange', size: 1, every: 30,
+  name: '麻糬', mainPet: 'cat', breed: 'classic', dogBreed: 'golden', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
   forceWebGPU: false,
   birdCount: 3, birds: DEFAULT_BIRDS, cage: 'both',
   pig: true, pigName: '布甸', pigBed: 'left',
-  friends: ['golden', 'british'],
+  friends: ['golden', 'british'], dogHouse: 'right',
+  office: false, workers: ['main', 'auto'], // office mode: who works at the left and right desks
   screen: 'primary', // 'primary', 'follow' (follow the mouse) or a display id
 };
 
@@ -133,7 +138,7 @@ function fire() {
   const u = upcoming();
   if (!u) { st.nextAt = Date.now() + S.every * MIN; return; }
   st.pending = u; st.nags = 0; st.nagAt = Date.now() + 5 * MIN;
-  const T = TYPES[u.type], text = pick(MSGS[u.type]);
+  const T = TYPES[u.type], text = pick(MSGS[u.type]).replace('喵～', `${WORD[S.mainPet] || '喵'}～`);
   if (catHidden) showCat(true);
   sendPet('reminder', { type: u.type, emoji: T.emoji, text });
   notify(`${T.emoji} ${S.name}：${T.title}`, text);
@@ -191,6 +196,14 @@ function cleanPatch(p) {
   if (typeof p.name === 'string') out.name = p.name.trim().slice(0, 20) || DEFAULTS.name;
   if (COATS.includes(p.coat)) out.coat = p.coat;
   if (p.breed === 'classic' || CAT_BREEDS.includes(p.breed)) out.breed = p.breed;
+  if (DOG_BREEDS.includes(p.dogBreed)) out.dogBreed = p.dogBreed;
+  if (MAIN_PETS.some(([k]) => k === p.mainPet)) out.mainPet = p.mainPet;
+  if (['left', 'right', 'off'].includes(p.dogHouse)) out.dogHouse = p.dogHouse;
+  if (typeof p.office === 'boolean') out.office = p.office;
+  if (Array.isArray(p.workers)) {
+    const ok = w => ['main', 'pig', 'auto'].includes(w) || BREEDS.some(b => b.id === w);
+    out.workers = [0, 1].map(i => (ok(p.workers[i]) ? p.workers[i] : 'auto'));
+  }
   if (Array.isArray(p.friends)) out.friends = BREEDS.map(b => b.id).filter(id => p.friends.includes(id));
   if (p.screen === 'primary' || p.screen === 'follow' || /^\d{1,20}$/.test(String(p.screen))) out.screen = String(p.screen);
   if (Number.isFinite(p.size)) out.size = Math.min(1.8, Math.max(0.5, p.size));
@@ -355,8 +368,17 @@ function menuItems() {
   return [
     { label: st.running ? '暫停提醒' : '繼續提醒', click: () => setPaused(st.running) },
     { label: '即刻提醒一次（試吓）', click: testReminder },
-    { label: '叫貓貓過嚟', click: () => { showCat(true); sendPet('come-here'); } },
-    { label: catHidden ? '叫貓貓出返嚟' : '收埋貓貓', click: () => showCat(catHidden) },
+    { label: `叫${S.name}過嚟`, click: () => { showCat(true); sendPet('come-here'); } },
+    { label: catHidden ? '叫佢哋出返嚟' : '收埋佢哋', click: () => showCat(catHidden) },
+    { label: '辦公室模式', type: 'checkbox', checked: !!S.office, click: (item) => saveAndApply({ office: item.checked }) },
+    {
+      label: '主角',
+      submenu: [
+        ...MAIN_PETS.map(([k, label]) => ({ label: `${label}做主角`, type: 'radio', checked: (S.mainPet || 'cat') === k, click: () => saveAndApply({ mainPet: k }) })),
+        { type: 'separator' },
+        { label: '狗狗品種', submenu: BREEDS.filter(b => b.kind === 'dog').map(b => ({ label: b.label, type: 'radio', checked: S.dogBreed === b.id, click: () => saveAndApply({ dogBreed: b.id }) })) },
+      ],
+    },
     {
       label: '公仔',
       submenu: [
@@ -409,6 +431,10 @@ function menuItems() {
         })),
         { type: 'separator' },
         { label: '全部收埋', enabled: S.friends.length > 0, click: () => saveAndApply({ friends: [] }) },
+        { type: 'separator' },
+        ...[['right', '狗屋放喺右邊'], ['left', '狗屋放喺左邊'], ['off', '唔要狗屋']].map(([v, label]) => ({
+          label, type: 'radio', checked: S.dogHouse === v, click: () => saveAndApply({ dogHouse: v }),
+        })),
       ],
     },
     {

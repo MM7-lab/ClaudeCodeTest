@@ -12,8 +12,18 @@ function render(s) {
   document.querySelectorAll('#coats button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.coat === s.coat)));
   $('coatName').textContent = COAT_NAMES[s.coat] || '';
   $('size').value = s.size;
+  const kind = s.mainPet || 'cat';
+  $('mainPet').value = kind;
+  $('mainHint').textContent = { cat: '', dog: '', bird: '主角就係第 1 隻雀仔，佢嘅顏色喺下面「雀仔」度揀。', pig: '主角就係豬仔，佢嘅床喺下面「豬仔」度揀。' }[kind];
+  $('mainHint').hidden = !$('mainHint').textContent;
   $('breed').value = s.breed || 'classic';
-  $('coatRow').hidden = $('coatName').hidden = (s.breed || 'classic') !== 'classic';
+  if ($('dogBreed').options.length) $('dogBreed').value = s.dogBreed || 'golden';
+  $('breedRow').hidden = kind !== 'cat';
+  $('dogBreedRow').hidden = kind !== 'dog';
+  $('coatRow').hidden = $('coatName').hidden = kind !== 'cat' || (s.breed || 'classic') !== 'classic';
+  $('dogHouse').value = s.dogHouse || 'right';
+  $('office').checked = !!s.office;
+  renderWorkers(s);
   document.querySelectorAll('[data-friend]').forEach(c => { c.checked = (s.friends || []).includes(c.dataset.friend); });
   if ($('screen').options.length) $('screen').value = [...$('screen').options].some(o => o.value === s.screen) ? s.screen : 'primary';
   $('every').value = String(s.every);
@@ -65,9 +75,25 @@ function saveBird(i, patch) {
   const birds = S.birds.map((b, k) => (k === i ? { ...b, ...patch } : b));
   save({ birds });
 }
+// office mode: who sits at each desk (the main pet, the pig, any friend that's out)
+let breedList = [];
+function renderWorkers(s) {
+  const main = { cat: '貓貓', dog: '狗狗', bird: '雀仔', pig: '豬仔' }[s.mainPet || 'cat'];
+  const opts = [['auto', '自動揀'], ['main', `主角（${main}：${s.name}）`]];
+  if (s.pig && s.mainPet !== 'pig') opts.push(['pig', `豬仔（${s.pigName}）`]);
+  for (const id of s.friends || []) { const b = breedList.find(x => x.id === id); if (b) opts.push([id, b.label]); }
+  ['worker0', 'worker1'].forEach((sel, i) => {
+    const el = $(sel), want = (s.workers || [])[i] || 'auto';
+    if (document.activeElement !== el) el.replaceChildren(...opts.map(([v, t]) => new Option(t, v)));
+    el.value = opts.some(o => o[0] === want) ? want : 'auto';
+    el.disabled = !s.office;
+  });
+}
 // breeds: the main cat's choices, and the friend checkboxes
 function buildBreeds(list) {
+  breedList = list;
   for (const b of list.filter(b => b.kind === 'cat')) $('breed').append(new Option(b.label, b.id));
+  for (const b of list.filter(b => b.kind === 'dog')) $('dogBreed').append(new Option(b.label, b.id));
   for (const kind of ['dog', 'cat']) {
     $(kind + 'Checks').replaceChildren(...list.filter(b => b.kind === kind).map(b => {
       const label = document.createElement('label'), box = document.createElement('input');
@@ -145,6 +171,11 @@ $('name').addEventListener('change', () => save({ name: $('name').value }));
 $('coats').addEventListener('click', e => { const b = e.target.closest('[data-coat]'); if (b) save({ coat: b.dataset.coat }); });
 $('size').addEventListener('change', () => save({ size: Number($('size').value) }));
 $('breed').addEventListener('change', () => save({ breed: $('breed').value }));
+$('mainPet').addEventListener('change', () => save({ mainPet: $('mainPet').value }));
+$('dogBreed').addEventListener('change', () => save({ dogBreed: $('dogBreed').value }));
+$('dogHouse').addEventListener('change', () => save({ dogHouse: $('dogHouse').value }));
+$('office').addEventListener('change', () => save({ office: $('office').checked }));
+for (const sel of ['worker0', 'worker1']) $(sel).addEventListener('change', () => save({ workers: [$('worker0').value, $('worker1').value] }));
 $('screen').addEventListener('change', () => save({ screen: $('screen').value }));
 $('every').addEventListener('change', () => save({ every: Number($('every').value) }));
 document.querySelectorAll('[data-type]').forEach(c => c.addEventListener('change', () => save({ types: { [c.dataset.type]: c.checked } })));

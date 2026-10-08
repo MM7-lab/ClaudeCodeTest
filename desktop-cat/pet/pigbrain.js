@@ -2,9 +2,13 @@
 // does a happy dance on one leg, follows the cat around, and goes to bed in its own bed.
 //
 // ctx gives it the world: { S(), scale(), bounds(), lane(), bed(), cat(), sound, notes(pos),
-//   hearts(pos), zzz(on) }
+//   hearts(pos), zzz(on), desk(), effect(kind, pos) }
+import { fitSeat } from './office.js';
+import * as THREE from '../node_modules/three/build/three.module.js';
 const MIN = 60 * 1000;
+const V = new THREE.Vector3();
 const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const FRONT = -Math.PI / 2;
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -18,19 +22,21 @@ export class PigBrain {
     this.inBed = false;
     this.awakeSince = Date.now() - rand(0, 2) * MIN;
     this.happy = 0; this.nextLook = 0; this.squash = 0;
+    this.breakUntil = Date.now() + rand(3, 15) * 1000; this.workUntil = 0;
   }
 
   go(mode, d = {}) {
     if (this.mode === 'sleep' && mode !== 'sleep') this.ctx.bed()?.tuck(false);
+    if (this.mode === 'work' && mode !== 'work') this.breakUntil = Date.now() + rand(1, 2.5) * MIN;
     this.mode = mode; this.t = 0; this.d = d;
-    const pose = { sit: 'sit', sleep: 'sleep', roll: 'roll', sniff: 'sniff', dance: 'dance', held: 'held', fall: 'fall', cheer: 'cheer' }[mode] || 'stand';
+    const pose = { sit: 'sit', sleep: 'sleep', roll: 'roll', sniff: 'sniff', dance: 'dance', held: 'held', fall: 'fall', cheer: 'cheer', remind: 'cheer', work: 'sit' }[mode] || 'stand';
     this.pig.setPose(pose);
     this.ctx.zzz(mode === 'sleep');
   }
   // still enough for a bird to stand on its head
-  get perchable() { return ['idle', 'sit', 'sleep', 'sniff'].includes(this.mode); }
+  get perchable() { return ['idle', 'sit', 'sleep', 'sniff', 'work'].includes(this.mode); }
   get settled() { return this.perchable && this.t > 1.5; }
-  get busy() { return ['walk', 'trot', 'dance', 'roll', 'held', 'fall', 'hop', 'bedHop', 'follow'].includes(this.mode); }
+  get busy() { return ['walk', 'trot', 'dance', 'roll', 'held', 'fall', 'hop', 'bedHop', 'follow', 'work'].includes(this.mode); }
 
   decide() {
     const awake = (Date.now() - this.awakeSince) / MIN;
@@ -38,6 +44,8 @@ export class PigBrain {
       // just woke up in bed: a stretch of the legs, then out
       return this.hopOut();
     }
+    // office mode: back to the desk after a break
+    if (this.ctx.desk() && Date.now() > this.breakUntil && !this.reminding) return this.start('work');
     const opts = [['idle', 12], ['walk', 24], ['trot', 7], ['sniff', 12], ['sit', 12], ['dance', 8], ['roll', 4], ['hop', 4],
       ['follow', 7], ['sleep', awake > 7 ? 40 : awake > 4 ? 6 : 0]];
     let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
@@ -59,6 +67,16 @@ export class PigBrain {
       case 'dance': this.dance(); break;
       case 'roll': this.go('roll', { dur: 2.6 }); this.yawTarget = Math.random() < 0.5 ? 0 : Math.PI; this.ctx.sound.oink(1); break;
       case 'hop': this.go('hop', { n: 3 }); this.faceUser(); this.jump(330); break;
+      case 'work': {
+        // round to the side of the desk, then up onto the chair
+        const desk = this.ctx.desk();
+        if (!desk) return this.start('idle');
+        const side = desk.sideSpot(), seat = desk.seatSpot();
+        this.go('trot', { tx: side.x, tz: side.z, speed: 90, then: () => this.go('bedHop', {
+          from: { x: this.x, z: this.z, y: 0 }, to: { x: seat.x, z: seat.z, y: desk.top() * 0.5 },
+          then: () => { this.workUntil = Date.now() + rand(4, 9) * MIN; this.go('work', { next: rand(5, 10), act: 'type' }); } }) });
+        break;
+      }
       case 'follow': {
         const cat = this.ctx.cat();
         if (!cat.onFloor) return this.start('walk');
@@ -99,6 +117,7 @@ export class PigBrain {
   petted() {
     if (this.mode === 'sleep') { this.wake(); return; }
     if (['held', 'fall', 'bedHop'].includes(this.mode)) return;
+    if (this.mode === 'work') { this.happy = 1.5; this.ctx.hearts(this.headWorld()); this.ctx.sound.oink(1); return; }
     this.happy = 1.5;
     this.ctx.hearts(this.headWorld());
     this.dance(3);
@@ -119,9 +138,50 @@ export class PigBrain {
   }
   grab() { this.inBed = false; this.go('held'); this.ctx.sound.oink(2); }
   release(vx, vy) { this.vx = clamp(vx, -700, 700); this.vy = clamp(vy, -500, 700); this.go('fall'); }
-  // the cat's reminder: come over and cheer
+  // When the pig is the main pet, it gives the reminders: it stands facing you, waving, until
+  // you answer (the speech bubble hangs over its head).
+  remind() {
+    this.reminding = true;
+    this.awakeSince = Date.now();
+  }
+  nag() { if (this.mode === 'remind') { this.jump(340); this.ctx.sound.oink(2); } }
+  endRemind(done) {
+    this.reminding = false;
+    if (this.mode !== 'remind') return;
+    if (done) this.dance(3); else { this.go('sit', { dur: 3 }); this.faceUser(); }
+  }
+  // called over from the menu (main pet only)
+  come(x) {
+    const go = () => this.go('trot', { tx: x, tz: this.ctx.lane()[0], speed: 115, then: () => { this.go('sit', { dur: 6 }); this.yawTarget = FRONT; } });
+    if (this.inBed) { this.hopOut(); this.d.then = go; } else if (!['held', 'fall'].includes(this.mode)) go();
+  }
+  // a dog came running at it: trot off the other way
+  flee(fromX) {
+    if (this.busy || this.inBed || this.mode === 'sleep' || this.reminding) return;
+    const [x0, x1] = this.ctx.bounds();
+    this.go('trot', { tx: fromX < this.x ? x1 - rand(0, 120) : x0 + rand(0, 120), tz: this.z, speed: 140 });
+    this.ctx.sound.oink(2);
+  }
+  // a dog play-bowed at it: dance!
+  play() { if (!this.busy && !this.inBed && this.mode !== 'sleep' && !this.reminding) this.dance(3); }
+  // somebody else got petted: trot over for some too
+  jealous(x) {
+    if (this.busy || this.inBed || this.mode === 'sleep' || this.reminding) return;
+    const [x0, x1] = this.ctx.bounds(), side = this.x < x ? -1 : 1;
+    this.go('trot', { tx: clamp(x + side * rand(100, 150) * this.ctx.scale(), x0, x1), tz: this.z, speed: 115,
+      then: () => { this.go('cheer', { dur: 3 }); this.yawTarget = FRONT; this.ctx.sound.oink(1); } });
+  }
+  // off the chair, down in front of the desk
+  leaveDesk(then) {
+    const desk = this.ctx.desk(), side = desk ? desk.sideSpot() : { x: this.x, z: 30 };
+    this.breakUntil = Date.now() + rand(1, 2.5) * MIN;
+    this.go('bedHop', { from: { x: this.x, z: this.z, y: this.y }, to: { x: side.x, z: clamp(side.z + 70, ...this.ctx.lane()), y: 0 },
+      then: then || (() => { this.go('idle', { dur: 1.5 }); this.faceUser(); }) });
+  }
+  // the main pet's reminder: come over and cheer
   cheer() {
     if (['held', 'fall'].includes(this.mode)) return;
+    if (this.mode === 'work') return this.leaveDesk(() => this.cheer());
     if (this.mode === 'sleep') this.awakeSince = Date.now();
     const cat = this.ctx.cat(), [x0, x1] = this.ctx.bounds(), side = cat.x > 0 ? -1 : 1;
     const go = () => this.go('trot', { tx: clamp(cat.x + side * rand(110, 150) * this.ctx.scale(), x0, x1), tz: cat.z + 6, speed: 115,
@@ -161,6 +221,11 @@ export class PigBrain {
     const d = this.d, p = this.pig, c = this.ctx;
     const moving = ['walk', 'trot', 'follow'].includes(this.mode);
     if (!moving) p.gait.amp *= Math.exp(-dt * 8);
+    // reminding (as the main pet): drop everything, get out of bed, and wave
+    if (this.reminding && !['held', 'fall', 'bedHop', 'remind'].includes(this.mode)) {
+      if (this.inBed) this.hopOut(); else if (this.mode === 'work') this.leaveDesk(); else { this.go('remind'); this.yawTarget = FRONT; }
+      return; // the new mode starts next frame
+    }
     p.look.yaw *= Math.exp(-dt * 3); p.look.pitch *= Math.exp(-dt * 3);
     if (this.happy > 0) { this.happy -= dt; p.target.eyeOpen = this.happy > 0 ? 0.15 : p.base.eyeOpen; }
     switch (this.mode) {
@@ -208,6 +273,33 @@ export class PigBrain {
         if (k > d.dur) { this.go('idle', { dur: 1.5 }); this.faceUser(); if (Math.random() < 0.5) c.hearts(this.headWorld()); }
         break;
       }
+      case 'work': {
+        // at the desk: arms forward on the keyboard, typing; now and then a think or a sip
+        const desk = c.desk();
+        if (!desk) { this.leaveDesk(); break; }
+        if (this.t > d.next) {
+          d.act = pick(['type', 'type', 'think', 'sip', 'type']); d.next = this.t + (d.act === 'type' ? rand(5, 10) : 2.5);
+          if (d.act !== 'type') c.effect(d.act === 'think' ? 'idea' : 'coffee', this.headWorld());
+        }
+        const w = Math.sin(this.t * 16);
+        p.target.arms = d.act === 'type' ? [1.45 + Math.max(0, w) * 0.2, 1.45 + Math.max(0, -w) * 0.2] : d.act === 'think' ? [1.45, 2.6] : [1.45, 2.4];
+        p.target.armsOut = [0, 0];
+        p.target.headPitch = d.act === 'think' ? -0.25 : 0.15;
+        if (d.act === 'type' && this.t > (d.tick ?? 1)) { d.tick = this.t + 2.4; c.effect('type', this.headWorld()); }
+        this.yawTarget = desk.seatSpot().yaw;
+        this.pig.root.updateMatrixWorld(true);
+        const paws = this.pig.arms.map(arm => { const q = arm.localToWorld(V.set(0.4, -11.2, 0)); return { y: q.y, z: q.z }; });
+        const e = this.pig.neck.localToWorld(V.set(17, 22, 0));
+        fitSeat(this, paws, { y: e.y, z: e.z }, desk, 1 - Math.exp(-dt * 6));
+        desk.setSeat(this.y);
+        if (Date.now() > this.workUntil) this.leaveDesk();
+        break;
+      }
+      case 'remind':
+        p.target.armsOut = [2.6 + Math.sin(this.t * 9) * 0.25, 2.6 - Math.sin(this.t * 9) * 0.25];
+        if (this.y > 0 || this.vy > 0) this.physics(dt);
+        this.yawTarget = FRONT;
+        break;
       case 'cheer':
         p.target.armsOut = [2.6 + Math.sin(this.t * 9) * 0.25, 2.6 - Math.sin(this.t * 9) * 0.25];
         p.target.lift = Math.abs(Math.sin(this.t * 6)) * 5;
@@ -252,7 +344,7 @@ export class PigBrain {
         break;
       }
     }
-    if (!['hop', 'fall', 'held', 'bedHop'].includes(this.mode) && !this.inBed) this.y = 0;
+    if (!['hop', 'fall', 'held', 'bedHop', 'remind', 'work'].includes(this.mode) && !this.inBed) this.y = 0;
     this.squash *= Math.exp(-dt * 7);
     this.yaw += angleDiff(this.yawTarget, this.yaw) * (1 - Math.exp(-dt * 7));
   }
