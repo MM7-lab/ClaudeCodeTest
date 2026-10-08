@@ -6,7 +6,7 @@
 |---|---|
 | `index.html` | 3D 檢視頁：轉動、縮放、換毛色、撳「撐住！」；毛髮用 shell 技術喺網頁即時生成 |
 | `model.js` | 模型本體（瀏覽器同 Node 共用） |
-| `knight-kitten.stl` | 3D 打印用，單位 mm，連劍高 100 mm（貓身約 60 mm），唔包鬚同披風 |
+| `knight-kitten.stl` | 3D 打印用，單位 mm，連劍高 100 mm（貓身約 50 mm；想貓身 100 mm 就用 `node export.mjs 200`），唔包鬚同披風 |
 | `knight-kitten.glb` | 有顏色版本，可放入 Blender、PowerPoint 或手機 AR 檢視器 |
 | `export.mjs` | 重新產生 STL／GLB |
 
