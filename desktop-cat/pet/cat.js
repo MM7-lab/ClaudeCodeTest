@@ -1,6 +1,7 @@
 // A chunky toon-shaded cat built from primitives, plus a pose system.
 // Units are screen pixels at size 1. The cat faces +x; +y is up; its right side is +z.
 import * as THREE from '../node_modules/three/build/three.module.js';
+import { BREEDS, CLASSIC } from './breeds.js';
 
 export const COATS = {
   orange: { fur: 0xf3a35c, stripe: 0xd8772f, belly: 0xfff4e4, inner: 0xffaead, eye: 0x3a2a20, line: 0x3d2a1f },
@@ -77,7 +78,8 @@ function stripeTexture(fur, stripe) {
 }
 
 export class Cat {
-  constructor() {
+  // breed: 'classic' (coloured by `coat`) or a key of BREEDS — cats and dogs share this model.
+  constructor(breed = 'classic', coat = 'orange') {
     this.ramp = toonRamp();
     this.mats = {};
     this.root = new THREE.Group();
@@ -89,24 +91,42 @@ export class Cat {
     this.extraHead = { yaw: 0, pitch: 0 }; // gaze, set by the behaviour code
     this.swat = 0; // >0 while batting with the right front paw
     this.makeMaterials();
-    this.build();
-    this.setCoat('orange');
+    this.breed = null;
+    this.setBreed(breed, coat);
   }
 
   makeMaterials() {
     const toon = () => new THREE.MeshToonMaterial({ gradientMap: this.ramp });
-    for (const k of ['fur', 'body', 'stripe', 'belly', 'inner', 'eye']) this.mats[k] = toon();
+    for (const k of ['fur', 'body', 'stripe', 'belly', 'inner', 'eye', 'point', 'mask', 'saddle', 'paw']) this.mats[k] = toon();
     this.mats.pupil = new THREE.MeshBasicMaterial({ color: 0x15110f });
     this.mats.shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
     this.mats.nose = toon(); this.mats.nose.color.set(0xff8fa3);
+    this.mats.tongue = toon(); this.mats.tongue.color.set(0xff7f97);
     this.mats.mouth = new THREE.MeshBasicMaterial({ color: 0x8e2f44 });
     this.mats.blush = new THREE.MeshBasicMaterial({ color: 0xff9fb0, transparent: true, opacity: 0.55, depthWrite: false });
     this.mats.outline = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
     this.mats.whisker = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
   }
 
-  setCoat(name) {
-    const c = COATS[name] || COATS.orange;
+  get isDog() { return this.spec.kind === 'dog'; }
+
+  // Rebuild the body for another breed (only when it changes), then paint it.
+  setBreed(id, coat = this.coat || 'orange') {
+    const key = BREEDS[id] ? id : 'classic';
+    if (key !== this.breed) {
+      const b = BREEDS[key] || {};
+      this.breed = key;
+      this.spec = { ...CLASSIC, ...b, tail: { ...CLASSIC.tail, ...(b.tail || {}) } };
+      if (this.figure) this.root.remove(this.figure);
+      this.build();
+    }
+    this.coat = coat;
+    this.paint();
+  }
+  setCoat(name) { this.setBreed(this.breed, name); }
+
+  paint() {
+    const s = this.spec, c = this.breed === 'classic' ? (COATS[this.coat] || COATS.orange) : s;
     const m = this.mats;
     m.fur.color.set(c.fur);
     m.stripe.color.set(c.stripe ?? c.fur);
@@ -115,11 +135,16 @@ export class Cat {
     m.eye.color.set(c.eye);
     m.outline.color.set(c.line);
     m.whisker.color.set(c.line);
+    m.point.color.set(c.point ?? c.fur);
+    m.mask.color.set(c.mask ?? c.point ?? c.belly);
+    m.saddle.color.set(c.saddle ?? c.fur);
+    m.paw.color.set(c.paw ?? (s.pointLegs ? c.point : c.belly));
+    m.nose.color.set(c.nose ?? (c.point ?? 0xff8fa3));
     if (m.body.map) m.body.map.dispose();
     if (c.stripe) { m.body.map = stripeTexture(c.fur, c.stripe); m.body.color.set(0xffffff); }
     else { m.body.map = null; m.body.color.set(c.fur); }
     m.body.needsUpdate = true;
-    for (const s of this.foreheadStripes) s.visible = !!c.stripe;
+    for (const st of this.foreheadStripes) st.visible = !!c.stripe;
   }
 
   // A mesh with an inverted-hull outline roughly `px` pixels thick.
@@ -138,95 +163,180 @@ export class Cat {
   }
 
   build() {
-    const R = this.root;
+    const s = this.spec, R = this.root, L = s.len, F = s.fat, K = s.legK, fl = s.fluff, dog = s.kind === 'dog';
+    const pointed = s.point != null;
     this.figure = new THREE.Group(); // squash & stretch lives here
     R.add(this.figure);
     // Torso pivots around the back hip so sitting tips the front up.
+    this.legK = K;
+    this.hipH = 30 * K;
     this.torso = new THREE.Group();
-    this.torso.position.set(-20, 30, 0);
+    this.torso.position.set(-20 * L, this.hipH, 0);
     this.figure.add(this.torso);
-    const T = this.torso;
-    this.blob(T, 'body', [20, 10, 0], [36, 26, 24], 2);
-    this.blob(T, 'belly', [33, 1, 0], [19, 19, 18], 0);
+    const T = this.torso, puff = 1 + fl * 0.1;
+    this.blob(T, 'body', [20 * L, 10, 0], [36 * L * (1 + fl * 0.06), 26 * F * puff, 24 * F * puff], 2);
+    this.blob(T, 'belly', [33 * L, 1, 0], [19 * Math.min(L, 1.2), 19 * F, 18 * F], 0);
+    // a darker saddle over the back (German Shepherd)
+    if (s.saddle != null) this.blob(T, 'saddle', [18 * L, 18, 0], [36 * L * 0.8, 26 * F * 0.97, 24 * F * 0.97], 1.4);
+    // long fur: a ruff on the chest
+    if (fl) this.blob(T, 'belly', [40 * L + 2, 15, 0], [14 + 4 * fl, 20 + 8 * fl, 20 * F + 6 * fl], 1.4);
+    // and a full mane round the neck for the fluffiest
+    if (fl >= 0.9) this.blob(T, 'fur', [40 * L - 2, 24, 0], [18, 22, 27 * F], 1.6);
 
     // legs: front-left, front-right, back-left, back-right (right = +z)
-    const hips = [[40, 2, -11], [40, 2, 11], [0, 2, -11], [0, 2, 11]];
+    const hz = 11 * Math.max(0.9, F);
+    const hips = [[40 * L, 2, -hz], [40 * L, 2, hz], [0, 2, -hz], [0, 2, hz]];
     this.legs = hips.map((h, i) => {
       const pivot = new THREE.Group();
       pivot.position.set(...h);
       T.add(pivot);
-      if (i >= 2) this.blob(pivot, 'fur', [-1, -5, 0], [13, 15, 8], 1.6);
-      this.blob(pivot, 'fur', [0, -15.5, 0], [1, 1, 1], 1.6, LEG);
-      this.blob(pivot, 'belly', [2, -28.5, 0], [8.5, 5, 7.5], 1.4);
+      if (i >= 2) this.blob(pivot, s.saddle != null ? 'fur' : 'fur', [-1, -5 * K, 0], [13, 15 * Math.max(K, 0.6), 8], 1.6);
+      this.blob(pivot, s.pointLegs ? 'point' : 'fur', [0, -15.5 * K, 0], [1, K, 1], 1.6, LEG);
+      this.blob(pivot, 'paw', [2, -28.5 * K, 0], [8.5, 5, 7.5], 1.4);
       return pivot;
     });
 
     // tail: a chain of joints that sway in a travelling wave
     this.tail = [];
+    const tl = s.tail;
     let parent = new THREE.Group();
     parent.position.set(-14, 18, 0);
     T.add(parent);
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < tl.n; i++) {
       const joint = i === 0 ? parent : new THREE.Group();
-      if (i > 0) { joint.position.y = 7; parent.add(joint); }
-      const r = 5.6 - i * 0.18;
-      this.blob(joint, i % 2 ? 'stripe' : 'fur', [0, 4, 0], [r, 1, r], 1.4, TAIL);
+      if (i > 0) { joint.position.y = tl.stub ? 4 : 7; parent.add(joint); }
+      const r = tl.r * Math.max(0.35, 1 - i * tl.taper);
+      const mat = pointed ? 'point' : s.saddle != null ? (i % 2 ? 'saddle' : 'fur') : (i % 2 ? 'stripe' : 'fur');
+      this.blob(joint, mat, [0, tl.stub ? 2 : 4, 0], [r, tl.stub ? 0.6 : 1, r], 1.4, TAIL);
       this.tail.push(joint);
       parent = joint;
     }
 
     // head
+    const [hx, hy, hzs] = s.headShape, X = x => 10 + (x - 10) * hx;
     this.neck = new THREE.Group();
-    this.neck.position.set(50, 28, 0);
+    this.neck.position.set(40 * L + 10, 28, 0);
     this.neck.rotation.order = 'YZX';
+    this.neck.scale.setScalar(s.head);
     T.add(this.neck);
     const N = this.neck;
-    this.blob(N, 'fur', [10, 10, 0], [26, 23, 27], 2);
-    this.ears = [-1, 1].map(side => {
-      const ear = new THREE.Group();
-      ear.position.set(8, 27, 13 * side);
-      ear.rotation.x = 0.38 * side;
-      N.add(ear);
-      this.blob(ear, 'fur', [0, 7, 0], [10, 18, 9], 1.6, CONE);
-      this.blob(ear, 'inner', [3.2, 5.5, 0], [5.5, 11, 5], 0, CONE);
-      return ear;
-    });
+    this.blob(N, 'fur', [10, 10, 0], [26 * hx, 23 * hy, 27 * hzs], 2);
+    this.ears = [-1, 1].map(side => this.buildEar(N, side, hx, hy, hzs));
     this.foreheadStripes = [
-      this.blob(N, 'stripe', [30.5, 24, 0], [1.4, 4.2, 1.6], 0),
-      this.blob(N, 'stripe', [29.6, 22.6, 5.6], [1.4, 3.6, 1.5], 0),
-      this.blob(N, 'stripe', [29.6, 22.6, -5.6], [1.4, 3.6, 1.5], 0),
+      this.blob(N, 'stripe', [X(30.5), 24, 0], [1.4, 4.2, 1.6], 0),
+      this.blob(N, 'stripe', [X(29.6), 22.6, 5.6], [1.4, 3.6, 1.5], 0),
+      this.blob(N, 'stripe', [X(29.6), 22.6, -5.6], [1.4, 3.6, 1.5], 0),
     ];
-    for (const s of this.foreheadStripes) s.rotation.z = -0.55;
+    for (const st of this.foreheadStripes) st.rotation.z = -0.55;
+    if (dog) this.buildDogFace(N, X, hzs);
+    else this.buildCatFace(N, X, hzs, pointed);
+  }
+
+  buildEar(N, side, hx, hy, hz) {
+    const s = this.spec, k = s.earK, ear = new THREE.Group(), inner = new THREE.Group();
+    ear.add(inner);
+    N.add(ear);
+    const at = (x, y, z, rx) => { ear.position.set(10 + (x - 10) * hx, 10 + (y - 10) * hy, z * hz * side); ear.userData.rx = rx * side; ear.rotation.x = rx * side; };
+    switch (s.ears) {
+      case 'small':
+        at(6, 25, 15, 0.62);
+        this.blob(inner, 'fur', [0, 5, 0], [8.5 * k, 12 * k, 8 * k], 1.6, CONE);
+        this.blob(inner, 'inner', [2.6, 4, 0], [4.6 * k, 7.5 * k, 4.4 * k], 0, CONE);
+        break;
+      case 'big':
+        at(8, 26, 13, 0.5);
+        this.blob(inner, s.point != null ? 'point' : 'fur', [0, 9 * k, 0], [12 * k, 24 * k, 9.5 * k], 1.6, CONE);
+        this.blob(inner, 'inner', [3.4, 7.5 * k, 0], [6.5 * k, 15 * k, 5 * k], 0, CONE);
+        break;
+      case 'fold':
+        // small ears folded forward and down, close to the head
+        at(13, 28, 11, 0.32);
+        inner.rotation.z = -1.25;
+        this.blob(inner, 'fur', [0, 4, 0], [9, 10, 8], 1.6, CONE);
+        break;
+      case 'pointy':
+        at(6, 27.5, 11, 0.26);
+        this.blob(inner, s.saddle != null ? 'saddle' : 'fur', [0, 8 * k, 0], [8.5 * k, 20 * k, 7 * k], 1.6, CONE);
+        this.blob(inner, 'inner', [2.6, 7 * k, 0], [4.6 * k, 12 * k, 3.6 * k], 0, CONE);
+        break;
+      case 'bat':
+        // big rounded upright ears
+        at(5, 26, 12, 0.62);
+        this.blob(inner, 'fur', [0, 11 * k, 0], [11 * k, 14 * k, 3.6 * k], 1.6);
+        this.blob(inner, 'inner', [1.6, 10.5 * k, 0], [8 * k, 10.5 * k, 2.6 * k], 0);
+        break;
+      case 'floppy':
+        // hanging down beside the head
+        at(4, 24, 23, -0.32);
+        this.blob(inner, 'fur', [1, -11 * k, 3.5 * side], [7.5 * k, 15 * k, 3.4], 1.6);
+        break;
+      default: // 'cat'
+        at(8, 27, 13, 0.38);
+        this.blob(inner, s.point != null ? 'point' : 'fur', [0, 7, 0], [10 * k, 18 * k, 9 * k], 1.6, CONE);
+        this.blob(inner, 'inner', [3.2, 5.5, 0], [5.5 * k, 11 * k, 5 * k], 0, CONE);
+    }
+    return ear;
+  }
+
+  buildCatFace(N, X, hz, pointed) {
+    const s = this.spec, f = s.flat, back = f * 2.5;
     this.eyes = [-1, 1].map(side => {
       const eye = new THREE.Group();
-      eye.position.set(32.6, 13, 10 * side);
+      eye.position.set(X(32.6) - f * 0.8, 13 + f * 0.5, 10 * hz * side);
       eye.rotation.y = -0.32 * side;
       N.add(eye);
-      this.blob(eye, 'eye', [0, 0, 0], [3.4, 6.6, 4.6], 0.8);
-      this.blob(eye, 'pupil', [1.8, 0, 0], [2, 5.4, 2.4], 0);
+      const round = f * 0.6;
+      this.blob(eye, 'eye', [0, 0, 0], [3.4, 6.6 - round, 4.6 + round * 1.4], 0.8);
+      this.blob(eye, 'pupil', [1.8, 0, 0], [2, 5.4 - round * 1.6, 2.4 + round], 0);
       this.blob(eye, 'shine', [3.1, 2.3, 1.2], [1, 1.5, 1.5], 0);
       this.blob(eye, 'shine', [3.1, -2.4, -1.4], [0.6, 0.8, 0.8], 0);
       return eye;
     });
-    this.blob(N, 'belly', [32.5, 2.5, 4.6], [5.4, 4.6, 5.8], 1);
-    this.blob(N, 'belly', [32.5, 2.5, -4.6], [5.4, 4.6, 5.8], 1);
-    this.blob(N, 'belly', [31.5, -2.5, 0], [4, 3, 4.4], 0.8);
-    this.blob(N, 'nose', [37.4, 5.8, 0], [1.9, 1.6, 2.6], 0.6);
-    this.mouth = this.blob(N, 'mouth', [35.4, -2.2, 0], [2.4, 3.6, 3], 0.6);
+    const pad = pointed ? 'point' : 'belly';
+    // a colourpoint's dark mask across the muzzle
+    if (pointed) this.blob(N, 'point', [X(29) - back, 3, 0], [6, 9, 12 * hz], 0);
+    this.blob(N, pad, [X(32.5) - back, 2.5 + f, 4.6], [5.4, 4.6, 5.8 + f], 1);
+    this.blob(N, pad, [X(32.5) - back, 2.5 + f, -4.6], [5.4, 4.6, 5.8 + f], 1);
+    this.blob(N, pad, [X(31.5) - back, -2.5 + f, 0], [4, 3, 4.4], 0.8);
+    this.blob(N, 'nose', [X(37.4) - back * 1.2, 5.8 + f * 1.6, 0], [1.9, 1.6, 2.6], 0.6);
+    this.mouth = this.blob(N, 'mouth', [X(35.4) - back, -2.2 + f, 0], [2.4, 3.6, 3], 0.6);
     this.mouth.visible = false;
+    this.tongue = null;
     for (const side of [-1, 1]) {
-      const b = this.blob(N, 'blush', [29.2, 4.5, 15.5 * side], [1.4, 2.6, 4.6], 0);
+      const b = this.blob(N, 'blush', [X(29.2), 4.5, 15.5 * hz * side], [1.4, 2.6, 4.6], 0);
       b.rotation.y = -0.6 * side;
     }
     const w = [];
     for (const side of [-1, 1]) {
       for (const [dy, ey] of [[1.5, 5], [0, 0], [-1.5, -4.5]]) {
-        w.push(35, 3 + dy, 7 * side, 37, 3 + ey, 27 * side);
+        w.push(X(35) - back, 3 + dy + f, 7 * side, X(37) - back, 3 + ey + f, 27 * side);
       }
     }
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute(w, 3));
     N.add(new THREE.LineSegments(wg, this.mats.whisker));
+  }
+
+  buildDogFace(N, X, hz) {
+    const s = this.spec, sn = s.snout;
+    this.eyes = [-1, 1].map(side => {
+      const eye = new THREE.Group();
+      eye.position.set(X(31.5), 15, 9.5 * hz * side);
+      eye.rotation.y = -0.4 * side;
+      N.add(eye);
+      this.blob(eye, 'eye', [0, 0, 0], [3.2, 4.6, 4.4], 0.8);
+      this.blob(eye, 'pupil', [1.7, 0, 0], [2, 3.2, 3.1], 0);
+      this.blob(eye, 'shine', [3, 1.4, 1], [0.9, 1.2, 1.2], 0);
+      return eye;
+    });
+    // the muzzle sticks out in front; the nose sits at its tip
+    const mx = X(27) + sn * 0.5, len = 9 + sn * 0.6, tip = mx + len;
+    this.blob(N, s.mask != null ? 'mask' : 'belly', [mx, 2, 0], [len, 8.5, 10.5], 1.4);
+    this.blob(N, 'nose', [tip - 1.2, 5.5, 0], [3, 2.7, 4.3], 0.8);
+    this.mouth = this.blob(N, 'mouth', [tip - 5, -4, 0], [4.5, 3.6, 5.5], 0.6);
+    this.mouth.visible = false;
+    this.tongue = this.blob(N, 'tongue', [tip - 4.5, -7.5, 0], [4.2, 1.6, 3.6], 0.6);
+    this.tongue.visible = false;
   }
 
   setPose(name, overrides = {}) {
@@ -248,7 +358,7 @@ export class Cat {
     const g = this.gait, s = Math.sin(g.phase);
     const bob = g.amp ? Math.abs(Math.sin(g.phase)) * 2.5 * g.amp : Math.sin(this.time * 2) * 0.6;
 
-    this.torso.position.y = 30 + p.lift + bob;
+    this.torso.position.y = this.hipH + p.lift * this.legK + bob;
     this.torso.rotation.z = p.pitch + (g.amp ? Math.sin(g.phase * 2) * 0.03 * g.amp : 0);
     // trot: diagonal legs move together
     const swing = [s, -s, -s, s].map(v => v * 0.55 * g.amp);
@@ -265,7 +375,10 @@ export class Cat {
     const amp = p.tailAmp + g.amp * 0.15, spd = p.tailSpeed + g.amp * 2;
     this.tail.forEach((j, i) => {
       const wave = Math.sin(this.time * spd - i * 0.55) * amp;
-      j.rotation.z = (i === 0 ? p.tailLift - p.pitch : p.tailCurl) + wave * (i === 0 ? 0.6 : 0.35);
+      const tl = this.spec.tail;
+      // (a dog's tail lies down behind it when it sits, rather than wrapping round its feet)
+      const base = Math.min(2.3, p.tailLift + tl.lift);
+      j.rotation.z = (i === 0 ? base - p.pitch : p.tailCurl + tl.curl) + wave * (i === 0 ? 0.6 : 0.35);
       j.rotation.x = (i === 0 ? 0 : p.tailSide) + Math.sin(this.time * spd * 0.7 - i * 0.5) * amp * 0.5;
     });
 
@@ -278,11 +391,14 @@ export class Cat {
 
     this.mouth.visible = p.mouth > 0.05;
     this.mouth.scale.y = 3.6 * Math.max(0.05, p.mouth);
+    if (this.tongue) this.tongue.visible = p.mouth > 0.05;
 
     this.twitch = Math.max(0, this.twitch - dt * 4);
     const tw = Math.sin(this.twitch * Math.PI) * 0.35;
-    this.ears[0].rotation.z = -p.earBack - tw * 0.2;
-    this.ears[1].rotation.z = -p.earBack;
-    this.ears[0].rotation.x = -0.38 - tw;
+    // floppy ears bounce along when walking
+    const flop = this.spec.ears === 'floppy' ? Math.sin(g.phase * 2) * 0.25 * g.amp : 0;
+    this.ears[0].rotation.z = -p.earBack - tw * 0.2 + flop;
+    this.ears[1].rotation.z = -p.earBack + flop;
+    this.ears[0].rotation.x = this.ears[0].userData.rx - tw;
   }
 }

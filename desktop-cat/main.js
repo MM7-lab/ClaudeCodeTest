@@ -25,6 +25,18 @@ const THANKS = {
   toilet: () => '歡迎返嚟！我幫你暖住張櫈 🐾',
 };
 const COATS = ['orange', 'grey', 'black', 'white', 'tuxedo'];
+// Breeds (品種): the main cat can be any of the cats; any of them can come along as friends (朋友).
+// Same keys as pet/breeds.js.
+const BREEDS = [
+  { id: 'persian', label: '波斯貓', kind: 'cat' }, { id: 'british', label: '英國短毛貓', kind: 'cat' },
+  { id: 'american', label: '美國短毛貓', kind: 'cat' }, { id: 'ragdoll', label: '布偶貓', kind: 'cat' },
+  { id: 'siamese', label: '暹羅貓', kind: 'cat' }, { id: 'fold', label: '蘇格蘭摺耳貓', kind: 'cat' },
+  { id: 'labrador', label: '拉布拉多', kind: 'dog' }, { id: 'golden', label: '黃金獵犬', kind: 'dog' },
+  { id: 'frenchie', label: '法國鬥牛犬', kind: 'dog' }, { id: 'shepherd', label: '德國牧羊犬', kind: 'dog' },
+  { id: 'dachshund', label: '臘腸犬', kind: 'dog' }, { id: 'pomeranian', label: '博美犬', kind: 'dog' },
+  { id: 'chihuahua', label: '吉娃娃', kind: 'dog' },
+];
+const CAT_BREEDS = BREEDS.filter(b => b.kind === 'cat').map(b => b.id);
 // The plush toys (公仔) from the soft-body toy box; the cat plays with whichever are switched on.
 const TOYS = [
   { id: 'baby-bear', label: '熊啤啤' },
@@ -38,13 +50,15 @@ const BIRD_COLORS = ['yellow', 'blue', 'green', 'pink', 'white'];
 const CAGES = ['both', 'left', 'right', 'off'];
 const DEFAULT_BIRDS = [{ name: '檸檬', color: 'yellow' }, { name: '藍莓', color: 'blue' }, { name: '蜜桃', color: 'pink' }];
 const DEFAULTS = {
-  name: '麻糬', coat: 'orange', size: 1, every: 30,
+  name: '麻糬', breed: 'classic', coat: 'orange', size: 1, every: 30,
   types: { water: true, rest: true, toilet: true },
   chatty: true, sound: false, volume: 0.6, autostart: false,
   tree: 'right', toys: ['baby-bear', 'plush-octopus'], toySize: 80,
   forceWebGPU: false,
   birdCount: 3, birds: DEFAULT_BIRDS, cage: 'both',
   pig: true, pigName: '布甸', pigBed: 'left',
+  friends: ['golden', 'british'],
+  screen: 'primary', // 'primary', 'follow' (follow the mouse) or a display id
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -151,6 +165,7 @@ function setPaused(paused) {
 }
 function tick() {
   const now = Date.now();
+  followMouse();
   if (stats.date !== today()) { stats = loadStats(); broadcast('stats', stats); }
   let idle = 0;
   try { idle = powerMonitor.getSystemIdleTime(); } catch {}
@@ -175,6 +190,9 @@ function cleanPatch(p) {
   const out = {};
   if (typeof p.name === 'string') out.name = p.name.trim().slice(0, 20) || DEFAULTS.name;
   if (COATS.includes(p.coat)) out.coat = p.coat;
+  if (p.breed === 'classic' || CAT_BREEDS.includes(p.breed)) out.breed = p.breed;
+  if (Array.isArray(p.friends)) out.friends = BREEDS.map(b => b.id).filter(id => p.friends.includes(id));
+  if (p.screen === 'primary' || p.screen === 'follow' || /^\d{1,20}$/.test(String(p.screen))) out.screen = String(p.screen);
   if (Number.isFinite(p.size)) out.size = Math.min(1.8, Math.max(0.5, p.size));
   if ([15, 20, 30, 45, 60, 90].includes(p.every)) out.every = p.every;
   if (p.types && typeof p.types === 'object') out.types = { ...S.types, ...Object.fromEntries(Object.keys(TYPES).filter(k => k in p.types).map(k => [k, !!p.types[k]])) };
@@ -214,13 +232,60 @@ function sendPet(ch, data) { if (pet && !pet.isDestroyed()) pet.webContents.send
 function broadcast(ch, data) {
   for (const w of [pet, settingsWin]) if (w && !w.isDestroyed()) w.webContents.send(ch, data);
 }
+
+// ---------- screens (螢幕) ----------
+// The pets live on one screen: the main one, a chosen one, or whichever has the mouse.
+let followId = null; // the screen they're on while following the mouse
+function screenList() {
+  const primary = screen.getPrimaryDisplay().id;
+  return screen.getAllDisplays().map((d, i) => ({
+    id: String(d.id), primary: d.id === primary,
+    label: `螢幕 ${i + 1}${d.id === primary ? '（主螢幕）' : ''}：${d.size.width}×${d.size.height}`,
+  }));
+}
+function targetDisplay() {
+  const all = screen.getAllDisplays();
+  if (S.screen === 'follow') return all.find(d => d.id === followId) || screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  return all.find(d => String(d.id) === S.screen) || screen.getPrimaryDisplay();
+}
 function fitPet() {
-  if (!pet) return;
-  const { workArea } = screen.getPrimaryDisplay();
-  pet.setBounds(workArea);
+  if (!pet || pet.isDestroyed()) return;
+  const area = targetDisplay().workArea;
+  pet.setBounds(area);
+  // Windows can get the size wrong moving a window onto a screen with different scaling: check and set again
+  setTimeout(() => {
+    if (!pet || pet.isDestroyed()) return;
+    const b = pet.getBounds();
+    if (b.x !== area.x || b.y !== area.y || b.width !== area.width || b.height !== area.height) pet.setBounds(area);
+  }, 150);
+}
+function screensChanged() { fitPet(); refreshTray(); }
+// 'follow': move over once the mouse has stayed on another screen for a couple of seconds
+let awayTicks = 0;
+function followMouse() {
+  if (S.screen !== 'follow' || !pet || catHidden || screen.getAllDisplays().length < 2) return;
+  const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  if (followId === null) followId = targetDisplay().id;
+  if (d.id === followId) { awayTicks = 0; return; }
+  if (++awayTicks < 2) return;
+  awayTicks = 0; followId = d.id;
+  fitPet();
+  sendPet('say', { text: '我哋跟住你過嚟呢個螢幕喇 🐾' });
+}
+function moveToScreen(value) {
+  const before = S.screen;
+  saveAndApply({ screen: value }); // moves the window too
+  if (S.screen !== before && S.screen !== 'follow') sendPet('say', { text: '搬咗屋喇 🐾' });
+}
+// the next screen along (for the menu)
+function nextScreen() {
+  const list = screenList();
+  if (list.length < 2) return;
+  const cur = String(targetDisplay().id), i = list.findIndex(d => d.id === cur);
+  moveToScreen(list[(i + 1) % list.length].id);
 }
 function createPet() {
-  const { workArea } = screen.getPrimaryDisplay();
+  const { workArea } = targetDisplay();
   pet = new BrowserWindow({
     ...workArea,
     transparent: true, frame: false, resizable: false, movable: false, minimizable: false, maximizable: false,
@@ -279,7 +344,9 @@ function notify(title, body) {
 
 // ---------- tray ----------
 function saveAndApply(patch) {
+  const before = S.screen;
   S = { ...S, ...cleanPatch(patch) };
+  if (S.screen !== before) { followId = null; fitPet(); }
   writeJson('settings.json', S);
   broadcast('settings', S);
   refreshTray();
@@ -333,6 +400,29 @@ function menuItems() {
         label, type: 'radio', checked: S.tree === v, click: () => saveAndApply({ tree: v }),
       })),
     },
+    {
+      label: '朋友',
+      submenu: [
+        ...BREEDS.map(b => ({
+          label: `${b.kind === 'dog' ? '🐶' : '🐱'} ${b.label}`, type: 'checkbox', checked: S.friends.includes(b.id),
+          click: (item) => saveAndApply({ friends: item.checked ? [...S.friends, b.id] : S.friends.filter(id => id !== b.id) }),
+        })),
+        { type: 'separator' },
+        { label: '全部收埋', enabled: S.friends.length > 0, click: () => saveAndApply({ friends: [] }) },
+      ],
+    },
+    {
+      label: '螢幕',
+      submenu: (() => {
+        const list = screenList(), cur = S.screen === 'follow' ? null : String(targetDisplay().id);
+        return [
+          ...list.map(d => ({ label: d.label, type: 'radio', checked: d.id === cur, click: () => moveToScreen(d.primary ? 'primary' : d.id) })),
+          { label: '跟住滑鼠去邊個螢幕', type: 'radio', checked: S.screen === 'follow', enabled: list.length > 1, click: () => moveToScreen('follow') },
+          { type: 'separator' },
+          { label: list.length > 1 ? '搬去下一個螢幕' : '（而家得一個螢幕）', enabled: list.length > 1, click: nextScreen },
+        ];
+      })(),
+    },
     { label: '設定…', click: openSettings },
     { label: '複製診斷資料', click: async () => { clipboard.writeText(await diagnostics()); notify('已複製診斷資料', '而家可以貼俾幫你整貓貓嘅人。'); } },
     { type: 'separator' },
@@ -366,7 +456,8 @@ ipcMain.on('pet-ready', () => {
   if (!catHidden) pet.showInactive();
 });
 ipcMain.handle('get-state', () => ({
-  settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS, toyStatus,
+  settings: S, stats, timer: timerInfo(), status: statusText(), toyList: TOYS, toyStatus, breeds: BREEDS,
+  screens: screenList(), screenNow: String(targetDisplay().id),
   webgpu: app.getGPUFeatureStatus().webgpu || 'unknown',
 }));
 ipcMain.on('toy-status', (_e, id, state, msg, rect) => {
@@ -380,8 +471,9 @@ const VENDORS = { 0x8086: 'Intel', 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x1414: 'Mic
 async function diagnostics() {
   const lines = [`桌面貓貓 ${app.getVersion()} 診斷資料（${new Date().toLocaleString('zh-HK')}）`];
   lines.push(`系統：${process.platform} ${require('os').release()} ${process.arch}`);
-  const d = screen.getPrimaryDisplay();
-  lines.push(`螢幕：${d.size.width}x${d.size.height}，縮放 ${Math.round(d.scaleFactor * 100)}%，工作區 ${d.workArea.width}x${d.workArea.height}`);
+  const now = targetDisplay().id;
+  screen.getAllDisplays().forEach((d, i) => lines.push(`螢幕 ${i + 1}${d.id === screen.getPrimaryDisplay().id ? '（主）' : ''}：${d.size.width}x${d.size.height}，縮放 ${Math.round(d.scaleFactor * 100)}%，工作區 ${d.workArea.width}x${d.workArea.height}${d.id === now ? '（貓貓喺度）' : ''}`));
+  lines.push(`揀咗嘅螢幕：${S.screen === 'follow' ? '跟住滑鼠' : S.screen === 'primary' ? '主螢幕' : S.screen}`);
   try {
     const info = await app.getGPUInfo('basic');
     for (const g of info.gpuDevice || []) {
@@ -421,7 +513,9 @@ ipcMain.handle('reset-stats', () => { stats = { date: today(), water: 0, rest: 0
 ipcMain.handle('save-settings', (_e, patch) => {
   const clean = cleanPatch(patch || {});
   const everyChanged = clean.every && clean.every !== S.every;
+  const screenChanged = clean.screen && clean.screen !== S.screen;
   S = { ...S, ...clean };
+  if (screenChanged) { followId = null; fitPet(); if (S.screen !== 'follow') sendPet('say', { text: '搬咗屋喇 🐾' }); }
   writeJson('settings.json', S);
   if ('autostart' in clean) applyAutostart();
   if (everyChanged && !st.pending) {
@@ -456,9 +550,9 @@ if (!app.requestSingleInstanceLock()) {
     st.nextAt = Date.now() + S.every * MIN;
     createPet();
     createTray();
-    screen.on('display-metrics-changed', fitPet);
-    screen.on('display-added', fitPet);
-    screen.on('display-removed', fitPet);
+    screen.on('display-metrics-changed', screensChanged);
+    screen.on('display-added', screensChanged);
+    screen.on('display-removed', screensChanged);
     // Emergency exit that works even if the mouse is stuck: Ctrl+Alt+Q (Mac: Cmd+Alt+Q).
     globalShortcut.register('CommandOrControl+Alt+Q', () => app.quit());
     app.on('child-process-gone', (_e, d) => { if (d.type === 'GPU') giveUp('部電腦嘅顯示卡程序停咗。'); });

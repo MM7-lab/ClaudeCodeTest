@@ -29,6 +29,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 input[type=range] { accent-color: var(--accent); width: 170px; }
 input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.checks.two { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; }
 .checks label { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
 .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 .coats { display: flex; gap: 10px; }

@@ -6,6 +6,8 @@ import { Bird, BirdCage } from './bird.js';
 import { BirdBrain } from './birdbrain.js';
 import { Pig, PigBed } from './pig.js';
 import { PigBrain } from './pigbrain.js';
+import { FriendBrain } from './friendbrain.js';
+import { BREEDS } from './breeds.js';
 import { makeSound } from './sound.js';
 
 const api = window.catApi;
@@ -18,7 +20,7 @@ const CHAT = ['你做得好好呀！加油 💪', '我喺度陪住你 🐾', '�
   '今日都好努力呀 🌼', '我信你得嘅 💛', '有咩唔開心，摸吓我啦 🐱'];
 const OUCH = ['嚇死我喇！😾', '喵！好高呀 😿', '安全着陸 😼'];
 
-let S = { name: '麻糬', coat: 'orange', size: 1, chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80,
+let S = { name: '麻糬', breed: 'classic', coat: 'orange', size: 1, friends: [], chatty: true, sound: true, volume: 0.6, tree: 'right', toys: [], toySize: 80,
   birdCount: 1, birds: [{ name: '檸檬', color: 'yellow' }], cage: 'both', pig: true, pigName: '布甸', pigBed: 'left' };
 const sound = makeSound(() => S);
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -164,6 +166,90 @@ const pigBrain = new PigBrain(pig, {
 let pigDrag = null;
 const pigAround = () => S.pig && !pigDrag && !pigBrain.inBed && !['held', 'fall', 'bedHop', 'sleep'].includes(pigBrain.mode);
 
+// ---------- dog and cat friends (朋友) ----------
+// One per chosen breed, made when switched on and thrown away when switched off.
+const friends = new Map();
+let friendDrag = null;
+const friendScale = f => S.size * (BREEDS[f.id].size || 1);
+const friendGone = f => (friendDrag && friendDrag.f === f) || ['held', 'fall', 'sleep'].includes(f.brain.mode);
+// something a friend (or the main cat) can walk over to and greet
+const friendTarget = f => ({
+  ok: () => friends.get(f.id) === f && !friendGone(f), x: () => f.brain.x, z: () => f.brain.z,
+  h: () => 50 * friendScale(f), gap: () => (45 + 50 * BREEDS[f.id].size) * S.size,
+  greet: x => f.brain.greet(x), line: () => `${BREEDS[f.id].label}好得意 🐾`,
+});
+function makeFriend(id) {
+  const b = BREEDS[id], animal = new Cat(id);
+  scene.add(animal.root);
+  const shade = shadow.clone();
+  shade.material = shadow.material.clone();
+  scene.add(shade);
+  const z = zzz.cloneNode(true);
+  z.removeAttribute('id');
+  z.hidden = true;
+  document.body.append(z);
+  const dog = b.kind === 'dog';
+  const pitch = dog ? clamp(1.25 / b.size, 0.75, 2.4) : clamp(1 / Math.sqrt(b.size), 0.85, 1.2);
+  const f = { id, animal, shadow: shade, zzz: z };
+  f.brain = new FriendBrain(animal, {
+    S: () => S,
+    scale: () => friendScale(f),
+    bounds: () => screenBounds(),
+    lane: () => LANE,
+    cat: () => ({ x: ai.x, z: ai.z, onFloor: !ai.surface && ai.y < 1 && !drag }),
+    others: () => {
+      const list = [];
+      if (!ai.surface && !drag && ['idle', 'sit', 'walk', 'look', 'groom', 'sleep'].includes(ai.mode)) {
+        list.push({ x: ai.x, z: ai.z, size: S.size, greet: x => { if (['idle', 'sit', 'look'].includes(ai.mode)) { faceToward(x - ai.x, 0); ai.happy = 1.2; } } });
+      }
+      if (pigAround()) list.push({ x: pigBrain.x, z: pigBrain.z, size: pigScale(), greet: x => pigBrain.greet(x) });
+      for (const o of friends.values()) if (o !== f && !friendGone(o)) list.push({ x: o.brain.x, z: o.brain.z, size: friendScale(o), greet: x => o.brain.greet(x) });
+      return list;
+    },
+    sound: {
+      voice: n => (dog ? sound.bark(n, pitch) : sound.meow(n, pitch)),
+      happy: () => (dog ? sound.bark(1, pitch) : sound.purr()),
+    },
+    hearts: p => hearts(3, toScreen(v.set(p.x, p.y, p.z))),
+    say: (text, p) => floaters(toScreen(v.set(p.x, p.y, p.z)), 1, [text], 'heart woof'),
+    zzz: on => { z.hidden = !on; },
+  });
+  friends.set(id, f);
+  return f;
+}
+function dropFriend(f) {
+  scene.remove(f.animal.root, f.shadow);
+  f.zzz.remove();
+  if (friendDrag && friendDrag.f === f) friendDrag = null;
+  friends.delete(f.id);
+}
+// new friends drop in from above, a little apart
+function syncFriends() {
+  const want = (S.friends || []).filter(id => BREEDS[id]);
+  for (const f of [...friends.values()]) if (!want.includes(f.id)) dropFriend(f);
+  const [x0, x1] = screenBounds();
+  want.forEach((id, i) => {
+    if (friends.has(id)) return;
+    const f = makeFriend(id);
+    Object.assign(f.brain, { x: rand(x0, x1) * 0.8, y: H * 0.55 + 300 + i * 140, z: rand(...LANE), vx: 0, vy: 0 });
+    f.brain.go('fall');
+  });
+}
+function updateFriend(f, dt) {
+  const b = f.brain, a = f.animal, held = friendDrag && friendDrag.f === f && friendDrag.moved;
+  if (held) { b.t += dt; a.gait.phase += dt * 9; a.gait.amp = 0.35; } else b.update(dt);
+  const sc = friendScale(f), sq = b.squash * Math.cos(b.t * 25);
+  a.root.position.set(b.x, b.y, b.z);
+  a.root.rotation.y = b.yaw;
+  a.root.scale.setScalar(sc);
+  a.figure.scale.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5);
+  a.update(dt);
+  const up = clamp(b.y / 500, 0, 0.7), ss = 110 * sc * (BREEDS[f.id].len || 1) * (1 - up);
+  f.shadow.position.set(b.x + 4 * sc, 0.55, b.z);
+  f.shadow.scale.set(ss, ss * 0.55, 1);
+  f.shadow.material.opacity = 1 - up;
+}
+
 // The toys' frames are drawn on these two 2D layers, behind and in front of the cat's canvas.
 const toyBack = document.createElement('canvas'), toyFront = document.createElement('canvas');
 toyBack.className = 'toy-layer'; toyFront.className = 'toy-layer front';
@@ -253,6 +339,7 @@ function decide() {
       ['toyPlay', playable ? 16 : 0], ['toyCarry', playable ? 5 : 0], ['toyGift', playable ? 2 : 0],
       ['stalkBird', birdOnFloor() && Math.abs(birdOnFloor().brain.p.x - ai.x) < 600 ? 12 : 0],
       ['visitPig', pigAround() ? 7 : 0],
+      ['visitFriend', friends.size ? 8 : 0],
     ];
   }
   let r = Math.random() * options.reduce((s, o) => s + o[1], 0);
@@ -299,7 +386,13 @@ function start(name) {
     }
     case 'toyPlay': approachToy(playableToy(), Math.random() < 0.25 ? 'pounce' : 'bat'); break;
     case 'stalkBird': go('stalk', { target: birdOnFloor() }); break;
-    case 'visitPig': go('visitPig', {}); break;
+    case 'visitPig': go('visitPig', { who: pigTarget }); break;
+    case 'visitFriend': {
+      const list = [...friends.values()].filter(f => !friendGone(f));
+      if (!list.length) return start('idle');
+      go('visitPig', { who: friendTarget(pick(list)) });
+      break;
+    }
     case 'toyCarry': approachToy(playableToy(), 'carry'); break;
     case 'toyGift': approachToy(playableToy(), 'gift'); break;
     default: go('idle', { dur: 2 });
@@ -678,25 +771,29 @@ function updateStalk(dt) {
   }
 }
 
-// Go and say hello to the pig: walk up, sit facing it, nose to snout.
+// Go and say hello to the pig or a friend: walk up, sit facing it, nose to nose.
+// `who` is { ok(), x(), z(), h, gap, greet(fromX), line }
+const pigTarget = {
+  ok: () => pigAround(), x: () => pigBrain.x, z: () => pigBrain.z, h: () => 50 * pigScale(), gap: () => 95 * S.size,
+  greet: x => pigBrain.greet(x), line: () => `${S.pigName}好可愛 🐷`,
+};
 function updateVisitPig(dt) {
-  const d = ai.data;
-  if (!pigAround() || ai.t > 20) { go('sit', { dur: 3 }); faceUser(); return; }
-  const px = pigBrain.x, side = px >= ai.x ? 1 : -1;
+  const d = ai.data, w = d.who;
+  if (!w.ok() || ai.t > 20) { go('sit', { dur: 3 }); faceUser(); return; }
+  const px = w.x(), side = px >= ai.x ? 1 : -1;
+  ai.look = { x: px, y: w.h(), z: w.z() };
   if (!d.arrived) {
-    ai.look = { x: px, y: 50 * pigScale(), z: pigBrain.z };
-    if (!walkTo(dt, px - side * 95 * S.size, clamp(pigBrain.z, ...LANE), 70)) return;
+    if (!walkTo(dt, px - side * w.gap(), clamp(w.z(), ...LANE), 70)) return;
     d.arrived = true; d.t0 = ai.t; d.stay = rand(4, 7);
     cat.setPose('sit');
     faceToward(side, 0);
-    pigBrain.greet(ai.x);
+    w.greet(ai.x);
     hearts(2);
     sound.chirp();
     return;
   }
   faceToward(side, 0);
-  ai.look = { x: px, y: 55 * pigScale(), z: pigBrain.z };
-  if (ai.t - d.t0 > d.stay) { go('sit', { dur: rand(3, 6) }); faceUser(); if (Math.random() < 0.4) say(pick([`${S.pigName}好可愛 🐷`, '我哋係好朋友 🐾']), 3000); }
+  if (ai.t - d.t0 > d.stay) { go('sit', { dur: rand(3, 6) }); faceUser(); if (Math.random() < 0.4) say(pick([w.line(), '我哋係好朋友 🐾']), 3000); }
 }
 
 // ---------- playing with the mouse ----------
@@ -811,6 +908,7 @@ api.on('reminder', r => {
   // the birds come over and sing along; the pig comes to cheer
   for (const f of liveBirds()) f.brain.cheer();
   if (S.pig && !pigDrag) pigBrain.cheer();
+  for (const f of friends.values()) if (friendDrag?.f !== f) f.brain.cheer();
 });
 api.on('nag', () => { if (ai.mode === 'remind') ai.vy = 300; sound.meow(2); });
 api.on('reminder-end', r => {
@@ -828,6 +926,7 @@ api.on('come-here', () => {
     go('come', { tx: cursor && cursor.x >= 0 && cursor.x <= W ? clamp(cursorWorldX(), x0, x1) : 0 });
   };
   ai.surface && ai.mode !== 'hop' ? jumpDown(comeOver) : comeOver();
+  for (const f of friends.values()) if (friendDrag?.f !== f) f.brain.cheer();
 });
 api.on('toy-action', a => toys.action(a));
 api.on('bird-action', a => { if (a === 'sing') for (const f of liveBirds()) f.brain.petted(); });
@@ -840,7 +939,7 @@ function applySettings(s) {
   const soundWasOn = S.sound;
   S = { ...S, ...s };
   if (S.sound && soundWasOn === false && frameStarted) sound.meow(); // let them hear it when switched on
-  cat.setCoat(S.coat);
+  cat.setBreed(S.breed, S.coat);
   placeTree();
   placeCages();
   placeBed();
@@ -855,6 +954,7 @@ function applySettings(s) {
   pig.root.visible = pigShadow.visible = !!S.pig;
   if (!S.pig) { pigZzz.hidden = true; pigBed.tuck(false); }
   toys.set(S.toys || [], Math.round(S.toySize || 80));
+  if (frameStarted) syncFriends();
 }
 // a bird (newly switched on, or at the start) flies in from the top of the screen
 function birdArrives(f, above = 60) {
@@ -888,10 +988,10 @@ function placeCages() {
 }
 let bedKey = '';
 function placeBed() {
-  const key = `${S.pigBed}|${S.tree}|${W}|${S.size}`;
+  const key = `${S.pig}|${S.pigBed}|${S.tree}|${W}|${S.size}`;
   if (key === bedKey) return;
   bedKey = key;
-  bedOn = S.pigBed === 'left' || S.pigBed === 'right';
+  bedOn = !!S.pig && (S.pigBed === 'left' || S.pigBed === 'right');
   pigBed.group.visible = bedOn;
   if (bedOn) {
     const side = S.pigBed === 'left' ? -1 : 1;
@@ -942,6 +1042,12 @@ function overBird(x, y) {
   raycaster.setFromCamera(ndc, camera);
   return live.find(f => raycaster.intersectObject(f.bird.root, true).length > 0) || null;
 }
+function overFriend(x, y) {
+  if (!friends.size) return null;
+  ndc.set(x / W * 2 - 1, -(y / H) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return [...friends.values()].find(f => raycaster.intersectObject(f.animal.root, true).length > 0) || null;
+}
 function overPig(x, y) {
   if (!S.pig) return false;
   ndc.set(x / W * 2 - 1, -(y / H) * 2 + 1);
@@ -954,8 +1060,8 @@ function overBubble(x, y) {
   return x > b.left - 6 && x < b.right + 6 && y > b.top - 6 && y < b.bottom + 12;
 }
 function updateCapture() {
-  const onCat = !!drag || !!birdDrag || !!pigDrag || (cursor && (overCat(cursor.x, cursor.y) || overBird(cursor.x, cursor.y)
-    || overPig(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
+  const onCat = !!drag || !!birdDrag || !!pigDrag || !!friendDrag || (cursor && (overCat(cursor.x, cursor.y) || overBird(cursor.x, cursor.y)
+    || overPig(cursor.x, cursor.y) || overFriend(cursor.x, cursor.y) || overBubble(cursor.x, cursor.y)));
   const toy = onCat ? null : toys.hovered();
   // route the mouse: the cat's canvas, or the toy's own page underneath it
   canvas.style.pointerEvents = toy ? 'none' : 'auto';
@@ -965,7 +1071,7 @@ function updateCapture() {
     captured = want;
     api.setThrough(!want);
   }
-  canvas.style.cursor = onCat ? ([drag, birdDrag, pigDrag].some(g => g && g.moved) ? 'grabbing' : 'grab') : '';
+  canvas.style.cursor = onCat ? ([drag, birdDrag, pigDrag, friendDrag].some(g => g && g.moved) ? 'grabbing' : 'grab') : '';
 }
 let lastCursor = null, lastCursorT = 0;
 setInterval(async () => {
@@ -1050,6 +1156,38 @@ const endPigDrag = e => {
 };
 canvas.addEventListener('pointerup', endPigDrag);
 canvas.addEventListener('pointercancel', endPigDrag);
+// a dog or cat friend: click to pet it, drag to pick it up, let go and it drops
+canvas.addEventListener('pointerdown', e => {
+  const f = e.button === 0 && !birdDrag && !pigDrag && !overCat(e.clientX, e.clientY) && overFriend(e.clientX, e.clientY);
+  if (!f) return;
+  e.stopImmediatePropagation();
+  canvas.setPointerCapture(e.pointerId);
+  friendDrag = { f, x: e.clientX, y: e.clientY, moved: false, vx: 0, vy: 0, lx: 0, ly: 0, lt: performance.now() };
+});
+canvas.addEventListener('pointermove', e => {
+  if (!friendDrag) return;
+  e.stopImmediatePropagation();
+  const g = friendDrag, b = g.f.brain;
+  if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 6) return;
+  const p = pointerWorld(e, b.z);
+  if (!p) return;
+  if (!g.moved) { g.moved = true; b.grab(); g.lx = p.x; g.ly = p.y; }
+  const now = performance.now(), dt = Math.max(0.001, (now - g.lt) / 1000);
+  g.vx = g.vx * 0.5 + ((p.x - g.lx) / dt) * 0.5;
+  g.vy = g.vy * 0.5 + ((p.y - g.ly) / dt) * 0.5;
+  g.lx = p.x; g.ly = p.y; g.lt = now;
+  b.x = clamp(p.x, ...screenBounds());
+  b.y = Math.max(0, p.y - 55 * friendScale(g.f));
+});
+const endFriendDrag = e => {
+  if (!friendDrag) return;
+  e.stopImmediatePropagation();
+  const g = friendDrag;
+  friendDrag = null;
+  if (g.moved) g.f.brain.release(g.vx, g.vy); else g.f.brain.petted();
+};
+canvas.addEventListener('pointerup', endFriendDrag);
+canvas.addEventListener('pointercancel', endFriendDrag);
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !overCat(e.clientX, e.clientY)) return;
   canvas.setPointerCapture(e.pointerId);
@@ -1088,7 +1226,7 @@ function endDrag() {
 }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (overCat(e.clientX, e.clientY) || overBird(e.clientX, e.clientY) || overPig(e.clientX, e.clientY)) api.contextMenu(); });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (overCat(e.clientX, e.clientY) || overBird(e.clientX, e.clientY) || overPig(e.clientX, e.clientY) || overFriend(e.clientX, e.clientY)) api.contextMenu(); });
 
 // ---------- frame loop ----------
 const box = new THREE.Box3(), v = new THREE.Vector3();
@@ -1122,6 +1260,11 @@ function placeOverlays() {
     const h = toScreen(v.set(f.brain.p.x, f.brain.p.y + 38 * S.size, f.brain.p.z));
     f.zzz.style.transform = `translate(${h.x + 6}px, ${h.y}px) scale(0.75)`;
   }
+  for (const f of friends.values()) {
+    if (f.zzz.hidden) continue;
+    const h = toScreen(f.brain.headWorld());
+    f.zzz.style.transform = `translate(${h.x + 10}px, ${h.y}px) scale(0.85)`;
+  }
   if (!pigZzz.hidden) {
     const h = toScreen(v.set(pigBrain.x - (pigBrain.inBed ? 22 : 0) * pigScale(), pigBrain.y + (pigBrain.inBed ? 52 : 80) * pigScale(), pigBrain.z));
     pigZzz.style.transform = `translate(${h.x}px, ${h.y}px) scale(0.9)`;
@@ -1140,7 +1283,7 @@ function frame(now) {
   // Calm moments render at ~30 fps to go easy on laptops.
   acc += raw;
   const calm = ['sleep', 'sit', 'idle', 'groom', 'remind'].includes(ai.mode) && !drag && !birdFlying() && !birdDrag
-    && !(S.pig && (pigBrain.busy || pigDrag));
+    && !(S.pig && (pigBrain.busy || pigDrag)) && !friendDrag && ![...friends.values()].some(f => f.brain.busy);
   if (acc < (calm ? 1 / 24 : 1 / 40)) return;
   const dt = Math.min(0.05, acc);
   acc = 0;
@@ -1166,6 +1309,7 @@ function frame(now) {
   cages.forEach((c, i) => { if (cagesOn[i]) c.update(dt); });
   for (const f of liveBirds()) updateBird(f, dt);
   if (S.pig) updatePig(dt);
+  for (const f of friends.values()) updateFriend(f, dt);
   if (bedOn) pigBed.update(dt);
 
   // the shadow sits on whatever is underneath: a tree surface or the floor
@@ -1231,6 +1375,7 @@ function resize() {
   const [x0, x1] = screenBounds();
   if (!ai.surface) ai.x = clamp(ai.x, x0, x1);
   pigBrain.x = clamp(pigBrain.x, x0, x1);
+  for (const f of friends.values()) f.brain.x = clamp(f.brain.x, x0, x1);
 }
 
 // ---------- start ----------
@@ -1245,7 +1390,8 @@ api.getState().then(state => {
   liveBirds().forEach((f, i) => birdArrives(f, 80 + i * 160));
   if (S.pig) pigArrives(H * 0.55 + 500);
   frameStarted = true;
+  syncFriends();
   requestAnimationFrame(frame);
 });
 addEventListener('resize', resize);
-if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake, tree, toys, climb, approachToy, decide, flock, cages, pig, pigBrain, pigBed };
+if (location.search.includes('debug')) window.__debug = { start, go, ai, cat, wake, tree, toys, climb, approachToy, decide, flock, cages, pig, pigBrain, pigBed, friends };

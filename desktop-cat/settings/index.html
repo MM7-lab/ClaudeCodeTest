@@ -20,7 +20,12 @@
   <section>
     <h2>貓貓</h2>
     <label class="field">名<input type="text" id="name" maxlength="20" autocomplete="off"></label>
-    <div class="field"><span>毛色</span>
+    <label class="field">品種
+      <select id="breed">
+        <option value="classic">普通貓（自己揀毛色）</option>
+      </select>
+    </label>
+    <div class="field" id="coatRow"><span>毛色</span>
       <div class="coats" id="coats" role="radiogroup" aria-label="毛色">
         <button type="button" role="radio" data-coat="orange" style="--c:#f3a35c" title="橙色虎斑"></button>
         <button type="button" role="radio" data-coat="grey" style="--c:#aab4bf" title="灰色虎斑"></button>
@@ -31,6 +36,15 @@
     </div>
     <p class="hint" id="coatName"></p>
     <label class="field">大細<input type="range" id="size" min="0.6" max="1.6" step="0.1"></label>
+  </section>
+
+  <section>
+    <h2>狗狗同貓貓朋友</h2>
+    <div class="field"><span>🐶 狗狗</span></div>
+    <div class="checks two" id="dogChecks"></div>
+    <div class="field"><span>🐱 貓貓</span></div>
+    <div class="checks two" id="catChecks"></div>
+    <p class="hint">剔咗嘅朋友會由天跌落嚟，喺螢幕底部同貓貓一齊生活：周圍行、坐低、瞓覺、伸懶腰；貓貓會舔毛，狗狗會周圍索、伸脷喘氣、吠兩聲、伏低再跑圈。佢哋會互相探吓、跟住貓貓行，夠鐘提醒都會走埋嚟陪你。撳佢哋會開心，拖佢哋可以揸起，放手會跌返落地。朋友越多，部電腦越辛苦。</p>
   </section>
 
   <section>
@@ -99,11 +113,15 @@
   </section>
 
   <section>
-    <h2>聲音同其他</h2>
+    <h2>聲音、螢幕同其他</h2>
     <label class="field">喵喵聲<input type="checkbox" id="sound"></label>
     <p class="hint">預設關咗。如果部電腦嘅音效驅動程式唔穩定（例如 Realtek／FMAPP 經常當機），建議唔好開。</p>
     <label class="field">音量<input type="range" id="volume" min="0" max="1" step="0.05"></label>
     <label class="field">開機自動啟動<input type="checkbox" id="autostart"></label>
+    <label class="field">喺邊個螢幕
+      <select id="screen"></select>
+    </label>
+    <p class="hint">有幾個螢幕嘅話，可以揀貓貓同朋友喺邊個螢幕出現，或者揀「跟住滑鼠」：滑鼠喺另一個螢幕停留兩秒，佢哋就會搬過去。</p>
   </section>
 
   <section>
@@ -134,6 +152,7 @@
       <li>拖公仔、掟公仔：貓貓見到會追過去玩</li>
       <li>撳雀仔：佢會唱歌；拖住佢：放手佢會飛走</li>
       <li>撳豬仔：佢會跳舞；拖住佢：放手佢會跌返落地</li>
+      <li>撳狗狗或者貓貓朋友：佢哋會開心；拖住佢哋：放手會跌返落地</li>
       <li>右撳貓貓，或者撳工作列 / 選單列嘅貓貓圖示：開選單</li>
     </ul>
   </section>

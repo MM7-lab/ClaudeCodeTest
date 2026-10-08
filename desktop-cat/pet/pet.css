@@ -46,4 +46,5 @@ iframe.toy { position: fixed; inset: 0; width: 100vw; height: 100vh; border: 0; 
 .zzz span:nth-child(2) { animation-delay: 1s; font-size: 1.2em; }
 .zzz span:nth-child(3) { animation-delay: 2s; font-size: 1.45em; }
 @keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(24px, -44px); opacity: 0; } }
+.heart.woof { font-size: 15px; color: #6b4a2b; font-weight: 700; text-shadow: 0 0 3px #fff, 0 0 6px #fff; white-space: nowrap; }
 .heart.note { font-size: 20px; color: #e0a020; font-weight: 700; text-shadow: 0 0 3px #fff, 0 0 6px #fff; }

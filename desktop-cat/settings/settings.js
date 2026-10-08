@@ -12,6 +12,10 @@ function render(s) {
   document.querySelectorAll('#coats button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.coat === s.coat)));
   $('coatName').textContent = COAT_NAMES[s.coat] || '';
   $('size').value = s.size;
+  $('breed').value = s.breed || 'classic';
+  $('coatRow').hidden = $('coatName').hidden = (s.breed || 'classic') !== 'classic';
+  document.querySelectorAll('[data-friend]').forEach(c => { c.checked = (s.friends || []).includes(c.dataset.friend); });
+  if ($('screen').options.length) $('screen').value = [...$('screen').options].some(o => o.value === s.screen) ? s.screen : 'primary';
   $('every').value = String(s.every);
   document.querySelectorAll('[data-type]').forEach(c => { c.checked = !!s.types[c.dataset.type]; });
   $('chatty').checked = s.chatty;
@@ -61,6 +65,32 @@ function saveBird(i, patch) {
   const birds = S.birds.map((b, k) => (k === i ? { ...b, ...patch } : b));
   save({ birds });
 }
+// breeds: the main cat's choices, and the friend checkboxes
+function buildBreeds(list) {
+  for (const b of list.filter(b => b.kind === 'cat')) $('breed').append(new Option(b.label, b.id));
+  for (const kind of ['dog', 'cat']) {
+    $(kind + 'Checks').replaceChildren(...list.filter(b => b.kind === kind).map(b => {
+      const label = document.createElement('label'), box = document.createElement('input');
+      box.type = 'checkbox'; box.dataset.friend = b.id;
+      box.addEventListener('change', () => save({ friends: [...document.querySelectorAll('[data-friend]')].filter(c => c.checked).map(c => c.dataset.friend) }));
+      label.append(box, ' ' + b.label);
+      return label;
+    }));
+  }
+}
+// screens can come and go: rebuild the list when it changes
+let screensKey = '';
+function buildScreens(state) {
+  const key = JSON.stringify(state.screens);
+  if (key === screensKey) return;
+  screensKey = key;
+  const sel = $('screen');
+  sel.replaceChildren(new Option('主螢幕', 'primary'),
+    ...state.screens.filter(d => !d.primary).map(d => new Option(d.label, d.id)),
+    new Option('跟住滑鼠', 'follow'));
+  if (state.screens.length < 2) sel.lastChild.disabled = true;
+  if (S) render(S);
+}
 function buildToyChecks(list) {
   $('toyChecks').replaceChildren(...list.map(t => {
     const label = document.createElement('label'), box = document.createElement('input');
@@ -104,6 +134,7 @@ function renderToyStatus(state) {
 async function refresh() {
   const state = await api.getState();
   renderToyStatus(state);
+  buildScreens(state);
   $('status').textContent = state.status;
   $('btnPause').textContent = state.timer.running ? '暫停提醒' : '繼續提醒';
   renderStats(state.stats);
@@ -113,6 +144,8 @@ async function refresh() {
 $('name').addEventListener('change', () => save({ name: $('name').value }));
 $('coats').addEventListener('click', e => { const b = e.target.closest('[data-coat]'); if (b) save({ coat: b.dataset.coat }); });
 $('size').addEventListener('change', () => save({ size: Number($('size').value) }));
+$('breed').addEventListener('change', () => save({ breed: $('breed').value }));
+$('screen').addEventListener('change', () => save({ screen: $('screen').value }));
 $('every').addEventListener('change', () => save({ every: Number($('every').value) }));
 document.querySelectorAll('[data-type]').forEach(c => c.addEventListener('change', () => save({ types: { [c.dataset.type]: c.checked } })));
 $('chatty').addEventListener('change', () => save({ chatty: $('chatty').checked }));
@@ -142,5 +175,5 @@ $('btnReset').addEventListener('click', async () => renderStats(await api.resetS
 api.on('settings', render);
 api.on('stats', renderStats);
 
-refresh().then(state => { buildToyChecks(state.toyList); render(state.settings); });
+refresh().then(state => { buildToyChecks(state.toyList); buildBreeds(state.breeds); render(state.settings); });
 setInterval(refresh, 1000);

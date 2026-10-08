@@ -75,10 +75,10 @@ export function makeSound(getSettings) {
       for (let i = 0; i < 4; i++) tweetAt(ctx.currentTime + i * 0.09, 4800 * pitch, 4200 * pitch, 0.05, vol() * 0.13);
       rest(0.45);
     },
-    meow(times = 1) {
+    meow(times = 1, pitch = 1) {
       if (!on() || !ac()) return;
       for (let i = 0; i < times; i++) {
-        const p = rand(0.9, 1.15);
+        const p = rand(0.9, 1.15) * pitch;
         voice(ctx.currentTime + i * 0.7, 520 * p, 820 * p, 600 * p, 0.5, vol() * 0.35);
       }
       rest(times * 0.7);
@@ -101,6 +101,33 @@ export function makeSound(getSettings) {
         src.start(t);
       }
       rest(0.5);
+    },
+    // a dog: a short bark (higher and yappier for small dogs)
+    bark(times = 1, pitch = 1) {
+      if (!on() || !ac()) return;
+      const len = 0.12 / Math.sqrt(pitch);
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), nd = buf.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+      for (let i = 0; i < times; i++) {
+        const t = ctx.currentTime + i * 0.28, p = rand(0.92, 1.08) * pitch;
+        const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(330 * p, t);
+        o.frequency.exponentialRampToValueAtTime(520 * p, t + len * 0.25);
+        o.frequency.exponentialRampToValueAtTime(240 * p, t + len);
+        f.type = 'bandpass'; f.frequency.value = 1100 * Math.sqrt(p); f.Q.value = 1.6;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol() * 0.4, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(f).connect(g).connect(ctx.destination);
+        o.start(t); o.stop(t + len + 0.02);
+        const n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
+        n.buffer = buf; nf.type = 'bandpass'; nf.frequency.value = 1600 * Math.sqrt(p); nf.Q.value = 0.8;
+        ng.gain.value = vol() * 0.18;
+        n.connect(nf).connect(ng).connect(ctx.destination);
+        n.start(t);
+      }
+      rest(times * 0.28 + 0.2);
     },
     // the pig: one or two short nasal grunts
     oink(times = 2) {
