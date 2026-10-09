@@ -1,20 +1,50 @@
-/* 小貓騎士 3D 模型：長毛虎斑貓、頭頂細粉紅蝴蝶結、銀色鎧甲、白披風，雙手將長劍垂直豎喺面前。
-   用法（瀏覽器）：buildKnightKitten(THREE, { fur: 'tabby' })
-   用法（Node）  ：require('./model.js')(THREE, { forPrint: true })   // 唔包鬚同披風
+/* 小動物騎士 3D 模型：頭頂細粉紅蝴蝶結、銀色鎧甲、白披風，雙手將長劍垂直豎喺面前。
+   有三個版本：小貓（原圖）、小狗、小雀。盔甲、劍同披風共用，頭、手、腳、尾按品種變。
+   用法（瀏覽器）：buildKnightKitten(THREE, { species: 'dog', fur: 'shiba' })
+   用法（Node）  ：require('./model.js')(THREE, { species: 'bird', forPrint: true })   // 唔包鬚同披風
+   buildKnightKitten.SPECIES 列出每個品種同毛色。
    單位：1 = 約 1 cm；面向 +Z，Y 向上。 */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory;
   else root.buildKnightKitten = factory;
-})(typeof self !== 'undefined' ? self : this, function buildKnightKitten(THREE, opts) {
-  opts = opts || {};
+})(typeof self !== 'undefined' ? self : this, (function () {
 
-  const FURS = {
-    tabby:  { base: 0xa8927b, dark: 0x6b5a4b, light: 0xe4d8c6 },
-    orange: { base: 0xe2a062, dark: 0xb06a32, light: 0xf8e6cf },
-    grey:   { base: 0xa9adb6, dark: 0x656a75, light: 0xe6e8ec },
-    black:  { base: 0x3a3840, dark: 0x1e1d23, light: 0xf2efe9 },
-  };
-  const fur = FURS[opts.fur] || FURS.tabby;
+const SPECIES = {
+  cat: {
+    name: '小貓騎士', latin: 'KNIGHT KITTEN', coatLabel: '毛色', furScale: 1, default: 'tabby',
+    palettes: {
+      tabby:  { label: '虎斑（原圖）', base: 0xa8927b, dark: 0x6b5a4b, light: 0xe4d8c6, stripe: 0.85 },
+      orange: { label: '橘貓', base: 0xe2a062, dark: 0xb06a32, light: 0xf8e6cf, stripe: 0.7 },
+      grey:   { label: '灰貓', base: 0xa9adb6, dark: 0x656a75, light: 0xe6e8ec, stripe: 0.6 },
+      black:  { label: '黑貓', base: 0x3a3840, dark: 0x1e1d23, light: 0xf2efe9, stripe: 0 },
+    },
+  },
+  dog: {
+    name: '小狗騎士', latin: 'KNIGHT PUPPY', coatLabel: '毛色', furScale: 1.1, default: 'shiba',
+    palettes: {
+      shiba:  { label: '柴犬', base: 0xd98b45, dark: 0x7a4520, light: 0xf6e7d0, stripe: 0, ears: 'up', tail: 'curl' },
+      golden: { label: '金毛', base: 0xd9a75e, dark: 0x8a5a26, light: 0xf3dcae, stripe: 0, ears: 'flop', tail: 'plume' },
+      choc:   { label: '朱古力', base: 0x6b4430, dark: 0x2e1c12, light: 0xa77b5c, stripe: 0, ears: 'flop', tail: 'plume' },
+    },
+  },
+  bird: {
+    name: '小雀騎士', latin: 'KNIGHT BIRDIE', coatLabel: '羽色', furScale: 0.45, default: 'sparrow',
+    palettes: {
+      // 樹麻雀：栗色頭頂、白面頰、面頰一點黑、黑色喉
+      sparrow: { label: '麻雀', base: 0x8a5534, dark: 0x1c1a1a, light: 0xf1ece2, wing: 0x7a5236, beak: 0x2e2a28, feet: 0xb69a85, stripe: 0, bib: 'patch', lores: true },
+      chick:   { label: '小黃雞', base: 0xf2c94c, dark: 0xe8964a, light: 0xfbe7a1, wing: 0xeec24a, beak: 0xf0902a, feet: 0xf0a54a, stripe: 0, bib: 'none' },
+      budgie:  { label: '虎皮鸚鵡', base: 0xbfd44a, dark: 0x3346a8, light: 0xf4e04d, wing: 0x5f9e35, beak: 0xe8d7a8, feet: 0xb9a0a0, stripe: 0, bib: 'spots', hook: true },
+    },
+  },
+};
+
+function buildKnightKitten(THREE, opts) {
+  opts = opts || {};
+  const spKey = SPECIES[opts.species] ? opts.species : 'cat';
+  const sp = SPECIES[spKey];
+  const palKey = sp.palettes[opts.fur] ? opts.fur : sp.default;
+  const pal = sp.palettes[palKey];
+  const fur = pal;
 
   const std = (color, roughness, metalness) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness: metalness || 0 });
@@ -30,7 +60,12 @@
     pinkSoft:  std(0xd9a3a0, 0.75),
     nose:      std(0xc4837d, 0.45),
     eye:       std(0x0b0a0c, 0.2),
-    iris:      std(0x4a3520, 0.35),
+    iris:      std({ cat: 0x4a3520, dog: 0x3a2216, bird: 0x0b0a0c }[spKey], 0.35),
+    dogNose:   new THREE.MeshPhysicalMaterial({ color: 0x151313, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.3 }),
+    beak:      std(pal.beak || 0x333333, 0.4),
+    feet:      std(pal.feet || 0xb69a85, 0.7),
+    claw:      std(0x2b2724, 0.35),
+    wing:      std(pal.wing || pal.base, 0.9),
     cornea:    new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0, metalness: 0, transparent: true, opacity: 0.12, clearcoat: 1, clearcoatRoughness: 0 }),
     shine:     new THREE.MeshBasicMaterial({ color: 0xffffff }),
     steel:     metal(0xd6d9de, 0.14, 0.35),
@@ -43,7 +78,7 @@
   };
 
   const root = new THREE.Group();
-  root.name = 'KnightKitten';
+  root.name = { cat: 'KnightKitten', dog: 'KnightPuppy', bird: 'KnightBirdie' }[spKey];
   const Y = new THREE.Vector3(0, 1, 0);
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -195,7 +230,7 @@
   }
 
   // 腳：毛毛大髀 → 有護翼嘅膝甲 → 錐形脛甲 → 一片疊一片嘅鐵靴
-  for (const s of [-1, 1]) {
+  if (spKey !== 'bird') for (const s of [-1, 1]) {
     const hip = V(0.42 * s, 0.82, 0.0), knee = V(0.43 * s, 0.46, 0.16), ankle = V(0.42 * s, 0.2, 0.14);
     organicTube([hip, V(0.44 * s, 0.64, 0.09), knee], [0.27, 0.27, 0.22], M.fur, body, { name: 'Thigh' });
     organicTube([knee.clone().add(V(0, 0.02, -0.02)), V(0.42 * s, 0.32, 0.15), ankle], [0.19, 0.17, 0.18], M.steel, body, { name: 'Greave' });
@@ -213,9 +248,52 @@
     mesh(sphere(0.03, 12, 8), M.brass, body, [0.42 * s + 0.17 * s, 0.17, 0.12]);
   }
 
-  // 蓬鬆尾巴：根部粗、中間最蓬、尾端收細再圓頭
-  organicTube([V(0.1, 0.78, -0.72), V(0.45, 0.5, -1.05), V(0.9, 0.42, -0.95), V(1.22, 0.6, -0.62), V(1.32, 0.86, -0.38)],
-              [0.19, 0.23, 0.25, 0.22, 0.14], M.fur, body, { name: 'Tail', capEnd: true, segs: 56 });
+  // 雀仔腳：羽毛褲 → 有鱗紋嘅幼腳 → 三隻前趾一隻後趾，趾尖有爪
+  if (spKey === 'bird') for (const s of [-1, 1]) {
+    const hip = V(0.4 * s, 0.8, 0.02), knee = V(0.4 * s, 0.5, 0.12);
+    organicTube([hip, V(0.41 * s, 0.62, 0.08), knee], [0.27, 0.26, 0.19], M.furLight, body, { name: 'Thigh', capEnd: true });
+    const a0 = V(0.4 * s, 0.44, 0.14), A = V(0.4 * s, 0.08, 0.18);
+    organicTube([a0, V(0.4 * s, 0.26, 0.16), A], [0.055, 0.05, 0.05], M.feet, body, { name: 'Tarsus', segs: 16 });
+    const legDir = A.clone().sub(a0).normalize();
+    for (let i = 1; i < 6; i++) {
+      const p = a0.clone().lerp(A, i / 6.5);
+      mesh(new THREE.TorusGeometry(0.053, 0.007, 6, 20), M.feet, body, [p.x, p.y, p.z]).quaternion.setFromUnitVectors(Z, legDir);
+    }
+    const toe = (d, len, r) => {
+      const tipP = A.clone().addScaledVector(d, len).add(V(0, -0.045, 0));
+      organicTube([A, A.clone().addScaledVector(d, len * 0.5).add(V(0, -0.04, 0)), tipP], [r, r * 0.82, r * 0.6], M.feet, body, { name: 'Toe', capEnd: true, segs: 12 });
+      const claw = mesh(new THREE.ConeGeometry(r * 0.55, 0.09, 12), M.claw, body, null, null, null, 'Claw');
+      claw.position.copy(tipP).addScaledVector(d, 0.04).add(V(0, -0.012, 0));
+      claw.quaternion.setFromUnitVectors(Y, d.clone().add(V(0, -0.45, 0)).normalize());
+    };
+    for (const ang of [-0.5, 0, 0.5]) toe(V(Math.sin(ang), 0, Math.cos(ang)), 0.3, 0.045);
+    toe(V(0.15 * s, 0, -1).normalize(), 0.17, 0.042);
+  }
+
+  // 尾巴
+  if (spKey === 'cat') {
+    // 蓬鬆貓尾：根部粗、中間最蓬、尾端收細再圓頭
+    organicTube([V(0.1, 0.78, -0.72), V(0.45, 0.5, -1.05), V(0.9, 0.42, -0.95), V(1.22, 0.6, -0.62), V(1.32, 0.86, -0.38)],
+                [0.19, 0.23, 0.25, 0.22, 0.14], M.fur, body, { name: 'Tail', capEnd: true, segs: 56 });
+  } else if (spKey === 'dog' && pal.tail === 'curl') {
+    // 柴犬捲尾：向上捲埋喺背後
+    organicTube([V(0, 0.82, -0.72), V(0.05, 1.05, -1.12), V(0.14, 1.45, -1.22), V(0.2, 1.68, -1.0), V(0.16, 1.58, -0.8)],
+                [0.18, 0.22, 0.23, 0.2, 0.13], M.fur, body, { name: 'Tail', capEnd: true, segs: 56 });
+  } else if (spKey === 'dog') {
+    // 金毛式大掃把尾：向後垂低再微微向上
+    organicTube([V(0.05, 0.85, -0.72), V(0.3, 0.6, -1.15), V(0.75, 0.5, -1.25), V(1.1, 0.62, -1.0), V(1.25, 0.8, -0.75)],
+                [0.18, 0.25, 0.27, 0.22, 0.12], M.fur, body, { name: 'Tail', capEnd: true, segs: 56 });
+  } else {
+    // 雀仔扇形尾羽
+    const base = V(0, 0.84, -0.72);
+    for (let k = -2; k <= 2; k++) {
+      const a = k * 0.3, dir = V(Math.sin(a) * 0.55, -0.42, -1).normalize();
+      const pos = base.clone().addScaledVector(dir, 0.42 + 0.05 * (2 - Math.abs(k)));
+      const f = mesh(sphere(0.5, 32, 16), k % 2 ? M.wing : M.fur, body, [pos.x, pos.y, pos.z], null, [0.17, 0.035, 1], 'TailFeather');
+      f.lookAt(pos.clone().add(dir));
+      f.userData.noFur = true;
+    }
+  }
 
   /* ---------- 白披風：扣喺兩邊肩胛，被風吹向左後方 ---------- */
   let cape = null;
@@ -340,18 +418,32 @@
     const buckle = strap.position.clone().addScaledVector(side, 0.19);
     mesh(new THREE.BoxGeometry(0.06, 0.07, 0.03), M.brass, root, [buckle.x, buckle.y, buckle.z]).quaternion.setFromUnitVectors(Z, side);
 
-    // 毛毛貓掌：由護腕伸出，掌心貼住劍柄，四隻腳趾包住劍柄前面
-    organicTube([W.clone().addScaledVector(toHand, -0.04), W.clone().addScaledVector(toHand, 0.14), H.clone().addScaledVector(toHand, -0.02)],
-                [0.13, 0.155, 0.15], M.fur, root, { name: 'Paw', capEnd: true, segs: 16 });
     const b = toHand.clone().addScaledVector(gripAxis, -toHand.dot(gripAxis)).normalize();
     const c = new THREE.Vector3().crossVectors(gripAxis, b).normalize();
     if (c.z < 0) c.negate();
-    for (let k = 0; k < 4; k++) {
-      const along = (k - 1.5) * 0.075, ang = 1.25 + Math.abs(k - 1.5) * 0.12;
-      const p = H.clone().addScaledVector(gripAxis, along)
-        .addScaledVector(b, Math.cos(ang) * 0.13).addScaledVector(c, Math.sin(ang) * 0.13);
-      const toe = mesh(sphere(0.062, 24, 16), M.fur, root, [p.x, p.y, p.z], null, [1, 0.85, 1.1], 'Toe');
-      toe.quaternion.setFromUnitVectors(Z, c);
+    if (spKey !== 'bird') {
+      // 毛毛手掌：由護腕伸出，掌心貼住劍柄，四隻腳趾包住劍柄前面
+      organicTube([W.clone().addScaledVector(toHand, -0.04), W.clone().addScaledVector(toHand, 0.14), H.clone().addScaledVector(toHand, -0.02)],
+                  [0.13, 0.155, 0.15], M.fur, root, { name: 'Paw', capEnd: true, segs: 16 });
+      const toeR = spKey === 'dog' ? 0.07 : 0.062;
+      for (let k = 0; k < 4; k++) {
+        const along = (k - 1.5) * 0.075, ang = 1.25 + Math.abs(k - 1.5) * 0.12;
+        const p = H.clone().addScaledVector(gripAxis, along)
+          .addScaledVector(b, Math.cos(ang) * 0.13).addScaledVector(c, Math.sin(ang) * 0.13);
+        const toe = mesh(sphere(toeR, 24, 16), M.fur, root, [p.x, p.y, p.z], null, [1, 0.85, 1.1], 'Toe');
+        toe.quaternion.setFromUnitVectors(Z, c);
+      }
+    } else {
+      // 翼尖：毛茸茸嘅腕位，四條飛羽好似手指咁捲住劍柄
+      organicTube([W.clone().addScaledVector(toHand, -0.04), W.clone().addScaledVector(toHand, 0.12), H.clone().addScaledVector(toHand, -0.05)],
+                  [0.13, 0.14, 0.11], M.fur, root, { name: 'WingHand', capEnd: true, segs: 16 });
+      for (let k = 0; k < 4; k++) {
+        const along = (k - 1.5) * 0.07;
+        const at = (bb, cc) => H.clone().addScaledVector(gripAxis, along).addScaledVector(b, bb).addScaledVector(c, cc);
+        const { mesh: quill } = organicTube([W.clone().addScaledVector(toHand, 0.1).addScaledVector(gripAxis, along * 0.6), at(-0.06, 0.15), at(0.1, 0.11), at(0.17, -0.02)],
+                                            [0.05, 0.048, 0.035, 0.012], k % 2 ? M.furDark : M.wing, root, { name: 'Primary', segs: 20, radial: 16 });
+        quill.userData.noFur = true;
+      }
     }
   }
 
@@ -361,63 +453,127 @@
   head.position.set(0, 3.2, 0.12);
   head.rotation.x = 0.07;   // 微微耷低頭，由眉下望上去，眼神更堅定
   root.add(head);
-  // 頭骨：一個連續形狀，兩邊面珠墩脹啲、頭頂略扁（之前係一粒粒波黐埋，睇落似玩具）
+  // 頭骨：一個連續形狀，按品種調面珠墩、頭頂、下巴
+  const SK = { cat: { cheek: 0.15, flat: 0.05, chin: 0.06, scale: [1.12, 0.97, 1] },
+               dog: { cheek: 0.07, flat: 0.06, chin: 0.04, scale: [1.08, 0.96, 1] },
+               bird: { cheek: 0, flat: 0.02, chin: 0, scale: [1.05, 1, 1] } }[spKey];
   const skullGeo = sphere(1.05, 72, 54);
-  const sp = skullGeo.attributes.position, sv = new THREE.Vector3();
-  for (let i = 0; i < sp.count; i++) {
-    sv.fromBufferAttribute(sp, i).divideScalar(1.05);
+  const sp3 = skullGeo.attributes.position, sv = new THREE.Vector3();
+  for (let i = 0; i < sp3.count; i++) {
+    sv.fromBufferAttribute(sp3, i).divideScalar(1.05);
     const cheek = smooth(0.3, 0.85, Math.abs(sv.x)) * smooth(0.35, -0.45, sv.y) * smooth(-0.6, 0.1, sv.z);
-    const flatTop = smooth(0.55, 1.0, sv.y) * 0.05;
-    const chin = smooth(-0.6, -0.95, sv.y) * smooth(0.0, 0.6, sv.z) * 0.06;
-    sv.multiplyScalar(1.05 * (1 + 0.15 * cheek - flatTop - chin));
-    sp.setXYZ(i, sv.x, sv.y, sv.z);
+    const flatTop = smooth(0.55, 1.0, sv.y) * SK.flat;
+    const chin = smooth(-0.6, -0.95, sv.y) * smooth(0.0, 0.6, sv.z) * SK.chin;
+    sv.multiplyScalar(1.05 * (1 + SK.cheek * cheek - flatTop - chin));
+    sp3.setXYZ(i, sv.x, sv.y, sv.z);
   }
-  mesh(skullGeo, M.fur, head, [0, 0, 0], null, [1.12, 0.97, 1], 'Skull');
-  for (const s of [-1, 1]) {
-    mesh(sphere(0.25), M.furLight, head, [0.14 * s, -0.36, 0.84], null, [1, 0.78, 0.8], 'WhiskerPad');
+  mesh(skullGeo, spKey === 'bird' ? M.furLight : M.fur, head, [0, 0, 0], null, SK.scale, 'Skull');
+  if (spKey === 'bird') {
+    // 雀仔頭頂：一頂羽毛帽，前面停喺眉上面，後面落到後頸
+    const cap = mesh(new THREE.SphereGeometry(1.05 * 1.025, 72, 30, 0, Math.PI * 2, 0, Math.PI * 0.478), M.fur, head, [0, 0, 0], null, SK.scale, 'Crown');
+    cap.rotation.x = -0.245;
   }
-  mesh(sphere(0.16), M.fur, head, [0, -0.02, 0.9], null, [0.75, 1.4, 0.7], 'NoseBridge');
-  mesh(sphere(0.16), M.furLight, head, [0, -0.52, 0.84], null, [1, 0.7, 0.8]);
-  mesh(sphere(0.075, 20, 14), M.nose, head, [0, -0.21, 1.04], [0.25, 0, 0], [1.3, 0.75, 0.75], 'Nose');
-  mesh(new THREE.BoxGeometry(0.012, 0.08, 0.02), M.nose, head, [0, -0.29, 1.06]).userData.noFur = true;   // 人中
-  for (const s of [-1, 1]) {
-    // 嘴角向下（∩∩），抿住嘴好認真
-    mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 16, Math.PI), M.eye, head, [0.06 * s, -0.4, 1.04], [0, 0, 0], [1, 0.7, 1], 'Mouth');
+  // 頭骨表面上某點（俾面上嘅花紋貼住用）
+  const skR = SK.scale.map(v => v * 1.05);
+  function onSkull(x, y) {
+    const z = skR[2] * Math.sqrt(Math.max(0.02, 1 - (x / skR[0]) ** 2 - (y / skR[1]) ** 2));
+    return { p: V(x, y, z), n: V(x / skR[0] ** 2, y / skR[1] ** 2, z / skR[2] ** 2).normalize() };
+  }
+  function patch(x, y, r, sx, sy, mat, name) {
+    const { p, n } = onSkull(x, y);
+    const m = mesh(sphere(r, 32, 24), mat, head, null, null, [sx, sy, 0.45], name);
+    m.position.copy(p).addScaledVector(n, -r * 0.4);
+    m.quaternion.setFromUnitVectors(Z, n);
+    return m;
   }
 
-  // 大大對濕濕眼，加上向鼻樑壓低嘅上眼皮同眉骨，表情嚴肅
+  if (spKey === 'cat') {
+    for (const s of [-1, 1]) {
+      mesh(sphere(0.25), M.furLight, head, [0.14 * s, -0.36, 0.84], null, [1, 0.78, 0.8], 'WhiskerPad');
+    }
+    mesh(sphere(0.16), M.fur, head, [0, -0.02, 0.9], null, [0.75, 1.4, 0.7], 'NoseBridge');
+    mesh(sphere(0.16), M.furLight, head, [0, -0.52, 0.84], null, [1, 0.7, 0.8]);
+    mesh(sphere(0.075, 20, 14), M.nose, head, [0, -0.21, 1.04], [0.25, 0, 0], [1.3, 0.75, 0.75], 'Nose');
+    mesh(new THREE.BoxGeometry(0.012, 0.08, 0.02), M.nose, head, [0, -0.29, 1.06]).userData.noFur = true;   // 人中
+    for (const s of [-1, 1]) {
+      // 嘴角向下（∩∩），抿住嘴好認真
+      mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 16, Math.PI), M.eye, head, [0.06 * s, -0.4, 1.04], [0, 0, 0], [1, 0.7, 1], 'Mouth');
+    }
+  } else if (spKey === 'dog') {
+    // 狗仔：向前凸嘅口鼻、大大粒黑鼻、鼻樑過渡、下巴
+    mesh(sphere(0.4, 48, 32), M.furLight, head, [0, -0.34, 0.7], null, [1.0, 0.72, 1.15], 'Muzzle');
+    mesh(sphere(0.2), M.fur, head, [0, -0.05, 0.8], null, [0.85, 0.9, 0.9], 'Stop');
+    mesh(sphere(0.15), M.furLight, head, [0, -0.6, 0.82], null, [1, 0.6, 0.8], 'Chin');
+    for (const s of [-1, 1]) patch(0.52 * s, -0.36, 0.34, 1.1, 0.9, M.furLight, 'Cheek');   // 柴犬「裏白」：淺色面頰
+    mesh(sphere(0.1, 32, 24), M.dogNose, head, [0, -0.2, 1.15], [0.2, 0, 0], [1.35, 0.85, 0.9], 'Nose');
+    for (const s of [-1, 1]) mesh(sphere(0.022, 12, 8), M.eye, head, [0.05 * s, -0.22, 1.235], null, [1, 0.7, 0.5]).userData.noFur = true;   // 鼻孔
+    mesh(new THREE.BoxGeometry(0.014, 0.12, 0.02), M.dogNose, head, [0, -0.33, 1.14]).userData.noFur = true;
+    for (const s of [-1, 1]) {
+      mesh(new THREE.TorusGeometry(0.075, 0.013, 8, 16, Math.PI), M.eye, head, [0.075 * s, -0.43, 1.12], [-0.3, 0, 0], [1, 0.65, 1], 'Mouth');
+    }
+  } else {
+    // 雀仔：面頰、喉、面頰黑點，同埋鳥喙
+    for (const s of [-1, 1]) {
+      patch(0.55 * s, -0.3, 0.34, 1, 1, M.furLight, 'Cheek');
+      patch(0.86 * s, -0.28, 0.13, 0.8, 1, M.furDark, 'CheekSpot');
+    }
+    if (pal.bib === 'patch') patch(0, -0.6, 0.34, 1.15, 0.85, M.furDark, 'Bib');
+    if (pal.lores) for (const s of [-1, 1]) patch(0.24 * s, 0.04, 0.11, 1.5, 0.6, M.furDark, 'Lores');   // 眼同鳥喙之間一條黑線
+    if (pal.bib === 'spots') for (const x of [-0.27, -0.09, 0.09, 0.27]) patch(x, -0.66, 0.05, 1, 1, M.eye, 'ThroatSpot');
+    if (pal.bib === 'spots') patch(0, -0.35, 0.42, 1.2, 0.9, M.furLight, 'FaceMask');
+    mesh(new THREE.ConeGeometry(0.19, pal.hook ? 0.34 : 0.42, 40), M.beak, head, [0, pal.hook ? -0.18 : -0.1, 1.14], [Math.PI / 2 + (pal.hook ? 0.7 : 0.08), 0, 0], [1, 1, 0.72], 'Beak');
+    mesh(new THREE.ConeGeometry(0.13, 0.26, 32), M.beak, head, [0, -0.25, 1.06], [Math.PI / 2 + 0.38, 0, 0], [1, 1, 0.6], 'LowerBeak');
+  }
+
+  // 眼：嚴肅上眼皮同眉骨，大細同位置按品種調
+  const EY = { cat: { x: 0.38, y: -0.02, z: 0.95, k: 1 }, dog: { x: 0.4, y: 0.1, z: 0.93, k: 0.88 }, bird: { x: 0.42, y: 0.1, z: 0.9, k: 0.76 } }[spKey];
   const eyes = [];
   for (const s of [-1, 1]) {
-    const eye = new THREE.Group();
-    eye.position.set(0.38 * s, -0.02, 0.95);
+    const eye = new THREE.Group();       // 眨眼會縮呢個 group
+    eye.position.set(EY.x * s, EY.y, EY.z);
     eye.rotation.z = 0.06 * s;
     head.add(eye);
-    mesh(sphere(0.21, 40, 28), M.eye, eye, [0, 0, -0.02], null, [1, 1.08, 0.62], 'EyeRim');
-    mesh(sphere(0.19, 40, 28), M.iris, eye, [0, 0, 0], null, [1, 1.06, 0.6], 'Iris');
-    mesh(sphere(0.155, 32, 24), M.eye, eye, [0, 0, 0.035], null, [1, 1.1, 0.6], 'Pupil');      // 大瞳孔：幼貓喺陰天會擴張
-    mesh(sphere(0.205, 40, 28), M.cornea, eye, [0, 0, 0.012], null, [1, 1.07, 0.66], 'Cornea');
-    mesh(sphere(0.03, 12, 10), M.shine, eye, [0.06 * s, 0.02, 0.125]);
-    // 上眼皮：毛色半球殼，蓋住眼上面兩成，眼頭一邊壓得最低
-    const lid = mesh(new THREE.SphereGeometry(0.218, 40, 16, 0, Math.PI * 2, 0, Math.PI * 0.27), M.fur, eye, [0, 0.005, 0], null, [1.06, 1.1, 0.74], 'Eyelid');
+    const g = new THREE.Group();
+    g.scale.setScalar(EY.k);
+    eye.add(g);
+    mesh(sphere(0.21, 40, 28), M.eye, g, [0, 0, -0.02], null, [1, 1.08, 0.62], 'EyeRim');
+    mesh(sphere(0.19, 40, 28), M.iris, g, [0, 0, 0], null, [1, 1.06, 0.6], 'Iris');
+    mesh(sphere(0.155, 32, 24), M.eye, g, [0, 0, 0.035], null, [1, 1.1, 0.6], 'Pupil');
+    mesh(sphere(0.205, 40, 28), M.cornea, g, [0, 0, 0.012], null, [1, 1.07, 0.66], 'Cornea');
+    mesh(sphere(0.03, 12, 10), M.shine, g, [0.06 * s, 0.02, 0.125]);
+    // 上眼皮：蓋住眼上面兩成，眼頭一邊壓得最低
+    const lid = mesh(new THREE.SphereGeometry(0.218, 40, 16, 0, Math.PI * 2, 0, Math.PI * 0.27), M.fur, g, [0, 0.005, 0], null, [1.06, 1.1, 0.74], 'Eyelid');
     lid.rotation.set(0.12, 0, 0.32 * s, 'ZYX');
     eyes.push(eye);
     // 眉骨：深色毛，向眉心壓落
-    mesh(new THREE.CapsuleGeometry(0.04, 0.3, 6, 12), M.furDark, head, [0.36 * s, 0.12, 1.0], [0, 0, Math.PI / 2 + 0.5 * s], [1, 1, 0.5], 'Brow');
+    mesh(new THREE.CapsuleGeometry(0.04, 0.3 * EY.k, 6, 12), M.furDark, head, [(EY.x - 0.02) * s, EY.y + 0.14 * EY.k, EY.z + 0.05], [0, 0, Math.PI / 2 + 0.5 * s], [1, 1, 0.5], 'Brow');
   }
 
-  // 細細對耳仔，向兩邊開
-  for (const s of [-1, 1]) {
-    const ear = new THREE.Group();
-    ear.position.set(0.7 * s, 0.68, 0.0);
-    ear.rotation.set(-0.15, 0, -0.62 * s);
-    head.add(ear);
-    mesh(new THREE.ConeGeometry(0.3, 0.52, 32), M.fur, ear, [0, 0.2, 0], null, [1, 1, 0.75], 'Ear');
-    mesh(new THREE.ConeGeometry(0.18, 0.34, 24), M.pinkSoft, ear, [0, 0.16, 0.12], null, [1, 1, 0.4], 'InnerEar');
-    mesh(new THREE.ConeGeometry(0.08, 0.3, 12), M.furLight, ear, [0, 0.12, 0.17], null, [1, 1, 0.5]);
+  // 耳仔
+  if (spKey === 'cat' || (spKey === 'dog' && pal.ears === 'up')) {
+    const big = spKey === 'dog';
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Group();
+      ear.position.set((big ? 0.62 : 0.7) * s, big ? 0.72 : 0.68, big ? 0.05 : 0);
+      ear.rotation.set(big ? -0.12 : -0.15, 0, (big ? -0.38 : -0.62) * s);
+      head.add(ear);
+      mesh(new THREE.ConeGeometry(big ? 0.32 : 0.3, big ? 0.6 : 0.52, 32), M.fur, ear, [0, 0.2, 0], null, [1, 1, big ? 0.65 : 0.75], 'Ear');
+      mesh(new THREE.ConeGeometry(big ? 0.2 : 0.18, big ? 0.42 : 0.34, 24), big ? M.furLight : M.pinkSoft, ear, [0, 0.16, 0.12], null, [1, 1, 0.4], 'InnerEar');
+      if (!big) mesh(new THREE.ConeGeometry(0.08, 0.3, 12), M.furLight, ear, [0, 0.12, 0.17], null, [1, 1, 0.5]);
+    }
+  } else if (spKey === 'dog') {
+    // 垂耳：由頭頂兩邊吊落嚟
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Group();
+      ear.position.set(0.92 * s, 0.42, 0.02);
+      ear.rotation.set(0.05, 0.15 * s, 0.22 * s);
+      head.add(ear);
+      mesh(sphere(0.36, 40, 28), M.fur, ear, [0, -0.3, 0], null, [0.42, 1.0, 0.75], 'Ear');
+    }
   }
 
-  // 鬚
-  if (!opts.forPrint) {
+  // 鬚（得貓有）
+  if (spKey === 'cat' && !opts.forPrint) {
     for (const s of [-1, 1]) {
       for (let k = 0; k < 3; k++) {
         mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.7, 6), M.whisker, head,
@@ -438,13 +594,13 @@
   }
   mesh(sphere(0.06), M.pink, bow, [0, 0, 0.02], null, [1, 1, 0.8], 'BowKnot');
 
-  root.userData = { head, eyes, sword, cape, materials: M, furs: FURS, furMaterials: [M.fur, M.furDark, M.furLight] };
-  root.userData.setFur = function (key) {
-    const f = FURS[key];
-    if (!f) return;
-    M.fur.color.setHex(f.base);
-    M.furDark.color.setHex(f.dark);
-    M.furLight.color.setHex(f.light);
+  root.userData = {
+    head, eyes, sword, cape, materials: M, species: spKey, palette: palKey,
+    furScale: sp.furScale, stripe: pal.stripe || 0, furMaterials: [M.fur, M.furDark, M.furLight],
   };
   return root;
-});
+}
+
+buildKnightKitten.SPECIES = SPECIES;
+return buildKnightKitten;
+})());

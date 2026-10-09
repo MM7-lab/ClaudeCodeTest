@@ -74,19 +74,19 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 
   <aside class="plate">
     <div>
-      <div class="eyebrow">KNIGHT KITTEN</div>
-      <h1>小貓騎士</h1>
+      <div class="eyebrow" id="latin">KNIGHT KITTEN</div>
+      <h1 id="name">小貓騎士</h1>
     </div>
     <p class="motto">雖然好細隻、壓力好大，但今日都要硬住頭皮撐過去。</p>
 
     <div class="group">
-      <div class="label">毛色</div>
-      <div class="chips" id="furs">
-        <button class="chip" data-fur="tabby" aria-pressed="true"><span class="dot" style="background:#a8927b"></span>虎斑（原圖）</button>
-        <button class="chip" data-fur="orange" aria-pressed="false"><span class="dot" style="background:#e2a062"></span>橘貓</button>
-        <button class="chip" data-fur="grey" aria-pressed="false"><span class="dot" style="background:#a9adb6"></span>灰貓</button>
-        <button class="chip" data-fur="black" aria-pressed="false"><span class="dot" style="background:#3a3840"></span>黑貓</button>
-      </div>
+      <div class="label">角色</div>
+      <div class="chips" id="species"></div>
+    </div>
+
+    <div class="group">
+      <div class="label" id="coat-label">毛色</div>
+      <div class="chips" id="furs"></div>
     </div>
 
     <div class="group">
@@ -106,7 +106,7 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
         <dt>零件</dt><dd id="s-parts">–</dd>
         <dt>三角面</dt><dd id="s-tris">–</dd>
       </dl>
-      <p class="note">1 單位 = 1 cm。3D 打印用嘅 STL 喺 repo 嘅 knight-kitten 資料夾（打印版冇鬚同披風）。</p>
+      <p class="note">1 單位 = 1 cm。三個版本嘅 3D 打印 STL 都喺 repo 嘅 knight-kitten 資料夾（打印版冇鬚同披風）。</p>
     </div>
   </aside>
 </div>
@@ -287,17 +287,6 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   grass.receiveShadow = true;
   scene.add(grass);
 
-  const kitten = buildKnightKitten(THREE, { fur: 'tabby' });
-  scene.add(kitten);
-  const { head, eyes, cape } = kitten.userData;
-  const KM = kitten.userData.materials;
-  Object.assign(KM.steel, { roughnessMap: roughTex, bumpMap: dentTex, bumpScale: 0.012 });
-  Object.assign(KM.steelDark, { roughnessMap: roughTex, bumpMap: dentTex, bumpScale: 0.012 });
-  Object.assign(KM.blade, { roughnessMap: roughTex });
-  Object.assign(KM.brass, { roughnessMap: roughTex });
-  Object.assign(KM.mail, { map: mailTex, bumpMap: mailTex, bumpScale: 0.03 });
-  // roughnessMap 平均約 0.46，所以將基本粗糙度乘返上去
-  KM.steel.roughness = 0.3; KM.steelDark.roughness = 0.55; KM.blade.roughness = 0.22; KM.brass.roughness = 0.45;
   // 真實毛髮：shell 技術。每個有毛嘅零件再疊 12 層，每層向外推少少、
   // 用雜訊紋理切出一條條毛；越出越疏，毛根暗、毛尖光，再加虎紋同斑駁。
   const strandTex = canvasTex(256, (g, n) => {
@@ -322,14 +311,11 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
       g.fillRect(x - r, y - r, r * 2, r * 2);
     }
   }, 1, 1);
-  const STRIPES = { tabby: 0.85, orange: 0.7, grey: 0.6, black: 0 };
-  const furUniforms = [];
-  function furPatch(mat, layer, layers, len, stripe) {
+  function furPatch(mat, layer, layers, len, stripe, dark) {
     const u = {
       uT: { value: layer / layers }, uLen: { value: len }, uStrand: { value: strandTex }, uMottle: { value: mottleTex },
-      uDark: { value: new THREE.Color() }, uStripe: { value: stripe },
+      uDark: { value: dark }, uStripe: { value: stripe },
     };
-    furUniforms.push({ u, mat });
     mat.defines = Object.assign({}, mat.defines, { USE_UV: '' });
     mat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, u);
@@ -352,54 +338,75 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
     return mat;
   }
   const LAYERS = 12;
-  const FURLEN = new Map([[KM.fur, 0.1], [KM.furDark, 0.06], [KM.furLight, 0.08]]);
-  const shellSets = new Map();   // 底層材質 → 每層 shell 材質
-  for (const base of kitten.userData.furMaterials) {
-    furPatch(base, 0, LAYERS, 0, base === KM.furLight ? 0 : STRIPES.tabby);
-    const mats = [];
-    for (let i = 1; i <= LAYERS; i++) {
-      const m = new THREE.MeshStandardMaterial({ color: base.color, roughness: 1, envMapIntensity: 0.3 });
-      mats.push(furPatch(m, i, LAYERS, FURLEN.get(base), base === KM.furLight ? 0 : STRIPES.tabby));
-    }
-    shellSets.set(base, mats);
+  const SPECIES = buildKnightKitten.SPECIES;
+
+  // 建立角色：品種或者毛色一轉就成隻重新砌過
+  let kitten = null, head = null, eyes = [], cape = null, headY = 0, headTilt = 0;
+  function disposeCharacter(obj) {
+    const mats = new Set();
+    obj.traverse(o => { if (o.isMesh) { o.geometry.dispose(); mats.add(o.material); } });
+    mats.forEach(m => m.dispose());
   }
-  const furMeshes = [];
-  kitten.traverse(o => { if (o.isMesh && shellSets.has(o.material) && !o.userData.noFur) furMeshes.push(o); });
-  for (const o of furMeshes) {
-    for (const m of shellSets.get(o.material)) {
-      const shell = new THREE.Mesh(o.geometry, m);
-      shell.castShadow = false;
-      shell.receiveShadow = true;
-      o.add(shell);
-    }
-  }
-  function syncFur(key) {
+  function makeCharacter(species, fur) {
+    if (kitten) { scene.remove(kitten); disposeCharacter(kitten); }
+    kitten = buildKnightKitten(THREE, { species, fur });
+    scene.add(kitten);
+    ({ head, eyes, cape } = kitten.userData);
+    const KM = kitten.userData.materials;
+    Object.assign(KM.steel, { roughnessMap: roughTex, bumpMap: dentTex, bumpScale: 0.012 });
+    Object.assign(KM.steelDark, { roughnessMap: roughTex, bumpMap: dentTex, bumpScale: 0.012 });
+    Object.assign(KM.blade, { roughnessMap: roughTex });
+    Object.assign(KM.brass, { roughnessMap: roughTex });
+    Object.assign(KM.mail, { map: mailTex, bumpMap: mailTex, bumpScale: 0.03 });
+    // roughnessMap 平均約 0.46，所以將基本粗糙度乘返上去
+    KM.steel.roughness = 0.3; KM.steelDark.roughness = 0.55; KM.blade.roughness = 0.22; KM.brass.roughness = 0.45;
+
+    const { furScale, stripe } = kitten.userData;
+    const FURLEN = new Map([[KM.fur, 0.1], [KM.furDark, 0.06], [KM.furLight, 0.08]]);
     const darker = KM.furDark.color.clone().multiplyScalar(0.6);
-    for (const { u, mat } of furUniforms) {
-      const base = [...shellSets.keys()].find(b => b === mat || shellSets.get(b).includes(mat));
-      if (base && mat !== base) mat.color.copy(base.color);
-      u.uDark.value.copy(base === KM.furDark ? darker : KM.furDark.color);
-      if (base !== KM.furLight) u.uStripe.value = STRIPES[key];
+    const shellSets = new Map();   // 底層材質 → 每層 shell 材質
+    for (const base of kitten.userData.furMaterials) {
+      const st = base === KM.furLight ? 0 : stripe;
+      const dark = base === KM.furDark ? darker : KM.furDark.color;
+      furPatch(base, 0, LAYERS, 0, st, dark);
+      const mats = [];
+      for (let i = 1; i <= LAYERS; i++) {
+        const m = new THREE.MeshStandardMaterial({ color: base.color, roughness: 1, envMapIntensity: 0.3 });
+        mats.push(furPatch(m, i, LAYERS, FURLEN.get(base) * furScale, st, dark));
+      }
+      shellSets.set(base, mats);
     }
+    const furMeshes = [];
+    kitten.traverse(o => { if (o.isMesh && shellSets.has(o.material) && !o.userData.noFur) furMeshes.push(o); });
+    for (const o of furMeshes) {
+      for (const m of shellSets.get(o.material)) {
+        const shell = new THREE.Mesh(o.geometry, m);
+        shell.castShadow = false;
+        shell.receiveShadow = true;
+        o.add(shell);
+      }
+    }
+    // 環境反射主要俾金屬用；毛、披風等非金屬只收少少，否則成隻會被照到發白
+    for (const k of ['fur', 'furDark', 'furLight', 'whisker', 'pink', 'pinkSoft', 'nose', 'leather', 'cape', 'beak', 'feet', 'wing']) KM[k].envMapIntensity = 0.3;
+    Object.values(KM).forEach(m => { m.needsUpdate = true; });
+    headY = head.position.y;
+    headTilt = head.rotation.x;
+
+    // 名牌同規格
+    const sp = SPECIES[kitten.userData.species];
+    document.getElementById('name').textContent = sp.name;
+    document.getElementById('latin').textContent = sp.latin;
+    document.getElementById('coat-label').textContent = sp.coatLabel;
+    const box = new THREE.Box3().setFromObject(kitten);
+    const size = box.getSize(new THREE.Vector3());
+    let parts = 0, tris = 0;
+    kitten.traverse(o => { if (o.isMesh) { parts++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+    const cm = v => v.toFixed(1) + ' cm';
+    document.getElementById('s-h').textContent = cm(size.y);
+    document.getElementById('s-wd').textContent = size.x.toFixed(1) + ' × ' + cm(size.z);
+    document.getElementById('s-parts').textContent = parts;
+    document.getElementById('s-tris').textContent = Math.round(tris).toLocaleString('en');
   }
-  syncFur('tabby');
-
-  // 環境反射主要俾金屬用；毛、披風等非金屬只收少少，否則成隻貓會被照到發白
-  for (const k of ['fur', 'furDark', 'furLight', 'whisker', 'pink', 'pinkSoft', 'nose', 'leather', 'cape']) KM[k].envMapIntensity = 0.3;
-  Object.values(KM).forEach(m => { m.needsUpdate = true; });
-  const headY = head.position.y;
-  const headTilt = head.rotation.x;
-
-  // 規格
-  const box = new THREE.Box3().setFromObject(kitten);
-  const size = box.getSize(new THREE.Vector3());
-  let parts = 0, tris = 0;
-  kitten.traverse(o => { if (o.isMesh) { parts++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
-  const cm = v => v.toFixed(1) + ' cm';
-  document.getElementById('s-h').textContent = cm(size.y);
-  document.getElementById('s-wd').textContent = size.x.toFixed(1) + ' × ' + cm(size.z);
-  document.getElementById('s-parts').textContent = parts;
-  document.getElementById('s-tris').textContent = Math.round(tris).toLocaleString('en');
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -422,12 +429,38 @@ dl.spec dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
   resize();
 
   // 介面
-  const furBtns = [...document.querySelectorAll('#furs .chip')];
-  furBtns.forEach(b => b.addEventListener('click', () => {
-    kitten.userData.setFur(b.dataset.fur);
-    syncFur(b.dataset.fur);
-    furBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-  }));
+  // 角色同毛色選擇；網址加 #dog 或 #bird 可以直接打開嗰個版本
+  const state = { species: SPECIES[location.hash.slice(1)] ? location.hash.slice(1) : 'cat', fur: null };
+  const hex = n => '#' + n.toString(16).padStart(6, '0');
+  function chip(label, swatch, pressed, onClick) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.setAttribute('aria-pressed', String(pressed));
+    if (swatch != null) {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = hex(swatch);
+      b.append(dot);
+    }
+    b.append(label);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function renderChips() {
+    const spBox = document.getElementById('species'), furBox = document.getElementById('furs');
+    spBox.replaceChildren(...Object.entries(SPECIES).map(([key, sp]) =>
+      chip(sp.name.replace('騎士', ''), null, key === state.species, () => select(key, null))));
+    const sp = SPECIES[state.species];
+    furBox.replaceChildren(...Object.entries(sp.palettes).map(([key, p]) =>
+      chip(p.label, p.base, key === state.fur, () => select(state.species, key))));
+  }
+  function select(species, fur) {
+    state.species = species;
+    state.fur = fur || SPECIES[species].default;
+    makeCharacter(state.species, state.fur);
+    renderChips();
+  }
+  select(state.species, null);
   const spinBtn = document.getElementById('spin');
   spinBtn.setAttribute('aria-pressed', String(controls.autoRotate));
   spinBtn.addEventListener('click', () => {

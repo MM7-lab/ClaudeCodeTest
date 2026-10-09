@@ -9,7 +9,7 @@
 | `floor-planner/index.html` | 工具本體（亦係 Claude Artifact 嗰個版本） |
 | `docs/index.html` | 網上版（GitHub Pages），由 `floor-planner/build_pages.py` 產生 |
 | `docs/plan-data.json` | 網上版一打開就載入嘅平面圖同建議方案 |
-| `knight-kitten/` | 小貓騎士 3D 模型（檢視頁、STL、GLB），詳見入面嘅 README |
+| `knight-kitten/` | 小動物騎士 3D 模型：小貓、小狗、小雀三個版本（檢視頁、STL、GLB），詳見入面嘅 README |
 
 ## 放上網（GitHub Pages）
 
