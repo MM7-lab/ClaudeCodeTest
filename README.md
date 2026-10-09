@@ -38,3 +38,21 @@ python3 floor-planner/build_pages.py
 ```
 
 會重新產生 `docs/index.html`。
+
+---
+
+# 社畜貓動畫（`cat-animation/`）
+
+用三張 AI 生成嘅貓貓圖砌成嘅 22 秒短片（1080×1350，IG 4:5）：鏡頭推移、咖啡蒸氣、煙霧粒子、煙頭發光、時鐘標籤同廣東話字幕。
+
+| 路徑 | 用途 |
+|---|---|
+| `cat-animation/shachu-cat.mp4` | 成品 |
+| `cat-animation/images/` | 原圖 |
+| `cat-animation/make_animation.py` | 產生影片嘅程式（改字幕、時間線喺檔案入面嘅 `SUBS`、`CLOCKS`） |
+
+重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
+
+```
+python3 cat-animation/make_animation.py
+```
