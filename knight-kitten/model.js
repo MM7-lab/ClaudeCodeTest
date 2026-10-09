@@ -61,17 +61,74 @@
   const sphere = (r, w, h) => new THREE.SphereGeometry(r, w || 32, h || 24);
   const lathe = (pts, segs) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), segs || 96);
 
-  // 兩點之間嘅圓柱（手臂、腳用），兩端加圓球令關節圓潤
-  function limb(a, b, r, mat, parent, caps) {
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const Z = new THREE.Vector3(0, 0, 1);
+
+  // 有機管：沿曲線走，粗幼跟住長度順滑變化（手臂、腳、尾）。
+  // 法線按粗幼變化嘅斜度修正，所以光暗連貫，唔會似一節節水喉。
+  function organicTube(pts, radii, mat, parent, o) {
+    o = o || {};
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+    const segs = o.segs || 40, radial = o.radial || 32;
+    const geo = new THREE.TubeGeometry(curve, segs, 1, radial, false);
+    const rAt = t => {
+      const f = t * (radii.length - 1), i = Math.min(radii.length - 2, Math.floor(f)), k = f - i;
+      return radii[i] + (radii[i + 1] - radii[i]) * k * k * (3 - 2 * k);
+    };
+    const pos = geo.attributes.position, nor = geo.attributes.normal, L = curve.getLength();
+    const c = new THREE.Vector3(), T = new THREE.Vector3(), d = new THREE.Vector3(), n = new THREE.Vector3();
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, t0 = Math.max(0, t - 0.002), t1 = Math.min(1, t + 0.002);
+      curve.getPointAt(t, c);
+      curve.getTangentAt(t, T);
+      const r = rAt(t), slope = (rAt(t1) - rAt(t0)) / ((t1 - t0) * L);
+      for (let j = 0; j <= radial; j++) {
+        const k = i * (radial + 1) + j;
+        d.fromBufferAttribute(pos, k).sub(c);
+        pos.setXYZ(k, c.x + d.x * r, c.y + d.y * r, c.z + d.z * r);
+        n.copy(d).addScaledVector(T, -slope).normalize();
+        nor.setXYZ(k, n.x, n.y, n.z);
+      }
+    }
+    const m = mesh(geo, mat, parent, null, null, null, o.name);
+    const cap = (t, r) => { const p = curve.getPointAt(t); mesh(sphere(r, 32, 24), mat, parent, [p.x, p.y, p.z]); };
+    if (o.capStart) cap(0, radii[0]);
+    if (o.capEnd) cap(1, radii[radii.length - 1]);
+    return { mesh: m, curve };
+  }
+
+  // 一節甲片：由 a 到 b 嘅短錐筒，下緣闊少少再加卷邊，疊埋一齊似真盔甲咁一片壓一片
+  function lame(a, b, r0, r1, mat, parent, roll) {
     const dir = new THREE.Vector3().subVectors(b, a);
-    const m = mesh(new THREE.CylinderGeometry(r, r, dir.length(), 48), mat, parent);
+    const m = mesh(new THREE.CylinderGeometry(r1, r0, dir.length(), 48, 1, false), mat, parent);
     m.position.copy(a).addScaledVector(dir, 0.5);
-    m.quaternion.setFromUnitVectors(Y, dir.normalize());
-    if (caps !== false) {
-      mesh(sphere(r, 40, 28), mat, parent, [a.x, a.y, a.z]);
-      mesh(sphere(r, 40, 28), mat, parent, [b.x, b.y, b.z]);
+    m.quaternion.setFromUnitVectors(Y, dir.clone().normalize());
+    if (roll !== false) {
+      const t = mesh(new THREE.TorusGeometry(r1 - 0.004, 0.016, 10, 48), M.steel, parent, [b.x, b.y, b.z]);
+      t.quaternion.setFromUnitVectors(Z, dir.clone().normalize());
     }
     return m;
+  }
+
+  // 護翼（手肘、膝頭外側）：水滴形薄甲片，中間一條凸脊，尖位指向關節
+  function wing(at, facing, r, parent, pointTo) {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, -r * 1.25);
+    shape.bezierCurveTo(r * 0.55, -r * 0.7, r * 1.05, -r * 0.1, r * 0.95, r * 0.35);
+    shape.bezierCurveTo(r * 0.8, r * 0.95, -r * 0.8, r * 0.95, -r * 0.95, r * 0.35);
+    shape.bezierCurveTo(-r * 1.05, -r * 0.1, -r * 0.55, -r * 0.7, 0, -r * 1.25);
+    const g = new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 24 });
+    g.translate(0, 0, -0.006);
+    const m = mesh(g, M.steel, parent, [at.x, at.y, at.z], null, null, 'Wing');
+    // 法線向外，尖位指向關節
+    const f = facing.clone().normalize();
+    const yAxis = pointTo.clone().sub(at).multiplyScalar(-1);
+    yAxis.addScaledVector(f, -yAxis.dot(f)).normalize();
+    const xAxis = new THREE.Vector3().crossVectors(yAxis, f);
+    m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, f));
+    const ridge = mesh(new THREE.CapsuleGeometry(0.012, r * 1.3, 4, 8), M.steel, parent);
+    ridge.position.copy(at).addScaledVector(f, 0.012);
+    ridge.quaternion.copy(m.quaternion);
   }
 
   /* ---------- 身體：胸甲、皮帶、鎖子甲裙 ---------- */
@@ -86,28 +143,32 @@
     const a = (i / 10) * Math.PI * 2 + 0.3;
     mesh(sphere(0.035, 12, 8), M.brass, body, [Math.sin(a) * 0.9, 1.2, Math.cos(a) * 0.9 * 0.88]);
   }
-  // 胸甲上嘅凸線花紋
-  for (const s of [-1, 1]) {
-    mesh(new THREE.TorusGeometry(0.22, 0.022, 8, 28, Math.PI), M.steelDark, body, [0.3 * s, 1.75, 0.8], [-0.2, 0.3 * s, 0]);
-  }
   mesh(new THREE.TorusGeometry(0.56, 0.09, 20, 96), M.steel, body, [0, 2.36, 0.02], [Math.PI / 2, 0, 0], [1, 0.9, 1], 'Gorget');
-  // 頸位一圈淺色毛
-  for (let i = 0; i < 9; i++) {
-    const a = Math.PI * (0.15 + 0.7 * i / 8);
-    mesh(sphere(0.2, 16, 12), M.furLight, body, [Math.cos(a) * 0.5, 2.48, Math.sin(a) * 0.42], null, [1, 0.8, 1]);
-  }
+  // 頸位一圈連續嘅淺色毛領（之前係一粒粒波，睇落唔自然）
+  mesh(new THREE.TorusGeometry(0.5, 0.17, 24, 72), M.furLight, body, [0, 2.47, 0.04], [Math.PI / 2, 0, 0], [1, 0.88, 0.75], 'Ruff');
 
   // 鎖子甲裙 + 前面兩塊腿甲
   mesh(lathe([[0, 0.42], [0.98, 0.42], [1.05, 0.62], [0.96, 1.05], [0, 1.05]]), M.mail, body, null, null, [1, 1, 0.9], 'Chainmail');
+  // 腿甲：彎曲甲片順住裙身弧度，有厚度、上緣卷邊、四粒鉚釘
   for (const s of [-1, 1]) {
-    mesh(new THREE.BoxGeometry(0.5, 0.55, 0.07), M.steel, body, [0.36 * s, 0.78, 0.93], [-0.18, 0.32 * s, 0], null, 'Tasset');
-    mesh(new THREE.BoxGeometry(0.44, 0.05, 0.08), M.steelDark, body, [0.36 * s, 0.98, 0.98], [-0.18, 0.32 * s, 0]);
-    const tasset = new THREE.Group();
-    tasset.position.set(0.36 * s, 0.78, 0.93);
-    tasset.rotation.set(-0.18, 0.32 * s, 0);
-    body.add(tasset);
-    for (const [x, y] of [[-0.19, 0.2], [0.19, 0.2], [-0.19, -0.2], [0.19, -0.2]]) mesh(sphere(0.03, 10, 8), M.brass, tasset, [x, y, 0.045]);
-    mesh(new THREE.BoxGeometry(0.5, 0.035, 0.09), M.steel, tasset, [0, -0.27, 0]);   // 下緣卷邊
+    const mid = Math.PI / 2 - 0.4 * s, half = 0.27, R = 1.1;
+    const sector = new THREE.Shape();
+    sector.absarc(0, 0, R + 0.04, mid - half, mid + half, false);
+    sector.absarc(0, 0, R, mid + half, mid - half, true);
+    const tg = new THREE.ExtrudeGeometry(sector, { depth: 0.55, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 2, curveSegments: 32 });
+    tg.rotateX(Math.PI / 2);
+    const tasset = mesh(tg, M.steel, body, [0, 1.02, 0], null, [1, 1, 0.9], 'Tasset');
+    const rimGeo = new THREE.TorusGeometry(R + 0.045, 0.018, 8, 32, half * 2);
+    rimGeo.rotateZ(mid - half);
+    rimGeo.rotateX(Math.PI / 2);
+    rimGeo.scale(1, 1, 0.9);   // 同裙身一樣前後扁少少
+    mesh(rimGeo, M.steel, body, [0, 1.0, 0]);
+    for (const da of [-0.2, 0.2]) {
+      for (const y of [0.93, 0.56]) {
+        const a = mid + da;
+        mesh(sphere(0.028, 10, 8), M.brass, body, [Math.cos(a) * (R + 0.05), y, Math.sin(a) * (R + 0.05) * 0.9]);
+      }
+    }
   }
   // 腰帶、斜孭皮帶、圓形銅扣
   mesh(new THREE.TorusGeometry(0.97, 0.06, 10, 64), M.leather, body, [0, 1.08, 0], [Math.PI / 2, 0, 0], [1, 0.92, 1.4], 'Belt');
@@ -133,21 +194,28 @@
     });
   }
 
-  // 腳：毛毛大髀、膝甲、脛甲、鐵靴
+  // 腳：毛毛大髀 → 有護翼嘅膝甲 → 錐形脛甲 → 一片疊一片嘅鐵靴
   for (const s of [-1, 1]) {
-    limb(V(0.42 * s, 0.6, 0.05), V(0.42 * s, 0.42, 0.1), 0.26, M.fur, body, false);
-    limb(V(0.42 * s, 0.42, 0.1), V(0.42 * s, 0.16, 0.1), 0.23, M.steel, body, false);
-    mesh(sphere(0.2), M.steel, body, [0.42 * s, 0.42, 0.3], null, [1, 1, 0.55], 'Poleyn');
-    mesh(new THREE.TorusGeometry(0.2, 0.03, 8, 24), M.steelDark, body, [0.42 * s, 0.42, 0.33], null, [1, 1, 0.6]);
-    mesh(sphere(0.3), M.steelDark, body, [0.42 * s, 0.12, 0.24], null, [1, 0.45, 1.4], 'Sabaton');
-    mesh(new THREE.TorusGeometry(0.24, 0.03, 8, 24), M.steel, body, [0.42 * s, 0.16, 0.2], [Math.PI / 2, 0, 0], [1, 1.3, 1]);
+    const hip = V(0.42 * s, 0.82, 0.0), knee = V(0.43 * s, 0.46, 0.16), ankle = V(0.42 * s, 0.2, 0.14);
+    organicTube([hip, V(0.44 * s, 0.64, 0.09), knee], [0.27, 0.27, 0.22], M.fur, body, { name: 'Thigh' });
+    organicTube([knee.clone().add(V(0, 0.02, -0.02)), V(0.42 * s, 0.32, 0.15), ankle], [0.19, 0.17, 0.18], M.steel, body, { name: 'Greave' });
+    const t1 = mesh(new THREE.TorusGeometry(0.18, 0.022, 10, 48), M.steel, body, [ankle.x, ankle.y + 0.01, ankle.z], [Math.PI / 2, 0, 0]);
+    // 膝甲：向前嘅杯形 + 外側扇翼
+    mesh(sphere(0.2, 48, 32), M.steel, body, [knee.x, knee.y, knee.z + 0.08], null, [1, 0.95, 0.62], 'Poleyn');
+    mesh(new THREE.TorusGeometry(0.19, 0.02, 10, 48), M.steelDark, body, [knee.x, knee.y, knee.z + 0.1], null, [1, 0.95, 0.62]);
+    wing(V(knee.x + 0.18 * s, knee.y + 0.02, knee.z + 0.02), V(s, 0, 0.35), 0.09, body, knee.clone().add(V(0, 0, 0.08)));
+    // 鐵靴：成隻腳嘅形狀（腳踭高、腳尖低），面頭幾條弧形甲片接縫
+    mesh(sphere(0.2, 56, 32), M.steel, body, [0.42 * s, 0.11, 0.3], [0.12, 0, 0], [0.95, 0.58, 1.75], 'Sabaton');
+    for (let i = 0; i < 4; i++) {
+      const z = 0.2 + i * 0.09, rr = 0.19 * Math.sqrt(Math.max(0.15, 1 - Math.pow((z - 0.3) / 0.35, 2)));
+      mesh(new THREE.TorusGeometry(rr, 0.012, 8, 32, Math.PI), M.steelDark, body, [0.42 * s, 0.1 - i * 0.012, z], [0.12, 0, 0], [0.95, 0.6, 1]);
+    }
+    mesh(sphere(0.03, 12, 8), M.brass, body, [0.42 * s + 0.17 * s, 0.17, 0.12]);
   }
 
-  // 蓬鬆尾巴（喺右後腳旁邊伸出嚟）
-  const tailCurve = new THREE.CatmullRomCurve3([V(0.1, 0.75, -0.75), V(0.45, 0.5, -1.05), V(0.9, 0.42, -0.95), V(1.25, 0.6, -0.6)]);
-  mesh(new THREE.TubeGeometry(tailCurve, 40, 0.22, 16, false), M.fur, body, null, null, null, 'Tail');
-  const tip = tailCurve.getPoint(1);
-  mesh(sphere(0.25), M.fur, body, [tip.x, tip.y, tip.z], null, [1, 0.9, 1]);
+  // 蓬鬆尾巴：根部粗、中間最蓬、尾端收細再圓頭
+  organicTube([V(0.1, 0.78, -0.72), V(0.45, 0.5, -1.05), V(0.9, 0.42, -0.95), V(1.22, 0.6, -0.62), V(1.32, 0.86, -0.38)],
+              [0.19, 0.23, 0.25, 0.22, 0.14], M.fur, body, { name: 'Tail', capEnd: true, segs: 56 });
 
   /* ---------- 白披風：扣喺兩邊肩胛，被風吹向左後方 ---------- */
   let cape = null;
@@ -233,19 +301,57 @@
   /* ---------- 雙手（右手由側邊、左手橫過胸前握住劍柄） ---------- */
   sword.updateMatrix();
   const onGrip = y => V(0, y, 0).applyMatrix4(sword.matrix);
+  const gripAxis = Y.clone().applyQuaternion(sword.quaternion);
   const arms = [
-    { shoulder: V(-0.82, 2.08, 0.15), hand: onGrip(-0.32), elbowOut: V(-0.3, -0.35, 0.05) },
-    { shoulder: V(0.82, 2.08, 0.15), hand: onGrip(-0.86), elbowOut: V(0.2, -0.45, 0.25) },
+    { shoulder: V(-0.8, 2.1, 0.12), hand: onGrip(-0.32), elbowOut: V(-0.3, -0.35, 0.05) },
+    { shoulder: V(0.8, 2.1, 0.12), hand: onGrip(-0.86), elbowOut: V(0.2, -0.45, 0.25) },
   ];
-  for (const { shoulder, hand, elbowOut } of arms) {
-    const elbow = shoulder.clone().lerp(hand, 0.45).add(elbowOut);
-    limb(shoulder, elbow, 0.19, M.steel, root);
-    limb(elbow, hand, 0.2, M.steel, root, false);
-    mesh(sphere(0.23, 48, 32), M.steelDark, root, [elbow.x, elbow.y, elbow.z], null, null, 'Couter');
-    // 毛毛手掌包住劍柄
-    mesh(sphere(0.21), M.fur, root, [hand.x, hand.y, hand.z + 0.02], null, [1.15, 0.95, 1], 'Paw');
-    for (let k = -1; k <= 1; k++) {
-      mesh(sphere(0.075, 12, 10), M.furDark, root, [hand.x + 0.04, hand.y + k * 0.085, hand.z + 0.2]).userData.noFur = true;
+  const bodyCenter = V(0, 1.7, 0);
+  for (const { shoulder: S, hand: H, elbowOut } of arms) {
+    const E = S.clone().lerp(H, 0.45).add(elbowOut);
+    const toHand = H.clone().sub(E).normalize();
+    const W = H.clone().addScaledVector(toHand, -0.27);          // 手腕（喺護腕入面）
+    const up = E.clone().sub(S), fore = W.clone().sub(E);
+    // 手肘尖向外嘅方向，同手臂彎曲平面嘅外側
+    const tip = S.clone().sub(E).normalize().add(W.clone().sub(E).normalize()).negate().normalize();
+    const side = new THREE.Vector3().crossVectors(up, fore).normalize();
+    if (side.dot(E.clone().sub(bodyCenter)) < 0) side.negate();
+
+    // 上臂：三片由上而下疊嘅甲片
+    for (let k = 0; k < 3; k++) {
+      const a = S.clone().lerp(E, k * 0.29 - (k ? 0.03 : 0)), b = S.clone().lerp(E, (k + 1) * 0.29);
+      lame(a, b, 0.19 - 0.008 * k, 0.205 - 0.008 * k, k === 1 ? M.steelDark : M.steel, root);
+    }
+    // 手肘內彎：露出鎖子甲
+    organicTube([S.clone().lerp(E, 0.86), E.clone().addScaledVector(tip, -0.06), E.clone().lerp(W, 0.16)], [0.16, 0.15, 0.16], M.mail, root, { name: 'ElbowMail', segs: 16 });
+    // 手肘甲：包住手肘尖嘅杯 + 外側扇翼
+    const cop = mesh(sphere(0.2, 48, 32), M.steel, root, null, null, [1, 1, 0.66], 'Couter');
+    cop.position.copy(E).addScaledVector(tip, 0.05);
+    cop.quaternion.setFromUnitVectors(Z, tip);
+    wing(E.clone().addScaledVector(side, 0.16).addScaledVector(tip, -0.02), side, 0.11, root, E.clone().addScaledVector(tip, 0.1));
+    // 前臂護腕：微微錐形，手腕位外翻成喇叭口，中間一條皮帶
+    const E2 = E.clone().lerp(W, 0.12);
+    organicTube([E2, E2.clone().lerp(W, 0.5), W], [0.17, 0.18, 0.15], M.steel, root, { name: 'Vambrace', segs: 24 });
+    const cuffEnd = W.clone().addScaledVector(toHand, 0.07);
+    lame(W.clone().addScaledVector(toHand, -0.02), cuffEnd, 0.15, 0.19, M.steel, root);
+    const strap = mesh(new THREE.TorusGeometry(0.183, 0.022, 10, 40), M.leather, root);
+    strap.position.copy(E2.clone().lerp(W, 0.45));
+    strap.quaternion.setFromUnitVectors(Z, fore.clone().normalize());
+    const buckle = strap.position.clone().addScaledVector(side, 0.19);
+    mesh(new THREE.BoxGeometry(0.06, 0.07, 0.03), M.brass, root, [buckle.x, buckle.y, buckle.z]).quaternion.setFromUnitVectors(Z, side);
+
+    // 毛毛貓掌：由護腕伸出，掌心貼住劍柄，四隻腳趾包住劍柄前面
+    organicTube([W.clone().addScaledVector(toHand, -0.04), W.clone().addScaledVector(toHand, 0.14), H.clone().addScaledVector(toHand, -0.02)],
+                [0.13, 0.155, 0.15], M.fur, root, { name: 'Paw', capEnd: true, segs: 16 });
+    const b = toHand.clone().addScaledVector(gripAxis, -toHand.dot(gripAxis)).normalize();
+    const c = new THREE.Vector3().crossVectors(gripAxis, b).normalize();
+    if (c.z < 0) c.negate();
+    for (let k = 0; k < 4; k++) {
+      const along = (k - 1.5) * 0.075, ang = 1.25 + Math.abs(k - 1.5) * 0.12;
+      const p = H.clone().addScaledVector(gripAxis, along)
+        .addScaledVector(b, Math.cos(ang) * 0.13).addScaledVector(c, Math.sin(ang) * 0.13);
+      const toe = mesh(sphere(0.062, 24, 16), M.fur, root, [p.x, p.y, p.z], null, [1, 0.85, 1.1], 'Toe');
+      toe.quaternion.setFromUnitVectors(Z, c);
     }
   }
 
@@ -255,16 +361,18 @@
   head.position.set(0, 3.2, 0.12);
   head.rotation.x = 0.07;   // 微微耷低頭，由眉下望上去，眼神更堅定
   root.add(head);
-  mesh(sphere(1.05, 48, 36), M.fur, head, [0, 0, 0], null, [1.12, 0.97, 1], 'Skull');
-  // 長毛：面邊、頭頂一嚿嚿毛
-  for (const s of [-1, 1]) {
-    for (const [a, r] of [[0.1, 0.3], [0.32, 0.32], [0.55, 0.26]]) {   // 面珠墩兩邊嘅長毛
-      mesh(sphere(r, 18, 14), M.fur, head, [s * Math.cos(a) * 0.98, -0.12 - Math.sin(a) * 0.62, 0.22], null, [1, 0.8, 0.85]);
-    }
+  // 頭骨：一個連續形狀，兩邊面珠墩脹啲、頭頂略扁（之前係一粒粒波黐埋，睇落似玩具）
+  const skullGeo = sphere(1.05, 72, 54);
+  const sp = skullGeo.attributes.position, sv = new THREE.Vector3();
+  for (let i = 0; i < sp.count; i++) {
+    sv.fromBufferAttribute(sp, i).divideScalar(1.05);
+    const cheek = smooth(0.3, 0.85, Math.abs(sv.x)) * smooth(0.35, -0.45, sv.y) * smooth(-0.6, 0.1, sv.z);
+    const flatTop = smooth(0.55, 1.0, sv.y) * 0.05;
+    const chin = smooth(-0.6, -0.95, sv.y) * smooth(0.0, 0.6, sv.z) * 0.06;
+    sv.multiplyScalar(1.05 * (1 + 0.15 * cheek - flatTop - chin));
+    sp.setXYZ(i, sv.x, sv.y, sv.z);
   }
-  for (const [x, y, z, r] of [[-0.3, 0.88, 0.2, 0.3], [0.05, 0.95, 0.15, 0.32], [-0.6, 0.62, 0.3, 0.26], [0.32, 0.85, 0.05, 0.26]]) {
-    mesh(sphere(r, 18, 14), M.fur, head, [x, y, z], null, [1, 0.7, 1]);
-  }
+  mesh(skullGeo, M.fur, head, [0, 0, 0], null, [1.12, 0.97, 1], 'Skull');
   for (const s of [-1, 1]) {
     mesh(sphere(0.25), M.furLight, head, [0.14 * s, -0.36, 0.84], null, [1, 0.78, 0.8], 'WhiskerPad');
   }
