@@ -50,9 +50,18 @@ python3 floor-planner/build_pages.py
 | `cat-animation/shachu-cat.mp4` | 成品 |
 | `cat-animation/images/` | 原圖 |
 | `cat-animation/make_animation.py` | 產生影片嘅程式（改字幕、時間線喺檔案入面嘅 `SUBS`、`CLOCKS`） |
+| `cat-animation/3d/index.html` | 卡通 3D 躺平貓網頁（拖曳旋轉，有呼吸、擺尾同煙霧動畫） |
+| `cat-animation/3d/cat-model.js` | 3D 模型本體（網頁同匯出共用） |
+| `cat-animation/3d/lying-office-cat.glb` | 匯出嘅 3D 模型檔（Blender 等軟件開到，冇動畫） |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
 ```
 python3 cat-animation/make_animation.py
+```
+
+重新匯出 3D 模型：
+
+```
+cd cat-animation/3d && npm install && npm run export-glb
 ```

@@ -1,0 +1,10 @@
+{
+  "name": "lying-office-cat-3d",
+  "private": true,
+  "scripts": {
+    "export-glb": "node export-glb.mjs"
+  },
+  "dependencies": {
+    "three": "0.147.0"
+  }
+}
