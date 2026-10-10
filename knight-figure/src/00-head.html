@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knight Kitten Figure</title>
+<style>
+/* Layout: full-bleed WebGPU studio; editorial label top-left, control rows along the bottom. One dark look on purpose (a figure shot on a misty field at dusk). */
+:root {
+  --ink: #efebe5;
+  --muted: #a49e95;
+  --faint: #6f6a64;
+  --line: rgba(239, 235, 229, 0.16);
+  --chip: rgba(22, 21, 25, 0.62);
+  --chip-hover: rgba(40, 38, 44, 0.75);
+  --accent: #eaa7bb;
+  --accent-ink: #1b1418;
+  --bg: #0c0b0e;
+  --f-display: "Didot", "Bodoni 72", "Bodoni MT", "Big Caslon", "Iowan Old Style", Georgia, serif;
+  --f-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "PingFang HK", "Noto Sans TC", sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); overflow: hidden; }
+[hidden] { display: none !important; }
+#gfx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+#gfx.grabbing { cursor: grabbing; }
+.ui { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+  padding: max(18px, env(safe-area-inset-top, 0px)) 20px max(18px, env(safe-area-inset-bottom, 0px)); }
+.ui > * { pointer-events: auto; }
+.label { max-width: 330px; display: grid; gap: 6px; text-shadow: 0 1px 12px rgba(0,0,0,.5); pointer-events: none; }
+.eyebrow { font-family: var(--f-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 2px 0 0; font-family: var(--f-display); font-weight: 400; font-size: clamp(30px, 4.6vw, 46px); line-height: 1.02; letter-spacing: .005em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+dl.spec { margin: 10px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+dl.spec dt { color: var(--faint); letter-spacing: .08em; text-transform: uppercase; font-size: 10.5px; padding-top: 1px; }
+dl.spec dd { margin: 0; color: var(--ink); }
+.dock { display: grid; gap: 8px; justify-items: start; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--chip); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.seg button { border: 0; border-radius: 0; background: transparent; }
+.seg button + button { border-left: 1px solid var(--line); }
+button, .btn { font: inherit; font-size: 13px; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 13px; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); line-height: 1.2; white-space: nowrap; }
+button:hover:not(:disabled) { background: var(--chip-hover); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--accent-ink); border-color: var(--ink); }
+button[aria-pressed="true"]:hover:not(:disabled) { background: var(--ink); filter: brightness(.92); }
+button:disabled { opacity: .38; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.colour { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 5px; }
+.colour input { width: 24px; height: 24px; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; }
+.colour input::-webkit-color-swatch-wrapper { padding: 0; }
+.colour input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,.35); border-radius: 50%; }
+.hint { font-size: 11.5px; color: var(--faint); pointer-events: none; }
+.toast { position: fixed; left: 50%; top: max(18px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: min(520px, calc(100% - 32px));
+  background: rgba(28, 26, 31, .92); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.45; pointer-events: auto; }
+.toast button { margin-left: 10px; padding: 3px 10px; font-size: 12px; }
+.loading { position: fixed; left: 50%; bottom: 46%; transform: translateX(-50%); width: min(320px, calc(100% - 48px)); display: grid; gap: 8px; text-align: center; pointer-events: none; }
+.loading .bar { height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.loading .bar i { display: block; height: 100%; width: 0%; background: var(--ink); transition: width .15s linear; }
+.loading span { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.nogpu { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; }
+.nogpu div { max-width: 440px; display: grid; gap: 10px; }
+.nogpu h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 28px; }
+.nogpu p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 14px; }
+.dropzone { position: fixed; inset: 10px; border: 1.5px dashed rgba(239,235,229,.5); border-radius: 18px; display: grid; place-items: center; pointer-events: none;
+  background: rgba(12,11,14,.45); font-family: var(--f-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+@media (max-width: 640px) {
+  .ui { padding-left: 16px; padding-right: 16px; }
+  .label { max-width: 100%; }
+  .sub { font-size: 13px; }
+  dl.spec { display: none; }
+  button, .btn { font-size: 12.5px; padding: 6px 11px; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .loading .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="gfx" tabindex="0" aria-label="Interactive 3D figure. Drag to orbit or grab, scroll or pinch to zoom."></canvas>
+
+<div class="ui">
+  <header class="label">
+    <div class="eyebrow" id="eyebrow">Collectible figure · No. 007</div>
+    <h1 id="figName">Knight Kitten</h1>
+    <p class="sub" id="figSub">小貓騎士 — small, stressed, still standing.</p>
+    <dl class="spec">
+      <dt>Scale</dt><dd id="specScale">Non-scale · approx. 15 cm with base</dd>
+      <dt>Material</dt><dd id="specMat">PVC &amp; ABS, clear acrylic base</dd>
+      <dt>Edition</dt><dd id="specEd">Knight Edition · longsword</dd>
+    </dl>
+  </header>
+
+  <div class="dock">
+    <div class="row" id="editionRow">
+      <div class="seg" role="group" aria-label="Edition">
+        <button id="edA" aria-pressed="true">Knight</button>
+        <button id="edB" aria-pressed="false">Tea Break</button>
+      </div>
+      <button id="actBtn" class="primary">▶ Salute</button>
+    </div>
+    <div class="row" id="modelRow" hidden>
+      <div class="seg" role="group" aria-label="Finish">
+        <button id="fGloss" aria-pressed="true">Gloss</button>
+        <button id="fSatin" aria-pressed="false">Satin</button>
+        <button id="fMatte" aria-pressed="false">Matte</button>
+      </div>
+      <label class="btn colour" id="paintWrap" title="Paint colour for untextured parts"><input type="color" id="paint" value="#d9cbb8"> Paint</label>
+      <button id="standBtn">Stand up ↻</button>
+      <button id="turnBtn">Turn ↻</button>
+      <button id="backBtn">Back to Knight Kitten</button>
+    </div>
+    <div class="row">
+      <button id="resetBtn">Reset</button>
+      <button id="spinBtn" aria-pressed="false">Spin</button>
+      <button id="dropBtn">Drop</button>
+      <button id="poseBtn" aria-pressed="false">Pose</button>
+      <button id="fixedBtn" aria-pressed="true">Fixed</button>
+      <button id="loadBtn">Load model</button>
+      <span class="hint" id="hint">Drag to orbit · scroll to zoom</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastClose">OK</button></div>
+<div class="loading" id="loading"><span id="loadingText">Sculpting · 0%</span><div class="bar"><i id="loadingBar"></i></div></div>
+<div class="dropzone" id="dropzone" hidden>Drop .glb · .gltf · .obj · .stl</div>
+<div class="nogpu" id="nogpu" hidden><div><h2>WebGPU isn’t available</h2><p id="nogpuText">This figure is rendered with WebGPU. Open the page in a recent Chrome, Edge or Safari (with WebGPU enabled) on a device with a supported graphics card.</p></div></div>
+<input type="file" id="fileInput" multiple accept=".glb,.gltf,.bin,.obj,.mtl,.stl,.png,.jpg,.jpeg,.webp,.gif,.bmp" hidden>
