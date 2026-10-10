@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'watch-cat/**'
+      - 'desktop-cat/pet/**'
+      - 'desktop-cat/toys/**'
       - '.github/workflows/watch-cat.yml'
   workflow_dispatch:
 
@@ -22,6 +24,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.14.3
+      - name: three.js for the phone app's 3D scene
+        working-directory: desktop-cat
+        run: npm ci --omit=dev --ignore-scripts
       - run: gradle --no-daemon :core:test :app:assembleRelease :phone:assembleRelease
       - name: Name the APKs
         run: |

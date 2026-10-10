@@ -15,8 +15,8 @@ android {
         applicationId = "hk.mm7lab.watchcat.phone"
         minSdk = 29
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     signingConfigs {
@@ -39,6 +39,8 @@ android {
         java.srcDir("../shared/src/main/kotlin")
         res.srcDir("../shared/src/main/res")
         assets.srcDir("../shared/src/main/assets")
+        // the desktop app's 3D world, copied in at build time (see copyDesk below)
+        assets.srcDir(layout.buildDirectory.dir("generated/deskAssets").get().asFile)
     }
 
     compileOptions {
@@ -54,6 +56,30 @@ android {
 
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
+// The scene on the home screen is the desktop app's own pet page (desktop-cat/pet), run in a
+// WebView. Copy it in, with three.js, and load the phone bridge before the pets.
+val copyDesk by tasks.registering(Sync::class) {
+    val desk = rootProject.file("../desktop-cat")
+    doFirst {
+        check(File(desk, "node_modules/three/build/three.module.js").exists()) {
+            "three.js is missing: run `npm ci --omit=dev --ignore-scripts` in desktop-cat first"
+        }
+    }
+    from(desk) {
+        include("pet/**", "toys/**", "node_modules/three/build/three.module.js", "node_modules/three/build/three.core.js", "node_modules/three/LICENSE")
+        filesMatching("pet/index.html") {
+            filter { line ->
+                line.replace(
+                    "<script type=\"module\" src=\"pet.js\"></script>",
+                    "<script src=\"phone-bridge.js\"></script>\n<script type=\"module\" src=\"pet.js\"></script>",
+                )
+            }
+        }
+    }
+    into(layout.buildDirectory.dir("generated/deskAssets/desk"))
+}
+tasks.named("preBuild") { dependsOn(copyDesk) }
+
 dependencies {
     implementation(project(":core"))
 
@@ -64,4 +90,5 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("androidx.webkit:webkit:1.12.1")
 }

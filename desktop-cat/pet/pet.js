@@ -87,7 +87,7 @@ try {
 renderer.setClearColor(0x000000, 0);
 // The canvas covers the whole screen: draw it at 1× and keep the frame rate modest so the
 // graphics card stays cool, even on high-resolution laptop screens.
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(window.__pixelRatio || 1); // the phone app asks for sharper (it sets __pixelRatio)
 const scene = new THREE.Scene();
 scene.add(new THREE.HemisphereLight(0xffffff, 0xcdb8a6, 1.2));
 const sun = new THREE.DirectionalLight(0xffffff, 1.5);

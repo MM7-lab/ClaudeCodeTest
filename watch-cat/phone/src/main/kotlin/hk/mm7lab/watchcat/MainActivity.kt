@@ -11,7 +11,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import android.view.View
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,6 +43,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.merge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -98,6 +113,8 @@ class MainActivity : ComponentActivity() {
         Scheduler.ensure(this)
         Actions.refresh(this)
     }
+    private val screen = mutableStateOf("home")
+    private lateinit var scene: Scene
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -109,124 +126,137 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= 33) want += Manifest.permission.POST_NOTIFICATIONS
             ask.launch(want.toTypedArray())
         }
-        setContent { PhoneTheme { App() } }
+        scene = Scene(this) { screen.value = "settings" }
+        setContent { PhoneTheme { App(scene, screen) } }
     }
 
     override fun onResume() {
         super.onResume()
+        scene.resume()
         Actions.refresh(this)
+    }
+
+    override fun onPause() {
+        scene.pause()
+        super.onPause()
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun App() {
-    var settings by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = settings) { settings = false }
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(if (settings) "設定" else "手機貓貓", fontWeight = FontWeight.Bold) },
-                navigationIcon = { if (settings) TextButton(onClick = { settings = false }) { Text("‹ 返回", fontSize = 16.sp) } },
-                actions = { if (!settings) TextButton(onClick = { settings = true }) { Text("⚙️ 設定", fontSize = 16.sp) } },
-            )
-        },
-    ) { pad ->
-        if (settings) SettingsScreen(pad) else Home(pad)
+private fun App(scene: Scene, screenState: MutableState<String>) {
+    var screen by screenState
+    BackHandler(enabled = screen != "home") { screen = "home" }
+    // keep the 3D scene in step with the app's reminders and settings
+    LaunchedEffect(scene) { merge(Store.changes, Desk.changes).collect { scene.sync() } }
+
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(
+                    factory = { scene.web },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { it.visibility = if (screen == "home") View.VISIBLE else View.INVISIBLE },
+                )
+                StatusBar(
+                    Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp),
+                    onToday = { screen = "today" }, onSettings = { screen = "settings" },
+                )
+            }
+            ActionBar(scene)
+        }
+        if (screen != "home") {
+            Scaffold(
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = { Text(if (screen == "today") "今日" else "設定", fontWeight = FontWeight.Bold) },
+                        navigationIcon = { TextButton(onClick = { screen = "home" }) { Text("‹ 返回", fontSize = 16.sp) } },
+                    )
+                },
+            ) { pad -> if (screen == "today") TodayScreen(pad) else SettingsScreen(pad) }
+        }
     }
 }
 
 // ---------------------------------------------------------------- home
 
+/** Over the scene: the next reminder, today's water and mood, and the way to the other pages. */
 @Composable
-private fun Home(pad: PaddingValues) {
-    Column(
-        Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        PetCard()
-        TodayCard()
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun PetCard() {
+private fun StatusBar(modifier: Modifier, onToday: () -> Unit, onSettings: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     storeVersion()
     val now = ticker(1000L)
-    val t = clock()
-    val hearts = remember { Hearts() }
     val s = Store.settings(ctx)
-    val timer = Store.timer(ctx)
-    val mood = Mood.level(Store.today(ctx), s.waterGoal)
-    val pose = poseNow(ctx, now)
-    val next = Reminders.upcoming(s, timer.orderIdx)?.first
-    val pending = timer.pending
+    val t = Store.timer(ctx)
+    val day = Store.today(ctx)
+    val mood = Mood.level(day, s.waterGoal)
+    val next = Reminders.upcoming(s, t.orderIdx)?.first
+    val pending = t.pending
     val quiet = Reminders.inQuiet(s, now, Store.zone)
-    val frac = if (pending != null || s.paused || next == null) 0f else (timer.nextAt - now).toFloat() / (s.intervalMin * MIN)
-    val (line, lineAt) = Store.line(ctx)
-    val showLine = line.isNotEmpty() && now - lineAt < 10_000L
-
-    // mood 1 and up: a heart now and then
-    val tNow = rememberUpdatedState(t)
-    val heartsOn = mood >= 1 && pose != Pose.SLEEP
-    LaunchedEffect(heartsOn) { while (heartsOn) { delay(9000L); hearts.add(tNow.value) } }
-
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1D25)),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            val color = (pending ?: next)?.color() ?: Dim
-            Text(
-                when {
-                    s.paused -> "⏸ 提醒暫停咗"
-                    pending != null -> "${pending.emoji} 等緊你${pending.label}！"
-                    quiet -> "🌙 ${s.name}瞓緊覺"
-                    next != null -> "下次 ${next.emoji} ${hhmm(timer.nextAt)} ${next.label}"
-                    else -> "冇開任何提醒"
-                },
-                color = color, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-            )
-            Box(Modifier.fillMaxWidth().aspectRatio(1f).padding(8.dp), contentAlignment = Alignment.Center) {
-                Ring(frac, color, Modifier.fillMaxSize())
-                PetView(
-                    s.look, pose, mood, t,
-                    Modifier.fillMaxSize(0.84f).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                        Actions.pet(ctx)
-                        hearts.add(t)
-                    },
-                )
-                HeartsView(hearts, t, Modifier.fillMaxSize(0.84f), size = 28.sp, rise = 110f)
+    val color = (pending ?: next)?.color() ?: Dim
+    val mins = ((t.nextAt - now + MIN - 1) / MIN).coerceAtLeast(1)
+    val text = when {
+        s.paused -> "⏸ 提醒暫停咗"
+        pending != null -> "${pending.emoji} 等緊你${pending.label}！"
+        quiet -> "🌙 夜晚唔提醒"
+        next != null -> "下次 ${next.emoji} ${next.label} · ${hhmm(t.nextAt)}（$mins 分鐘後）"
+        else -> "冇開任何提醒"
+    }
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xE01B1D25)) {
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(text, color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "${s.name} · 💧 ${day.water}/${s.waterGoal} 杯 · ${Mood.NAMES[mood]}",
+                        color = Color(0xFFDDE3EA), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                TextButton(onClick = onToday) { Text("📊", fontSize = 22.sp) }
+                TextButton(onClick = onSettings) { Text("⚙️", fontSize = 22.sp) }
             }
-            Text(
-                if (showLine) "${s.name}：$line" else "${s.name} · 開心指數：${Mood.NAMES[mood]}",
-                color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center,
-                modifier = Modifier.heightIn(min = 44.dp),
-            )
-            Spacer(Modifier.height(12.dp))
             if (pending != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
                     Button(
                         onClick = { scope.launch { Actions.answer(ctx, true) } },
                         colors = ButtonDefaults.buttonColors(containerColor = RestGreen, contentColor = Color.Black),
-                    ) { Text("搞掂 ✓", fontSize = 17.sp) }
-                    OutlinedButton(onClick = { scope.launch { Actions.answer(ctx, false) } }) { Text("遲啲先 ⏰", fontSize = 17.sp, color = Color.White) }
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = { scope.launch { Actions.addWater(ctx) } },
-                        colors = ButtonDefaults.buttonColors(containerColor = WaterBlue, contentColor = Color.Black),
-                    ) { Text("+1 杯水 💧", fontSize = 16.sp) }
-                    OutlinedButton(onClick = { Actions.test(ctx) }) { Text("🔔 試吓提醒", fontSize = 16.sp, color = Color.White) }
+                    ) { Text("搞掂 ✓") }
+                    OutlinedButton(onClick = { scope.launch { Actions.answer(ctx, false) } }) { Text("遲啲先 ⏰", color = Color.White) }
                 }
             }
         }
     }
+}
+
+/** Under the scene: things to do with the pets. */
+@Composable
+private fun ActionBar(scene: Scene) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    Desk.changes.collectAsState().value
+    val office = Desk.scene(ctx).office
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { scope.launch { Actions.addWater(ctx) } },
+                colors = ButtonDefaults.buttonColors(containerColor = WaterBlue, contentColor = Color.Black),
+            ) { Text("+1 杯水 💧") }
+            FilledTonalButton(onClick = { scene.comeHere() }) { Text("📣 過嚟") }
+            FilledTonalButton(onClick = { scene.group("party") }) { Text("🎉 派對") }
+            FilledTonalButton(onClick = { scene.group("parade") }) { Text("🎵 排隊行") }
+            if (office) FilledTonalButton(onClick = { scene.group("meeting") }) { Text("💼 開會") }
+            FilledTonalButton(onClick = { Actions.test(ctx) }) { Text("🔔 試吓提醒") }
+        }
+    }
+}
+
+@Composable
+private fun TodayScreen(pad: PaddingValues) {
+    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)) { TodayCard() }
 }
 
 @Composable
@@ -317,6 +347,14 @@ private fun SettingsScreen(pad: PaddingValues) {
     fun set(n: Settings) = Actions.changeSettings(ctx, n)
     var dialog by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf(s.name) }
+    Desk.changes.collectAsState().value
+    val sc = Desk.scene(ctx)
+    fun setScene(n: Desk.Scene) = Desk.save(ctx, n)
+    var size by remember { mutableStateOf(sc.size) }
+    val scope = rememberCoroutineScope()
+    val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) { Desk.setPhoto(ctx, uri) }
+    }
 
     LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(bottom = 32.dp)) {
         item { Header("寵物") }
@@ -336,7 +374,30 @@ private fun SettingsScreen(pad: PaddingValues) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        item { SwitchRow("🧊 3D 樣式", if (s.style3d) "同電腦版一樣嘅 3D 寵物" else "平面公仔畫", s.style3d) { set(s.copy(style3d = it)) } }
+        item { SwitchRow("🧊 提醒畫面同小工具用 3D 寵物", if (s.style3d) "同電腦版一樣嘅 3D 寵物" else "平面公仔畫", s.style3d) { set(s.copy(style3d = it)) } }
+
+        item { Header("場景") }
+        item { ChoiceRow("🖼️ 背景", Desk.BACKGROUNDS.firstOrNull { it.first == sc.bg }?.second ?: "") { dialog = "bg" } }
+        item {
+            ListItem(
+                headlineContent = { Text("📏 大細") },
+                supportingContent = {
+                    Slider(
+                        value = size, onValueChange = { size = it }, valueRange = 0.5f..1.6f,
+                        onValueChangeFinished = { setScene(Desk.scene(ctx).copy(size = size)) },
+                    )
+                },
+            )
+        }
+        item { ChoiceRow("🐶🐱 朋友", if (sc.friends.isEmpty()) "冇" else sc.friends.joinToString("、") { Looks.byId(it).label }) { dialog = "friends" } }
+        item { ChoiceRow("🐤 雀仔", if (sc.birds == 0) "唔要" else "${sc.birds} 隻") { dialog = "birds" } }
+        item { SwitchRow("🐷 豬仔（布甸）", "有自己張床", sc.pig) { setScene(sc.copy(pig = it)) } }
+        item { SwitchRow("🌳 貓跳臺", null, sc.tree) { setScene(sc.copy(tree = it)) } }
+        item { SwitchRow("🏠 狗屋", "有碗狗糧同一碗水", sc.dogHouse) { setScene(sc.copy(dogHouse = it)) } }
+        item { SwitchRow("💼 辦公室模式", "兩張工作枱，兩隻陪你返工", sc.office) { setScene(sc.copy(office = it)) } }
+        item { ChoiceRow("🧸 公仔", if (sc.toys.isEmpty()) "冇" else sc.toys.joinToString("、") { id -> Desk.TOYS.first { it.first == id }.second }) { dialog = "toys" } }
+        item { SwitchRow("🔊 叫聲", "喵、汪、啾…", sc.sound) { setScene(sc.copy(sound = it)) } }
+        item { SwitchRow("💬 自言自語", "間中講吓嘢鼓勵你", sc.chatty) { setScene(sc.copy(chatty = it)) } }
 
         item { Header("提醒") }
         item { ChoiceRow("幾耐提一次", "每 ${s.intervalMin} 分鐘") { dialog = "interval" } }
@@ -380,6 +441,13 @@ private fun SettingsScreen(pad: PaddingValues) {
         "goal" -> Pick("每日飲水目標", (4..12).map { it to "$it 杯" }, s.waterGoal, { dialog = null }) { set(s.copy(waterGoal = it)) }
         "quietStart" -> Pick("幾點開始靜音", (0..23).map { it to "%02d:00".format(it) }, s.quietStart, { dialog = null }) { set(s.copy(quietStart = it)) }
         "quietEnd" -> Pick("幾點完", (0..23).map { it to "%02d:00".format(it) }, s.quietEnd, { dialog = null }) { set(s.copy(quietEnd = it)) }
+        "bg" -> Pick("背景", Desk.BACKGROUNDS, sc.bg, { dialog = null }) { id ->
+            if (id == "photo") photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            else setScene(Desk.scene(ctx).copy(bg = id))
+        }
+        "birds" -> Pick("雀仔", (0..3).map { it to if (it == 0) "唔要" else "$it 隻" }, sc.birds, { dialog = null }) { setScene(Desk.scene(ctx).copy(birds = it)) }
+        "friends" -> MultiPick("朋友", Desk.FRIENDS.map { it to Looks.byId(it).label }, sc.friends, { dialog = null }) { setScene(Desk.scene(ctx).copy(friends = it)) }
+        "toys" -> MultiPick("公仔", Desk.TOYS, sc.toys, { dialog = null }) { setScene(Desk.scene(ctx).copy(toys = it)) }
         "steps" -> Pick("要行幾多步", listOf(100, 150, 200, 300, 500, 1000).map { it to "$it 步" }, s.stepsForRest, { dialog = null }) { set(s.copy(stepsForRest = it)) }
     }
 }
@@ -419,6 +487,27 @@ private fun <T> Pick(title: String, options: List<Pair<T, String>>, current: T, 
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = v == current, onClick = { choose(v); dismiss() })
+                        Text(label, fontSize = 17.sp)
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun MultiPick(title: String, options: List<Pair<String, String>>, selected: List<String>, dismiss: () -> Unit, change: (List<String>) -> Unit) {
+    AlertDialog(
+        onDismissRequest = dismiss,
+        confirmButton = { TextButton(onClick = dismiss) { Text("好") } },
+        title = { Text(title) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                items(options) { (id, label) ->
+                    val on = id in selected
+                    val flip = { change(if (on) selected - id else options.map { it.first }.filter { it in selected || it == id }) }
+                    Row(Modifier.fillMaxWidth().clickable(onClick = flip).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = on, onCheckedChange = { flip() })
                         Text(label, fontSize = 17.sp)
                     }
                 }

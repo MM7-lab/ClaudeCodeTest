@@ -1,0 +1,117 @@
+package hk.mm7lab.watchcat
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewClientCompat
+import hk.mm7lab.watchcat.core.RType
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+
+/**
+ * The home screen's 3D world: the desktop app's pet page in a WebView. The app's reminders and
+ * settings go in as the events the desktop app would send; answers and pats come back out.
+ */
+class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
+    private val main = Handler(Looper.getMainLooper())
+    private val scope = MainScope()
+    @Volatile private var lastSettings = ""
+    @Volatile private var lastBg = ""
+    private var ready = false
+    private var shownPending: RType? = null
+    private var shownNags = 0
+
+    @SuppressLint("SetJavaScriptEnabled")
+    val web: WebView = WebView(ctx).apply {
+        setBackgroundColor(Color.parseColor("#1b1d25"))
+        overScrollMode = View.OVER_SCROLL_NEVER
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        val loader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
+            .addPathHandler("/files/", WebViewAssetLoader.InternalStoragePathHandler(ctx, Desk.dir(ctx)))
+            .build()
+        webViewClient = object : WebViewClientCompat() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                loader.shouldInterceptRequest(request.url)
+        }
+        addJavascriptInterface(Bridge(), "AndroidCat")
+        loadUrl("https://appassets.androidplatform.net/assets/desk/pet/index.html")
+    }
+
+    private fun js(code: String) = web.evaluateJavascript(code, null)
+    private fun emit(channel: String, data: String) = js("window.__catEmit && __catEmit(${JSONObject.quote(channel)}, $data)")
+
+    /** Bring the scene up to date with the app: settings, background, the reminder. */
+    fun sync() {
+        if (!ready) return
+        val settings = Desk.settingsJson(ctx).toString()
+        if (settings != lastSettings) { lastSettings = settings; emit("settings", settings) }
+        val bg = Desk.backgroundCss(ctx)
+        if (bg != lastBg) { lastBg = bg; js("window.__setBackground && __setBackground(${JSONObject.quote(bg)})") }
+        val t = Store.timer(ctx)
+        val pending = t.pending
+        if (pending != shownPending) {
+            val line = Store.line(ctx).first
+            if (pending != null) {
+                emit("reminder", JSONObject().put("type", pending.id).put("emoji", pending.emoji).put("text", line).toString())
+            } else {
+                emit("reminder-end", JSONObject().put("done", Store.answered(ctx)).put("text", line).toString())
+            }
+            shownPending = pending
+            shownNags = t.nags
+        } else if (pending != null && t.nags > shownNags) {
+            shownNags = t.nags
+            emit("nag", "{}")
+        }
+    }
+
+    fun group(action: String) = emit("group-action", JSONObject.quote(action))
+    fun comeHere() = emit("come-here", "{}")
+
+    fun pause() = web.onPause()
+    fun resume() = web.onResume()
+
+    /** What the page can ask of the app (window.AndroidCat). Called off the main thread. */
+    private inner class Bridge {
+        @JavascriptInterface
+        fun getState(): String {
+            val s = Desk.settingsJson(ctx)
+            lastSettings = s.toString()
+            return JSONObject().put("settings", s).toString()
+        }
+
+        @JavascriptInterface
+        fun background(): String = Desk.backgroundCss(ctx).also { lastBg = it }
+
+        @JavascriptInterface
+        fun answer(done: Boolean) { main.post { scope.launch { Actions.answer(ctx, done) } } }
+
+        @JavascriptInterface
+        fun petted() { main.post { Actions.pet(ctx) } }
+
+        @JavascriptInterface
+        fun ready() {
+            main.post {
+                ready = true
+                shownPending = null
+                sync()
+            }
+        }
+
+        @JavascriptInterface
+        fun openSettings() { main.post { onSettings() } }
+    }
+}

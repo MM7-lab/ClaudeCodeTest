@@ -50,6 +50,7 @@ object Actions {
         val type = t.pending ?: return null
         val steps = Steps.read(ctx)
         val next = Reminders.answer(s, t, done, System.currentTimeMillis(), steps, Store.zone)
+        Store.setAnswered(ctx, done)
         Store.saveTimer(ctx, next)
         if (done) {
             val day = Store.updateDay(ctx) { it.add(type) }

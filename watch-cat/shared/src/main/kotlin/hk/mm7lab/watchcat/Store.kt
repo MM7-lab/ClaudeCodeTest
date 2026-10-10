@@ -70,6 +70,10 @@ object Store {
         bump()
     }
 
+    /** Whether the last reminder answered was done (true) or put off (false). */
+    fun answered(ctx: Context): Boolean = p(ctx).getBoolean("answeredDone", true)
+    fun setAnswered(ctx: Context, done: Boolean) { p(ctx).edit().putBoolean("answeredDone", done).apply() }
+
     fun asked(ctx: Context): Boolean = p(ctx).getBoolean("asked", false)
     fun setAsked(ctx: Context) { p(ctx).edit().putBoolean("asked", true).apply() }
 
