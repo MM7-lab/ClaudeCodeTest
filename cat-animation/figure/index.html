@@ -79,6 +79,7 @@
     -webkit-backdrop-filter: blur(8px);
   }
   .controls button:hover { border-color: var(--ink); }
+  .controls button:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
   .variants button { padding: 8px 14px; font-size: 0.7rem; }
   .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
@@ -118,12 +119,14 @@
   <div class="controls variants" role="group" aria-label="Edition">
     <button id="v-smoke" type="button" aria-pressed="true">Smoke break</button>
     <button id="v-coffee" type="button" aria-pressed="false">Night shift</button>
+    <button id="btn-act" type="button" aria-pressed="true">Smoking</button>
   </div>
   <div class="controls">
     <button id="btn-reset" type="button">Reset</button>
     <button id="btn-spin" type="button" aria-pressed="true">Spin</button>
     <button id="btn-drop" type="button">Drop</button>
     <button id="btn-pose" type="button" aria-pressed="false">Pose</button>
+    <button id="btn-fix" type="button" aria-pressed="true">Fixed</button>
   </div>
   <p class="hint" id="hint">Drag the figure to lift and throw it · drag the backdrop to orbit · pinch or scroll to zoom</p>
 </div>
@@ -488,6 +491,17 @@ function sdMug(x, y, z) {
   const tor = Math.max(Math.sqrt(q * q + pz * pz) - 0.0065, 0.038 - px);
   return smin(d, tor, 0.005);
 }
+// mouth (rest pose, figure space) and the exhaled puff that grows from it
+const MOUTH = [0, 0.607, 0.205];
+const PUFFPTS = [[0, 0.607, 0.215], [0.008, 0.62, 0.245], [-0.006, 0.646, 0.278], [0.014, 0.682, 0.305], [-0.002, 0.722, 0.322], [0.02, 0.758, 0.33]];
+const PUFFR = [0.008, 0.016, 0.024, 0.03, 0.024, 0.012];
+function sdPuff(x, y, z) {
+  let d = 1e9;
+  for (let i = 0; i < PUFFPTS.length - 1; i++) d = smin(d, sdRC(x, y, z, PUFFPTS[i], PUFFPTS[i + 1], PUFFR[i], PUFFR[i + 1]), 0.02);
+  const c = PUFFPTS[3];
+  d = smin(d, sdRC(x, y, z, c, [c[0] - 0.045, c[1] + 0.02, c[2] + 0.01], 0.018, 0.005), 0.014);
+  return d;
+}
 function sdCig(x, y, z) { return sdCylAx(x, y, z, v3.lerp(CIG_A, CIG_B, 0.5), CIG_D, CIG_R, CIG_L / 2, 0.0025); }
 function sdSmoke(x, y, z) {
   let d = 1e9;
@@ -546,14 +560,15 @@ const PARTS = [
   { name: "mug", sdf: sdMug, mat: 8, joint: 2, box: [v3.sub(MC, [0.055, 0.058, 0.055]), v3.add(MC, [0.09, 0.058, 0.055])], h: 0.0026 },
   { name: "tail", sdf: sdTail, mat: 0, joint: 0, box: [[-0.05, 0.17, -0.265], [0.175, 0.49, -0.04]], h: 0.0036 },
   { name: "cigarette", sdf: sdCig, mat: 10, joint: 2, box: [v3.sub(v3.lerp(CIG_A, CIG_B, 0.5), [0.05, 0.05, 0.05]), v3.add(v3.lerp(CIG_A, CIG_B, 0.5), [0.05, 0.05, 0.05])], h: 0.0014 },
+  { name: "puff", sdf: sdPuff, mat: 11, joint: 1, box: [[-0.08, 0.58, 0.18], [0.06, 0.8, 0.37]], h: 0.0028 },
   { name: "smoke", sdf: sdSmoke, mat: 11, joint: 2, box: [v3.sub(CIG_B, [0.05, 0.02, 0.05]), v3.add(CIG_B, [0.12, 0.42, 0.06])], h: 0.0028 },
 ];
 const NPART = PARTS.length;
-const PART_HEAD = 8, PART_ARMR = 10, PART_CUFF = 11, PART_PAW = 12, PART_MUG = 13, PART_TAIL = 14, PART_CIG = 15, PART_SMOKE = 16;
+const PART_HEAD = 8, PART_ARMR = 10, PART_CUFF = 11, PART_PAW = 12, PART_MUG = 13, PART_TAIL = 14, PART_CIG = 15, PART_PUFF = 16, PART_SMOKE = 17;
 const MAXPART = 20;
 // two editions share one sculpt; each hides the other's accessory
 let variant = location.hash === "#coffee" ? "coffee" : "smoke";
-const isHidden = (pi) => (variant === "smoke" ? pi === PART_MUG : pi === PART_CIG || pi === PART_SMOKE);
+const isHidden = (pi) => (variant === "smoke" ? pi === PART_MUG : pi === PART_CIG || pi === PART_SMOKE || pi === PART_PUFF);
 
 // joint state (radians) + rest pose
 const REST = { headYaw: 0.0, headPitch: 0.12, headRoll: 0.1, armPitch: 0.0, armSwing: 0.0 };
@@ -643,7 +658,7 @@ function quad(idx, a, b, c, d, flip) {
 }
 
 // union SDF used for baked ambient occlusion (rest pose)
-const AO_PARTS = PARTS.slice(1).filter((p) => !/^(mug|cigarette|smoke)$/.test(p.name)).map((p) => ({ sdf: p.sdf, lo: p.box[0], hi: p.box[1] }));
+const AO_PARTS = PARTS.slice(1).filter((p) => !/^(mug|cigarette|smoke|puff)$/.test(p.name)).map((p) => ({ sdf: p.sdf, lo: p.box[0], hi: p.box[1] }));
 function boxDist(x, y, z, lo, hi) {
   const dx = Math.max(lo[0] - x, 0, x - hi[0]), dy = Math.max(lo[1] - y, 0, y - hi[1]), dz = Math.max(lo[2] - z, 0, z - hi[2]);
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -707,7 +722,7 @@ async function buildMeshes(progress) {
     }
     const ind = new Uint32Array(idx.length);
     for (let i = 0; i < idx.length; i++) ind[i] = idx[i] + vcount;
-    chunks.push({ out, ind, part: pi, smoke: pi === PART_SMOKE });
+    chunks.push({ out, ind, part: pi, smoke: pi === PART_SMOKE || pi === PART_PUFF });
     P.verts = out;
     vcount += nv;
     if (i_isBoundaryLeak(P, lo, hi)) console.warn("part touches its bounding box:", P.name);
@@ -1107,7 +1122,7 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
       let ember = smoothstep(0.95 - w, 0.95 + w, t);
       c = mix(c, lin(vec3f(1.0, 0.32, 0.04)), ember);
       m = mk(c, 0.55, 0.35, 0.4, 0.0);
-      emis = vec3f(2.0, 0.42, 0.05) * ember * (0.85 + 0.15 * sin(F.misc.x * 2.7));
+      emis = vec3f(2.0, 0.42, 0.05) * ember * (0.85 + 0.15 * sin(F.misc.x * 2.7)) * (1.0 + 2.2 * F.misc2.w);
     }
     default: { m = mk(vec3f(1.0, 0.0, 1.0), 0.5, 0.0, 0.5, 0.0); }
   }
@@ -1147,8 +1162,14 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
     let body = mix(0.42, 0.12, h) + edge * 0.35;
     let spec = envRad(R, 0.22, 1.0) * envBRDF(vec3f(0.04), 0.22, nv);
     let warm = vec3f(1.0, 0.4, 0.1) * 0.35 * (1.0 - smoothstep(0.0, 0.08, h));
-    let a = clamp(body + fr * 0.4, 0.0, 0.9);
-    return vec4f(tint * lit * body + warm * body + spec, a);
+    var a = clamp(body + fr * 0.4, 0.0, 0.9);
+    var rgb = tint * lit * body + warm * body + spec;
+    if (i.part == 16u) { // exhaled puff: lighter, fades out as it drifts
+      let k = F.misc2.z;
+      a = clamp(0.1 + edge * 0.3 + fr * 0.3, 0.0, 0.6) * k;
+      rgb = (vec3f(0.85, 0.86, 0.88) * lit * 0.6 + spec) * k;
+    }
+    return vec4f(rgb, a);
   }
   let refl = envRad(R, 0.03, 1.0);
   let T = refract(-V, n, 1.0 / 1.49);
@@ -1406,7 +1427,7 @@ function supportPoints() {
   const best = dirs.map(() => ({ d: -1e9, p: null }));
   const jm = [m4.ident(), jointMat(1), jointMat(2)];
   for (let pi = 1; pi < NPART; pi++) {
-    if (isHidden(pi)) continue;
+    if (isHidden(pi) || pi === PART_PUFF) continue;
     const P = PARTS[pi], M = jm[P.joint], vd = P.verts;
     for (let i = 0; i < vd.length; i += FLOATS * 7) {
       const p = m4.xform(M, [vd[i], vd[i + 1], vd[i + 2]]);
@@ -1439,6 +1460,7 @@ function applyImpulse(J, r, Iinv) {
   body.w = v3.add(body.w, m3.mulV(Iinv, v3.cross(r, J)));
 }
 function physicsStep(dt) {
+  if (fixedMode) return;
   if (body.asleep && !grab.active) return;
   const R = qt.toMat3(body.q);
   const Iinv = invInertiaWorld(R);
@@ -1529,6 +1551,9 @@ function isUpright() { const R = qt.toMat3(body.q); return R[4] > 0.995; }
 function bodyMatrix() {
   return m4.mul(m4.translate(body.pos), m4.mul(m4.fromRot(qt.toMat3(body.q)), m4.translate(v3.scale(COM, -1))));
 }
+function resetPlacement() {
+  body.pos = [0, REST_Y, 0]; body.q = [0, 0, 0, 1]; body.v = [0, 0, 0]; body.w = [0, 0, 0]; body.asleep = true; body.still = 0;
+}
 function resetFigure() {
   body.pos = [0, REST_Y, 0]; body.q = [0, 0, 0, 1]; body.v = [0, 0, 0]; body.w = [0, 0, 0]; body.asleep = true; body.still = 0;
   Object.assign(joint, REST);
@@ -1562,7 +1587,7 @@ function pick(ro, rd) { // world ray -> { part, point(figure space) } | null
   for (let s = 0; s < 160 && t < 12; s++) {
     const p = v3.add(o, v3.scale(d, t));
     let best = sdBase(p[0], p[1], p[2]), part = 0;
-    for (let pi = 1; pi < NPART; pi++) { if (isHidden(pi)) continue; const v = partSDFPosed(pi, p, jInv); if (v < best) { best = v; part = pi; } }
+    for (let pi = 1; pi < NPART; pi++) { if (isHidden(pi) || pi === PART_PUFF) continue; const v = partSDFPosed(pi, p, jInv); if (v < best) { best = v; part = pi; } }
     if (best < 0.0015) return { part, point: p };
     t += Math.max(best * 0.9, 0.001);
   }
@@ -1604,20 +1629,115 @@ m4.xform4 = (m, p) => [
 ];
 
 // =====================================================================
+// Actions: sip coffee / take a drag, driven through the joints
+// =====================================================================
+function solveArm(localPt, headPose, ahead) {
+  const saved = { ...joint };
+  Object.assign(joint, headPose);
+  const target = v3.add(m4.xform(jointMat(1), MOUTH), [0, -0.004, ahead]);
+  let best = { d: 1e9, pitch: 0, swing: 0 };
+  for (let pitch = -1.5; pitch <= 0.3; pitch += 0.015) for (let swing = -0.5; swing <= 0.8; swing += 0.015) {
+    joint.armPitch = pitch; joint.armSwing = swing;
+    const d = v3.len(v3.sub(m4.xform(jointMat(2), localPt), target));
+    if (d < best.d) best = { d, pitch, swing };
+  }
+  Object.assign(joint, saved);
+  return best;
+}
+const SIP_HEAD = { headYaw: 0.08, headPitch: -0.12, headRoll: 0.02 };
+const DRAG_HEAD = { headYaw: 0.12, headPitch: 0.02, headRoll: 0.04 };
+const SIP_ARM = solveArm([MC[0] - 0.04, MC[1] + 0.044, MC[2]], SIP_HEAD, 0.028);
+const DRAG_ARM = solveArm(v3.lerp(CIG_A, CIG_B, 0.12), DRAG_HEAD, 0.02);
+const ease = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
+const lerp = (a, b, k) => a + (b - a) * k;
+function window2(t, a0, a1, b0, b1) { return ease((t - a0) / (a1 - a0)) * (1 - ease((t - b0) / (b1 - b0))); }
+function animate(dt) {
+  action.puffK = 0; action.ember = 0;
+  if (!action.on) {
+    if (action.returning) {
+      let left = 0;
+      for (const k of Object.keys(REST)) { joint[k] = lerp(joint[k], REST[k], Math.min(1, dt * 4)); left += Math.abs(joint[k] - REST[k]); }
+      if (left < 1e-3) action.returning = false;
+    }
+    return;
+  }
+  action.w = Math.min(1, action.w + dt * 2.5);   // blend in from whatever pose the figure is in
+  action.t += dt;
+  const target = { ...REST };
+  if (variant === "coffee") {
+    const T = 6.5, t = action.t % T;
+    const up = window2(t, 0.4, 1.6, 3.4, 4.6);           // raise mug, hold, lower
+    const sip = window2(t, 1.5, 1.9, 3.1, 3.5);           // head tips back to drink
+    target.armPitch = lerp(REST.armPitch, SIP_ARM.pitch, up);
+    target.armSwing = lerp(REST.armSwing, SIP_ARM.swing, up);
+    target.headYaw = lerp(REST.headYaw, SIP_HEAD.headYaw, up);
+    target.headPitch = lerp(REST.headPitch, SIP_HEAD.headPitch, up) - 0.06 * sip + 0.015 * sip * Math.sin(t * 9);
+    target.headRoll = lerp(REST.headRoll, SIP_HEAD.headRoll, up);
+  } else {
+    const T = 7.6, t = action.t % T;
+    const up = window2(t, 0.4, 1.5, 2.6, 3.6);            // cigarette to the lips and back
+    const exhale = window2(t, 3.2, 3.8, 5.2, 6.2);        // chin up while breathing out
+    target.armPitch = lerp(REST.armPitch, DRAG_ARM.pitch, up);
+    target.armSwing = lerp(REST.armSwing, DRAG_ARM.swing, up);
+    target.headYaw = lerp(lerp(REST.headYaw, DRAG_HEAD.headYaw, up), -0.12, exhale);
+    target.headPitch = lerp(lerp(REST.headPitch, DRAG_HEAD.headPitch, up), -0.2, exhale);
+    target.headRoll = lerp(lerp(REST.headRoll, DRAG_HEAD.headRoll, up), -0.04, exhale);
+    action.ember = window2(t, 1.4, 1.7, 2.5, 3.0);        // ember flares while drawing
+    const p = (t - 3.25) / 2.6;                           // exhaled puff grows, drifts, fades
+    action.puff = p > 0 && p < 1 ? p : 0;
+    action.puffK = p > 0 && p < 1 ? ease(p / 0.12) * (1 - ease((p - 0.55) / 0.45)) : 0;
+  }
+  const w = action.w;
+  for (const k of Object.keys(REST)) joint[k] = lerp(joint[k], target[k], w);
+}
+function puffMatrix() {
+  const p = action.puff;
+  const s = 0.25 + 0.95 * ease(p / 0.6) + 0.15 * p;
+  const drift = [0.01 * p, 0.05 * p, 0.035 * p];
+  return m4.mul(m4.translate(v3.add(MOUTH, drift)), m4.mul(m4.fromRot([s, 0, 0, 0, s, 0, 0, 0, s]), m4.translate(v3.scale(MOUTH, -1))));
+}
+
+// =====================================================================
 // Input
 // =====================================================================
-let poseMode = false, spinOn = true, idle = 0;
+let poseMode = false, spinOn = false, idle = 0;
+let fixedMode = true;                 // figure stays planted on the floor
+const action = { on: true, t: 0, w: 0, puff: 0, puffK: 0, ember: 0, returning: false };
 const pointers = new Map();
 let drag = null; // { kind: 'grab'|'orbit'|'head'|'arm', ... }
 let pinchStart = null;
 let hoverPart = -1, hoverAmt = 0;
 
+function updateHint() {
+  $("hint").textContent = poseMode
+    ? "Pose mode · drag the head or the arm to rotate the joint · drag the backdrop to orbit"
+    : fixedMode
+      ? "Fixed to the floor · drag anywhere to orbit · pinch or scroll to zoom"
+      : "Drag the figure to lift and throw it · drag the backdrop to orbit · pinch or scroll to zoom";
+}
 function setPose(on) {
   poseMode = on;
   $("btn-pose").setAttribute("aria-pressed", String(on));
-  $("hint").textContent = on
-    ? "Pose mode · drag the head or the mug arm to rotate the joint · drag the backdrop to orbit"
-    : "Drag the figure to lift and throw it · drag the backdrop to orbit · pinch or scroll to zoom";
+  updateHint();
+}
+function setFixed(on) {
+  fixedMode = on;
+  $("btn-fix").setAttribute("aria-pressed", String(on));
+  $("btn-drop").disabled = on;
+  if (on) {
+    if (grab.active) releaseGrab();
+    resetPlacement();
+    spinOn = false;
+    $("btn-spin").setAttribute("aria-pressed", "false");
+  } else wake();
+  updateHint();
+}
+// keepPose: stopping because the viewer grabbed a joint, so leave the pose where it is
+function setAction(on, keepPose) {
+  action.on = on;
+  action.t = 0; action.w = 0;
+  action.returning = !on && !keepPose;
+  $("btn-act").setAttribute("aria-pressed", String(on));
 }
 canvas.addEventListener("pointerdown", (e) => {
   canvas.setPointerCapture(e.pointerId);
@@ -1632,11 +1752,12 @@ canvas.addEventListener("pointerdown", (e) => {
   }
   const ray = screenRay(e.clientX, e.clientY);
   const hit = pick(ray.o, ray.d);
+  if (hit && poseMode && (hit.part === PART_HEAD || [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG, PART_CIG, PART_SMOKE].includes(hit.part))) setAction(false, true);
   if (hit && poseMode && hit.part === PART_HEAD) {
     drag = { kind: "head", x: e.clientX, y: e.clientY, j: { ...joint } };
   } else if (hit && poseMode && [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG, PART_CIG, PART_SMOKE].includes(hit.part)) {
     drag = { kind: "arm", x: e.clientX, y: e.clientY, j: { ...joint } };
-  } else if (hit) {
+  } else if (hit && !fixedMode) {
     const wp = m4.xform(bodyMatrix(), hit.point);
     const fwd = v3.norm(v3.sub(cam.target, camPos));
     grab.active = true;
@@ -1715,13 +1836,17 @@ const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
 $("btn-reset").addEventListener("click", () => { resetFigure(); idle = 0; });
 $("btn-spin").addEventListener("click", () => { spinOn = !spinOn; $("btn-spin").setAttribute("aria-pressed", String(spinOn)); });
-$("btn-drop").addEventListener("click", () => { dropFigure(); idle = 0; });
+$("btn-drop").addEventListener("click", () => { if (!fixedMode) { dropFigure(); idle = 0; } });
+$("btn-fix").addEventListener("click", () => setFixed(!fixedMode));
+$("btn-act").addEventListener("click", () => setAction(!action.on, false));
 $("btn-pose").addEventListener("click", () => setPose(!poseMode));
 function setVariant(v) {
   variant = v;
   const smoke = v === "smoke";
   $("v-smoke").setAttribute("aria-pressed", String(smoke));
   $("v-coffee").setAttribute("aria-pressed", String(!smoke));
+  $("btn-act").textContent = smoke ? "Smoking" : "Sipping";
+  action.t = 0;
   $("edition-sub").textContent = smoke ? "社畜貓 · Smoke Break" : "社畜貓 · Night Shift";
   $("edition-dd").textContent = smoke ? "Concept · Smoke Break · 0018/1830" : "Concept · Night Shift · 0018/1830";
   try { history.replaceState(null, "", smoke ? "#smoke" : "#coffee"); } catch (e) { /* sandboxed viewers */ }
@@ -1740,6 +1865,8 @@ const toneData = new Float32Array(4);
 const lightProjSize = 1.15;
 setVariant(variant);
 resetFigure();
+setFixed(fixedMode);
+setAction(true);
 resize();
 window.addEventListener("resize", resize);
 
@@ -1762,6 +1889,7 @@ function frame(now) {
   if (spinOn && body.asleep && !drag && idle > 1.2 && isUpright()) {
     body.q = qt.norm(qt.mul(qt.axisAngle([0, 1, 0], dt * 0.28), body.q));
   }
+  if (!drag || drag.kind === "orbit" || drag.kind === "grab") animate(dt);
   updateCamera(dt);
   hoverAmt += ((hoverPart >= 0 && poseMode ? 1 : 0) - hoverAmt) * Math.min(1, dt * 8);
 
@@ -1770,7 +1898,9 @@ function frame(now) {
   const ZERO = new Float32Array(16); // collapses a hidden accessory to a point
   for (let pi = 0; pi < MAXPART; pi++) {
     const j = pi < NPART ? PARTS[pi].joint : 0;
-    partData.set(pi < NPART && isHidden(pi) ? ZERO : m4.mul(B, jointMat(j)), pi * 16);
+    let M = pi < NPART && isHidden(pi) ? ZERO : m4.mul(B, jointMat(j));
+    if (pi === PART_PUFF && !isHidden(pi)) M = action.puffK > 0.001 ? m4.mul(M, puffMatrix()) : ZERO;
+    partData.set(M, pi * 16);
   }
   device.queue.writeBuffer(partBuf, 0, partData);
 
@@ -1784,7 +1914,7 @@ function frame(now) {
   uni.set(invViewProj, 32);
   uni.set([camPos[0], camPos[1], camPos[2], 1], 48);
   uni.set([time, 1 / SHADOW_SIZE, body.pos[0], body.pos[2]], 52);
-  uni.set([poseMode && hoverPart >= 0 ? hoverPart : -1, hoverAmt, 0, 0], 56);
+  uni.set([poseMode && hoverPart >= 0 ? hoverPart : -1, hoverAmt, action.puffK, action.ember * action.w], 56);
   // floor contact-shadow occluders (figure-space spheres -> world)
   const occ = [
     [0, -0.03, 0, 0.13], [0.2, -0.03, 0, 0.12], [-0.2, -0.03, 0, 0.12], [0, -0.03, 0.2, 0.12], [0, -0.03, -0.2, 0.12],
@@ -1843,7 +1973,7 @@ window.__fig = {
   body, joint, cam, setPose, drop: dropFigure, reset: resetFigure,
   step(n) { for (let i = 0; i < n; i++) physicsStep(FIXED); },
   setJoint(o) { Object.assign(joint, o); supportPoints(); },
-  setVariant,
+  setVariant, setFixed, setAction, action,
 };
 requestAnimationFrame(frame);
 })().catch((err) => {
