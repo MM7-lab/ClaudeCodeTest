@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">手錶貓貓</string>
+    <string name="tile_label">貓貓提醒</string>
+    <string name="complication_label">今日飲水</string>
+</resources>
