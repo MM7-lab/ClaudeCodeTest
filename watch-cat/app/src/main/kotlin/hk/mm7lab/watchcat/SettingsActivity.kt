@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -41,13 +42,13 @@ fun Toggle(label: String, checked: Boolean, secondary: String? = null, onChange:
     checked = checked,
     onCheckedChange = onChange,
     label = { Text(label, maxLines = 2) },
-    secondaryLabel = secondary?.let { { Text(it, maxLines = 1) } },
+    secondaryLabel = if (secondary != null) { { Text(secondary, maxLines = 1) } } else null,
     toggleControl = { Switch(checked = checked) },
     modifier = Modifier.fillMaxWidth(),
 )
 
 @Composable
-fun Choice(label: String, value: String, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) = Chip(
+fun Choice(label: String, value: String, icon: (@Composable BoxScope.() -> Unit)? = null, onClick: () -> Unit) = Chip(
     onClick = onClick,
     label = { Text(label, maxLines = 1) },
     secondaryLabel = { Text(value, maxLines = 1) },

@@ -96,14 +96,14 @@ private fun PickScreen(what: String, done: () -> Unit) {
                 Chip(
                     onClick = { choose(o) },
                     label = { Text(if (o.selected) "✓ ${o.label}" else o.label, maxLines = 1) },
-                    icon = o.look?.let { l ->
+                    icon = if (o.look != null) {
                         {
                             Image(
-                                PetBitmap.of(l, Frame(0.4f), 96).asImageBitmap(), null,
+                                PetBitmap.of(o.look, Frame(0.4f), 96).asImageBitmap(), null,
                                 Modifier.size(ChipDefaults.LargeIconSize),
                             )
                         }
-                    },
+                    } else null,
                     colors = if (o.selected) ChipDefaults.primaryChipColors() else ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )

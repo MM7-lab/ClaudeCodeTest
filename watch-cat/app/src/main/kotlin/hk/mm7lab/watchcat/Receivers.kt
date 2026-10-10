@@ -28,6 +28,7 @@ class ActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             DONE -> Actions.answer(ctx, true)
             LATER -> Actions.answer(ctx, false)
+            else -> {}
         }
     }
 

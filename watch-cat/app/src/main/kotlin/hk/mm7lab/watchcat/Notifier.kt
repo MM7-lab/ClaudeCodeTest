@@ -53,7 +53,7 @@ object Notifier {
         if (nm != null && nm.currentInterruptionFilter > NotificationManager.INTERRUPTION_FILTER_ALL) return
         val v: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        else @Suppress("DEPRECATION") ctx.getSystemService(Vibrator::class.java)
+        else ctx.getSystemService(Vibrator::class.java)
         v?.vibrate(VibrationEffect.createWaveform(pattern, -1))
     }
 
