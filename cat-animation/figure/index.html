@@ -79,6 +79,7 @@
     -webkit-backdrop-filter: blur(8px);
   }
   .controls button:hover { border-color: var(--ink); }
+  .variants button { padding: 8px 14px; font-size: 0.7rem; }
   .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   .hint { margin: 0; font-size: 0.74rem; color: var(--hint); text-align: center; text-wrap: balance; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75); }
@@ -105,15 +106,19 @@
 
 <header class="label">
   <span class="eyebrow">Collectible figure · No. 018</span>
-  <h1>Overtime Kitten<small>社畜貓 · Night Shift</small></h1>
+  <h1>Overtime Kitten<small id="edition-sub">社畜貓 · Smoke Break</small></h1>
   <dl class="spec">
     <dt>Scale</dt><dd>1/8 · approx. 14 cm with base</dd>
     <dt>Material</dt><dd>PVC, ABS · clear acrylic base</dd>
-    <dt>Edition</dt><dd>Concept piece · 0018 / 1830</dd>
+    <dt>Edition</dt><dd id="edition-dd">Concept · Smoke Break · 0018/1830</dd>
   </dl>
 </header>
 
 <div class="bar">
+  <div class="controls variants" role="group" aria-label="Edition">
+    <button id="v-smoke" type="button" aria-pressed="true">Smoke break</button>
+    <button id="v-coffee" type="button" aria-pressed="false">Night shift</button>
+  </div>
   <div class="controls">
     <button id="btn-reset" type="button">Reset</button>
     <button id="btn-spin" type="button" aria-pressed="true">Spin</button>
@@ -333,6 +338,18 @@ const ARMDIR = v3.norm(v3.sub(WR, ER));
 const PW = v3.add(WR, v3.scale(ARMDIR, 0.034));      // paw centre
 const HANDLE = [PW[0] - 0.006, PW[1], PW[2] + 0.004];
 const MC = [HANDLE[0] - 0.05, HANDLE[1] + 0.004, HANDLE[2]]; // mug centre
+// cigarette held between the toes, pointing forward and up
+const CIG_A = v3.add(PW, [0.004, 0.006, 0.024]);
+const CIG_D = v3.norm([0.8, 0.45, 0.25]);
+const CIG_L = 0.075, CIG_R = 0.0062;
+const CIG_B = v3.add(CIG_A, v3.scale(CIG_D, CIG_L));
+// sculpted clear-PVC smoke effect part rising from the tip
+const SMOKEPTS = [
+  v3.add(CIG_B, v3.scale(CIG_D, 0.004)), [CIG_B[0] + 0.016, CIG_B[1] + 0.045, CIG_B[2] + 0.004], [CIG_B[0] + 0.006, CIG_B[1] + 0.098, CIG_B[2] - 0.01],
+  [CIG_B[0] + 0.036, CIG_B[1] + 0.158, CIG_B[2]], [CIG_B[0] + 0.022, CIG_B[1] + 0.225, CIG_B[2] + 0.012], [CIG_B[0] + 0.05, CIG_B[1] + 0.29, CIG_B[2] + 0.004],
+  [CIG_B[0] + 0.038, CIG_B[1] + 0.35, CIG_B[2] + 0.016], [CIG_B[0] + 0.066, CIG_B[1] + 0.39, CIG_B[2] + 0.01],
+];
+const SMOKER = [0.0035, 0.0075, 0.0055, 0.012, 0.009, 0.016, 0.011, 0.004];
 const SL = [-0.126, 0.44, 0.0], EL = [-0.166, 0.332, 0.008], WL = [-0.094, 0.238, 0.05];
 const TAILPTS = [[0.0, 0.25, -0.085], [0.035, 0.215, -0.16], [0.09, 0.238, -0.218], [0.122, 0.318, -0.218], [0.118, 0.4, -0.178], [0.088, 0.448, -0.138]];
 const TAILR = [0.03, 0.029, 0.027, 0.025, 0.023, 0.021];
@@ -471,6 +488,16 @@ function sdMug(x, y, z) {
   const tor = Math.max(Math.sqrt(q * q + pz * pz) - 0.0065, 0.038 - px);
   return smin(d, tor, 0.005);
 }
+function sdCig(x, y, z) { return sdCylAx(x, y, z, v3.lerp(CIG_A, CIG_B, 0.5), CIG_D, CIG_R, CIG_L / 2, 0.0025); }
+function sdSmoke(x, y, z) {
+  let d = 1e9;
+  for (let i = 0; i < SMOKEPTS.length - 1; i++) d = smin(d, sdRC(x, y, z, SMOKEPTS[i], SMOKEPTS[i + 1], SMOKER[i], SMOKER[i + 1]), 0.018);
+  // two side curls, like a wisp breaking away
+  const c1 = SMOKEPTS[3], c2 = SMOKEPTS[5];
+  d = smin(d, sdRC(x, y, z, c1, [c1[0] + 0.035, c1[1] + 0.03, c1[2] - 0.004], 0.008, 0.003), 0.012);
+  d = smin(d, sdRC(x, y, z, c2, [c2[0] - 0.04, c2[1] + 0.035, c2[2] + 0.006], 0.009, 0.003), 0.012);
+  return d;
+}
 const TAILSEG = (() => {
   const segs = []; let acc = 0;
   for (let i = 0; i < TAILPTS.length - 1; i++) { const l = v3.len(v3.sub(TAILPTS[i + 1], TAILPTS[i])); segs.push({ a: TAILPTS[i], b: TAILPTS[i + 1], r1: TAILR[i], r2: TAILR[i + 1], s0: acc, l }); acc += l; }
@@ -518,9 +545,15 @@ const PARTS = [
   { name: "pawR", sdf: sdPawR, mat: 0, joint: 2, box: [v3.sub(PW, [0.065, 0.055, 0.055]), v3.add(PW, [0.05, 0.055, 0.055])], h: 0.0026 },
   { name: "mug", sdf: sdMug, mat: 8, joint: 2, box: [v3.sub(MC, [0.055, 0.058, 0.055]), v3.add(MC, [0.09, 0.058, 0.055])], h: 0.0026 },
   { name: "tail", sdf: sdTail, mat: 0, joint: 0, box: [[-0.05, 0.17, -0.265], [0.175, 0.49, -0.04]], h: 0.0036 },
+  { name: "cigarette", sdf: sdCig, mat: 10, joint: 2, box: [v3.sub(v3.lerp(CIG_A, CIG_B, 0.5), [0.05, 0.05, 0.05]), v3.add(v3.lerp(CIG_A, CIG_B, 0.5), [0.05, 0.05, 0.05])], h: 0.0014 },
+  { name: "smoke", sdf: sdSmoke, mat: 11, joint: 2, box: [v3.sub(CIG_B, [0.05, 0.02, 0.05]), v3.add(CIG_B, [0.12, 0.42, 0.06])], h: 0.0028 },
 ];
 const NPART = PARTS.length;
-const PART_HEAD = 8, PART_ARMR = 10, PART_CUFF = 11, PART_PAW = 12, PART_MUG = 13, PART_TAIL = 14;
+const PART_HEAD = 8, PART_ARMR = 10, PART_CUFF = 11, PART_PAW = 12, PART_MUG = 13, PART_TAIL = 14, PART_CIG = 15, PART_SMOKE = 16;
+const MAXPART = 20;
+// two editions share one sculpt; each hides the other's accessory
+let variant = location.hash === "#coffee" ? "coffee" : "smoke";
+const isHidden = (pi) => (variant === "smoke" ? pi === PART_MUG : pi === PART_CIG || pi === PART_SMOKE);
 
 // joint state (radians) + rest pose
 const REST = { headYaw: 0.0, headPitch: 0.12, headRoll: 0.1, armPitch: 0.0, armSwing: 0.0 };
@@ -610,7 +643,7 @@ function quad(idx, a, b, c, d, flip) {
 }
 
 // union SDF used for baked ambient occlusion (rest pose)
-const AO_PARTS = PARTS.slice(1).map((p) => ({ sdf: p.sdf, lo: p.box[0], hi: p.box[1] }));
+const AO_PARTS = PARTS.slice(1).filter((p) => !/^(mug|cigarette|smoke)$/.test(p.name)).map((p) => ({ sdf: p.sdf, lo: p.box[0], hi: p.box[1] }));
 function boxDist(x, y, z, lo, hi) {
   const dx = Math.max(lo[0] - x, 0, x - hi[0]), dy = Math.max(lo[1] - y, 0, y - hi[1]), dz = Math.max(lo[2] - z, 0, z - hi[2]);
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -674,7 +707,7 @@ async function buildMeshes(progress) {
     }
     const ind = new Uint32Array(idx.length);
     for (let i = 0; i < idx.length; i++) ind[i] = idx[i] + vcount;
-    chunks.push({ out, ind, part: pi });
+    chunks.push({ out, ind, part: pi, smoke: pi === PART_SMOKE });
     P.verts = out;
     vcount += nv;
     if (i_isBoundaryLeak(P, lo, hi)) console.warn("part touches its bounding box:", P.name);
@@ -684,17 +717,19 @@ async function buildMeshes(progress) {
   const base = latheBase();
   const baseInd = new Uint32Array(base.ind.length);
   for (let i = 0; i < base.ind.length; i++) baseInd[i] = base.ind[i] + vcount;
-  const figIndexCount = chunks.reduce((s, c) => s + c.ind.length, 0);
+  chunks.sort((a, b) => a.smoke - b.smoke);
+  const figIndexCount = chunks.filter((c) => !c.smoke).reduce((s, c) => s + c.ind.length, 0);
+  const smokeIndexCount = chunks.filter((c) => c.smoke).reduce((s, c) => s + c.ind.length, 0);
   const totalV = vcount + base.out.length / FLOATS;
   const vdata = new Float32Array(totalV * FLOATS);
   let off = 0;
   for (const c of chunks) { vdata.set(c.out, off); off += c.out.length; }
   vdata.set(base.out, off);
-  const idata = new Uint32Array(figIndexCount + baseInd.length);
+  const idata = new Uint32Array(figIndexCount + smokeIndexCount + baseInd.length);
   let io = 0;
   for (const c of chunks) { idata.set(c.ind, io); io += c.ind.length; }
   idata.set(baseInd, io);
-  return { vdata, idata, figIndexCount, baseIndexCount: baseInd.length, vcount: totalV };
+  return { vdata, idata, figIndexCount, smokeIndexCount, baseIndexCount: baseInd.length, vcount: totalV };
 }
 function i_isBoundaryLeak(P, lo, hi) {
   // sample the faces of the box: a negative value means the sculpt is clipped
@@ -763,7 +798,7 @@ struct Frame {
   occ: array<vec4f, 16>,
 };
 @group(0) @binding(0) var<uniform> F: Frame;
-@group(0) @binding(1) var<uniform> PM: array<mat4x4f, 16>;
+@group(0) @binding(1) var<uniform> PM: array<mat4x4f, 20>;
 @group(0) @binding(2) var shadowTex: texture_depth_2d;
 @group(0) @binding(3) var shadowSmp: sampler_comparison;
 
@@ -1030,6 +1065,7 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
   let N = normalize(i.nrm);
   let V = normalize(F.camPos.xyz - i.wpos);
   var m: Mat;
+  var emis = vec3f(0.0);
   switch (i.mat) {
     case 0u: { // fur-tone PVC
       if (i.part == 8u) {
@@ -1061,6 +1097,18 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
     case 8u: {
       m = mk(lin(vec3f(0.93, 0.92, 0.9)), 0.2, 1.0, 0.07, 0.0);
     }
+    case 10u: { // cigarette: paper, cork filter with a gold band, ash, painted ember
+      let t = dot(i.loc - CIG_A, CIG_D) / CIG_L;
+      let w = max(fw / CIG_L, 0.002) * 1.2;
+      var c = lin(vec3f(0.95, 0.94, 0.9));
+      c = mix(c, lin(vec3f(0.86, 0.56, 0.26)), 1.0 - smoothstep(0.3 - w, 0.3 + w, t));
+      c = mix(c, lin(vec3f(0.85, 0.7, 0.35)), fillAA(abs(t - 0.315) - 0.012, w));
+      c = mix(c, lin(vec3f(0.5, 0.48, 0.45)), smoothstep(0.885 - w, 0.885 + w, t));
+      let ember = smoothstep(0.95 - w, 0.95 + w, t);
+      c = mix(c, lin(vec3f(1.0, 0.32, 0.04)), ember);
+      m = mk(c, 0.55, 0.35, 0.4, 0.0);
+      emis = vec3f(2.0, 0.42, 0.05) * ember * (0.85 + 0.15 * sin(F.misc.x * 2.7));
+    }
     default: { m = mk(vec3f(1.0, 0.0, 1.0), 0.5, 0.0, 0.5, 0.0); }
   }
   if (i.part == 13u) {
@@ -1073,9 +1121,9 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
     if (coffee > 0.5) { m = mk(lin(vec3f(0.07, 0.035, 0.015)), 0.05, 1.0, 0.03, 0.0); }
   }
   let sh = shadowAt(i.wpos, N, 2.2);
-  var col = shade(m, N, V, i.wpos, i.ao, i.thin, sh, kern);
+  var col = shade(m, N, V, i.wpos, i.ao, i.thin, sh, kern) + emis;
   // posing hint: faint warm glow on the joint under the pointer
-  if (f32(i.part) == F.misc2.x || (F.misc2.x == 10.0 && (i.part == 11u || i.part == 12u || i.part == 13u))) {
+  if (f32(i.part) == F.misc2.x || (F.misc2.x == 10.0 && (i.part == 11u || i.part == 12u || i.part == 13u || i.part == 15u))) {
     col += vec3f(0.9, 0.55, 0.15) * F.misc2.y * 0.06 * (1.0 - max(dot(N, V), 0.0));
   }
   return vec4f(col, 1.0);
@@ -1090,6 +1138,18 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
   let nv = clamp(abs(facing), 0.0, 1.0);
   let fr = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
   let R = reflect(-V, n);
+  if (i.mat == 11u) {
+    // frosted, smoke-tinted clear PVC: dense near the ember, clearing as it rises
+    let h = clamp((i.loc.y - CIG_B.y) / 0.4, 0.0, 1.0);
+    let tint = mix(vec3f(0.6, 0.6, 0.62), vec3f(0.85, 0.87, 0.9), h);
+    let lit = 0.08 + 0.35 * max(dot(n, KEY_DIR), 0.0) + 0.3 * max(dot(n, RIM1_DIR), 0.0) + 0.15 * max(dot(n, RIM2_DIR), 0.0);
+    let edge = pow(1.0 - nv, 1.6);
+    let body = mix(0.42, 0.12, h) + edge * 0.35;
+    let spec = envRad(R, 0.22, 1.0) * envBRDF(vec3f(0.04), 0.22, nv);
+    let warm = vec3f(1.0, 0.4, 0.1) * 0.35 * (1.0 - smoothstep(0.0, 0.08, h));
+    let a = clamp(body + fr * 0.4, 0.0, 0.9);
+    return vec4f(tint * lit * body + warm * body + spec, a);
+  }
   let refl = envRad(R, 0.03, 1.0);
   let T = refract(-V, n, 1.0 / 1.49);
   let refr = envRad(normalize(T + vec3f(0.0, -0.2, 0.0)), 0.12, 1.0);
@@ -1210,7 +1270,8 @@ const HDR = "rgba16float";
 const SHADOW_SIZE = 2048;
 
 const figWGSL = FIG_WGSL.replace("const HC = vec3f(0.0, 0.66, 0.01);",
-  "const HC = vec3f(0.0, 0.66, 0.01);\nconst MUGC = vec3f(" + MC.map((v) => v.toFixed(5)).join(", ") + ");");
+  "const HC = vec3f(0.0, 0.66, 0.01);\nconst MUGC = vec3f(" + MC.map((v) => v.toFixed(5)).join(", ") + ");\n" +
+  "const CIG_A = vec3f(" + CIG_A.map((v) => v.toFixed(5)).join(", ") + ");\n" + "const CIG_B = vec3f(" + CIG_B.map((v) => v.toFixed(5)).join(", ") + ");\n" + "const CIG_D = vec3f(" + CIG_D.map((v) => v.toFixed(5)).join(", ") + ");\n" + "const CIG_L = " + CIG_L.toFixed(5) + ";");
 const figModule = device.createShaderModule({ code: figWGSL });
 const bgModule = device.createShaderModule({ code: BG_WGSL });
 const toneModule = device.createShaderModule({ code: TONE_WGSL });
@@ -1224,7 +1285,7 @@ for (const [name, mod] of [["figure", figModule], ["backdrop", bgModule], ["tone
 }
 
 const uniBuf = device.createBuffer({ size: 512, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-const partBuf = device.createBuffer({ size: 16 * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const partBuf = device.createBuffer({ size: MAXPART * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 const toneBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
 const shadowTex = device.createTexture({ size: [SHADOW_SIZE, SHADOW_SIZE], format: "depth32float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
@@ -1345,6 +1406,7 @@ function supportPoints() {
   const best = dirs.map(() => ({ d: -1e9, p: null }));
   const jm = [m4.ident(), jointMat(1), jointMat(2)];
   for (let pi = 1; pi < NPART; pi++) {
+    if (isHidden(pi)) continue;
     const P = PARTS[pi], M = jm[P.joint], vd = P.verts;
     for (let i = 0; i < vd.length; i += FLOATS * 7) {
       const p = m4.xform(M, [vd[i], vd[i + 1], vd[i + 2]]);
@@ -1500,7 +1562,7 @@ function pick(ro, rd) { // world ray -> { part, point(figure space) } | null
   for (let s = 0; s < 160 && t < 12; s++) {
     const p = v3.add(o, v3.scale(d, t));
     let best = sdBase(p[0], p[1], p[2]), part = 0;
-    for (let pi = 1; pi < NPART; pi++) { const v = partSDFPosed(pi, p, jInv); if (v < best) { best = v; part = pi; } }
+    for (let pi = 1; pi < NPART; pi++) { if (isHidden(pi)) continue; const v = partSDFPosed(pi, p, jInv); if (v < best) { best = v; part = pi; } }
     if (best < 0.0015) return { part, point: p };
     t += Math.max(best * 0.9, 0.001);
   }
@@ -1572,7 +1634,7 @@ canvas.addEventListener("pointerdown", (e) => {
   const hit = pick(ray.o, ray.d);
   if (hit && poseMode && hit.part === PART_HEAD) {
     drag = { kind: "head", x: e.clientX, y: e.clientY, j: { ...joint } };
-  } else if (hit && poseMode && (hit.part === PART_ARMR || hit.part === PART_CUFF || hit.part === PART_PAW || hit.part === PART_MUG)) {
+  } else if (hit && poseMode && [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG, PART_CIG, PART_SMOKE].includes(hit.part)) {
     drag = { kind: "arm", x: e.clientX, y: e.clientY, j: { ...joint } };
   } else if (hit) {
     const wp = m4.xform(bodyMatrix(), hit.point);
@@ -1601,7 +1663,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (poseMode && e.pointerType === "mouse") {
       const ray = screenRay(e.clientX, e.clientY);
       const hit = pick(ray.o, ray.d);
-      hoverPart = hit ? (hit.part === PART_HEAD ? PART_HEAD : [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG].includes(hit.part) ? PART_ARMR : -1) : -1;
+      hoverPart = hit ? (hit.part === PART_HEAD ? PART_HEAD : [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG, PART_CIG, PART_SMOKE].includes(hit.part) ? PART_ARMR : -1) : -1;
     }
     return;
   }
@@ -1655,14 +1717,28 @@ $("btn-reset").addEventListener("click", () => { resetFigure(); idle = 0; });
 $("btn-spin").addEventListener("click", () => { spinOn = !spinOn; $("btn-spin").setAttribute("aria-pressed", String(spinOn)); });
 $("btn-drop").addEventListener("click", () => { dropFigure(); idle = 0; });
 $("btn-pose").addEventListener("click", () => setPose(!poseMode));
+function setVariant(v) {
+  variant = v;
+  const smoke = v === "smoke";
+  $("v-smoke").setAttribute("aria-pressed", String(smoke));
+  $("v-coffee").setAttribute("aria-pressed", String(!smoke));
+  $("edition-sub").textContent = smoke ? "社畜貓 · Smoke Break" : "社畜貓 · Night Shift";
+  $("edition-dd").textContent = smoke ? "Concept · Smoke Break · 0018/1830" : "Concept · Night Shift · 0018/1830";
+  try { history.replaceState(null, "", smoke ? "#smoke" : "#coffee"); } catch (e) { /* sandboxed viewers */ }
+  supportPoints();
+  wake();
+}
+$("v-smoke").addEventListener("click", () => setVariant("smoke"));
+$("v-coffee").addEventListener("click", () => setVariant("coffee"));
 
 // =====================================================================
 // Frame loop
 // =====================================================================
 const uni = new Float32Array(128);
-const partData = new Float32Array(16 * 16);
+const partData = new Float32Array(MAXPART * 16);
 const toneData = new Float32Array(4);
 const lightProjSize = 1.15;
+setVariant(variant);
 resetFigure();
 resize();
 window.addEventListener("resize", resize);
@@ -1691,9 +1767,10 @@ function frame(now) {
 
   // uniforms
   const B = bodyMatrix();
-  for (let pi = 0; pi < 16; pi++) {
+  const ZERO = new Float32Array(16); // collapses a hidden accessory to a point
+  for (let pi = 0; pi < MAXPART; pi++) {
     const j = pi < NPART ? PARTS[pi].joint : 0;
-    partData.set(m4.mul(B, jointMat(j)), pi * 16);
+    partData.set(pi < NPART && isHidden(pi) ? ZERO : m4.mul(B, jointMat(j)), pi * 16);
   }
   device.queue.writeBuffer(partBuf, 0, partData);
 
@@ -1713,7 +1790,7 @@ function frame(now) {
     [0, -0.03, 0, 0.13], [0.2, -0.03, 0, 0.12], [-0.2, -0.03, 0, 0.12], [0, -0.03, 0.2, 0.12], [0, -0.03, -0.2, 0.12],
     [0.14, -0.03, 0.14, 0.11], [-0.14, -0.03, 0.14, 0.11], [0.14, -0.03, -0.14, 0.11], [-0.14, -0.03, -0.14, 0.11],
     [HC[0], HC[1], HC[2], 0.2], [0, 0.34, 0, 0.14], [0, 0.18, 0, 0.11], [0.072, 0.04, 0.03, 0.06], [-0.072, 0.04, 0.03, 0.06],
-    [MC[0], MC[1], MC[2], 0.05], [0.09, 0.32, -0.2, 0.05],
+    variant === "smoke" ? [CIG_B[0], CIG_B[1], CIG_B[2], 0.02] : [MC[0], MC[1], MC[2], 0.05], [0.09, 0.32, -0.2, 0.05],
   ];
   for (let k = 0; k < 16; k++) {
     const s = occ[k], wp = m4.xform(B, s);
@@ -1746,7 +1823,8 @@ function frame(now) {
     p.setPipeline(figPipe);
     p.drawIndexed(mesh.figIndexCount, 1, 0, 0, 0);
     p.setPipeline(basePipe);
-    p.drawIndexed(mesh.baseIndexCount, 1, mesh.figIndexCount, 0, 0);
+    p.drawIndexed(mesh.baseIndexCount, 1, mesh.figIndexCount + mesh.smokeIndexCount, 0, 0);
+    if (variant === "smoke") p.drawIndexed(mesh.smokeIndexCount, 1, mesh.figIndexCount, 0, 0);
     p.end();
   }
   { // tone map to the canvas
@@ -1765,6 +1843,7 @@ window.__fig = {
   body, joint, cam, setPose, drop: dropFigure, reset: resetFigure,
   step(n) { for (let i = 0; i < n; i++) physicsStep(FIXED); },
   setJoint(o) { Object.assign(joint, o); supportPoints(); },
+  setVariant,
 };
 requestAnimationFrame(frame);
 })().catch((err) => {
