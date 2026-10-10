@@ -1,4 +1,4 @@
-name: Build Watch Cat
+name: Build Watch Cat and Phone Cat
 
 on:
   push:
@@ -22,15 +22,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.14.3
-      - run: gradle --no-daemon :core:test :app:assembleRelease
-      - name: Name the APK
+      - run: gradle --no-daemon :core:test :app:assembleRelease :phone:assembleRelease
+      - name: Name the APKs
         run: |
+          mkdir -p out/watch out/phone
           v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/WatchCat-$v.apk"
-          ls -l out
+          cp app/build/outputs/apk/release/app-release.apk "out/watch/WatchCat-$v.apk"
+          v=$(grep -oP 'versionName = "\K[^"]+' phone/build.gradle.kts)
+          cp phone/build/outputs/apk/release/phone-release.apk "out/phone/PhoneCat-$v.apk"
+          ls -lR out
       - uses: actions/upload-artifact@v4
         with:
           name: WatchCat-APK
-          path: watch-cat/out/*.apk
+          path: watch-cat/out/watch/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoneCat-APK
+          path: watch-cat/out/phone/*.apk
           if-no-files-found: error

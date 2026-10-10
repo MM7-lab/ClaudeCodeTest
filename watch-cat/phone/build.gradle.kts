@@ -7,18 +7,18 @@ plugins {
 }
 
 android {
+    // same code namespace as the watch app (they share code), but its own app id
     namespace = "hk.mm7lab.watchcat"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "hk.mm7lab.watchcat"
-        minSdk = 30
+        applicationId = "hk.mm7lab.watchcat.phone"
+        minSdk = 29
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 1
+        versionName = "1.0.0"
     }
 
-    // A fixed key kept in the repo, so each new version installs over the last one when sideloading.
     signingConfigs {
         create("sideload") {
             storeFile = file("../keystore/sideload.jks")
@@ -35,7 +35,6 @@ android {
         debug { signingConfig = signingConfigs.getByName("sideload") }
     }
 
-    // code, pictures and the 3D pets shared with the phone app
     sourceSets["main"].apply {
         java.srcDir("../shared/src/main/kotlin")
         res.srcDir("../shared/src/main/res")
@@ -63,16 +62,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.wear.compose:compose-material:1.4.0")
-    implementation("androidx.wear.compose:compose-foundation:1.4.0")
-    implementation("androidx.wear:wear-input:1.1.0")
-
-    implementation("androidx.wear.tiles:tiles:1.4.0")
-    implementation("androidx.wear.protolayout:protolayout:1.2.0")
-    implementation("androidx.wear.protolayout:protolayout-material:1.2.0")
-    implementation("androidx.wear.protolayout:protolayout-expression:1.2.0")
-    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
-    implementation("com.google.guava:guava:33.3.1-android")
+    implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 }

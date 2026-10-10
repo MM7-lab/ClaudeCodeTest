@@ -1,7 +1,7 @@
 // Renders the watch's 3D pet sprite sheets from the desktop app's model.
 //   1. serve the repository root:   python3 -m http.server 8765   (from the repo root)
 //   2. node watch-cat/tools/sprites/render.mjs [look ids...]
-// Writes app/src/main/assets/pets/<look>_<POSE>.webp and pets/meta.json.
+// Writes shared/src/main/assets/pets/<look>_<POSE>.webp and pets/meta.json.
 import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
@@ -12,7 +12,7 @@ let playwright;
 try { playwright = require('playwright'); } catch { playwright = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright'); }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const out = path.resolve(here, '../../app/src/main/assets/pets');
+const out = path.resolve(here, '../../shared/src/main/assets/pets');
 fs.mkdirSync(out, { recursive: true });
 
 // watch look id → desktop breed (and coat, for the plain cats)

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">手機貓貓</string>
+    <string name="widget_label">貓貓提醒</string>
+    <string name="widget_desc">寵物、下次提醒同今日飲咗幾杯水，撳一下記多杯</string>
+</resources>

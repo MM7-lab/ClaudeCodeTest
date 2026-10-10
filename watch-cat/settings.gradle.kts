@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "watch-cat"
-include(":core", ":app")
+include(":core", ":app", ":phone")

@@ -28,6 +28,7 @@ class ActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             DONE -> Actions.answer(ctx, true)
             LATER -> Actions.answer(ctx, false)
+            WATER -> Actions.addWater(ctx)
             else -> {}
         }
     }
@@ -35,6 +36,7 @@ class ActionReceiver : BroadcastReceiver() {
     companion object {
         const val DONE = "hk.mm7lab.watchcat.DONE"
         const val LATER = "hk.mm7lab.watchcat.LATER"
+        const val WATER = "hk.mm7lab.watchcat.WATER"
     }
 }
 
