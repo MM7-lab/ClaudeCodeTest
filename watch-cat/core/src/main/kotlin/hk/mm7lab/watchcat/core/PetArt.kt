@@ -364,6 +364,24 @@ object PetArt {
         }
     }
 
+    /**
+     * The mood's flower and crown on a picture of the pet (the 3D ones): [topX], [topY] is the top of
+     * the head, [cx], [cy] its middle and [r] its size, all in the picture's pixels.
+     */
+    fun accessories(p: Painter, mood: Int, topX: Float, topY: Float, cx: Float, cy: Float, r: Float) {
+        val k = r / 40f
+        if (mood >= 2) {
+            p.save(); p.translate(cx - r * 0.72f, cy - r * 0.78f); p.scale(k, k)
+            flower(p, 0f, 0f)
+            p.restore()
+        }
+        if (mood >= 3) {
+            p.save(); p.translate(topX, topY + r * 0.2f); p.scale(k * 1.3f, k * 1.3f); p.translate(-100f, 46f)
+            crown(p, 0f)
+            p.restore()
+        }
+    }
+
     private fun flower(p: Painter, x: Float, y: Float) {
         for (i in 0 until 5) {
             val a = i * 2 * PI.toFloat() / 5

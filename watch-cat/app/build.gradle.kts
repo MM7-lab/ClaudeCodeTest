@@ -14,8 +14,8 @@ android {
         applicationId = "hk.mm7lab.watchcat"
         minSdk = 30
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     // A fixed key kept in the repo, so each new version installs over the last one when sideloading.

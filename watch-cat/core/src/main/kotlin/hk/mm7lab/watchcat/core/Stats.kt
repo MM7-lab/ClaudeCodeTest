@@ -86,6 +86,7 @@ object Codec {
             waterGoal = i("waterGoal", d.waterGoal).coerceIn(1, 20),
             strongBuzz = b("strongBuzz", d.strongBuzz),
             paused = b("paused", d.paused),
+            style3d = b("style3d", d.style3d),
         )
     }
 
@@ -95,6 +96,7 @@ object Codec {
         "quietOn" to s.quietOn.toString(), "quietStart" to s.quietStart.toString(), "quietEnd" to s.quietEnd.toString(),
         "walkAsRest" to s.walkAsRest.toString(), "stepsForRest" to s.stepsForRest.toString(),
         "waterGoal" to s.waterGoal.toString(), "strongBuzz" to s.strongBuzz.toString(), "paused" to s.paused.toString(),
+        "style3d" to s.style3d.toString(),
     )
 
     fun timer(get: (String) -> String?): Timer = Timer(

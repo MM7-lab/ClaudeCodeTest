@@ -88,8 +88,8 @@ private fun ReminderScreen(type: RType, test: Boolean, close: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 22.dp)) {
             Text("${type.emoji} ${type.title}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = type.color())
             Box(contentAlignment = Alignment.Center) {
-                PetView(s.look, pose, mood, t, Modifier.size(104.dp))
-                HeartsView(hearts, t, Modifier.size(104.dp))
+                PetView(s.look, pose, mood, t, Modifier.size(116.dp))
+                HeartsView(hearts, t, Modifier.size(116.dp))
             }
             Text(
                 "${s.name}：${thanks ?: ask}", fontSize = 12.sp, textAlign = TextAlign.Center, maxLines = 2,

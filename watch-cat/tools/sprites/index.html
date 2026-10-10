@@ -1,0 +1,188 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Watch pet sprites</title>
+<body style="margin:0;background:#cfd8e3">
+<script type="module">
+// Renders the desktop app's 3D pets (desktop-cat/pet/cat.js) as looping sprite sheets for the
+// watch. Driven by render.mjs; serve the repository root over http and open this page.
+import * as THREE from '/desktop-cat/node_modules/three/build/three.module.js';
+import { Cat } from '/desktop-cat/pet/cat.js';
+
+const CELL = 240, SS = 2, N = 24, COLS = 6, TILT = 0.3, YAW = -Math.PI / 2 + 0.42;
+const TAU = Math.PI * 2;
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(CELL * SS, CELL * SS);
+renderer.setClearColor(0x000000, 0);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff, 0xcdb8a6, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(-0.6, 1, 0.9);
+scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 8000);
+camera.position.set(0, Math.sin(TILT) * 3000, Math.cos(TILT) * 3000);
+camera.lookAt(0, 0, 0);
+
+// a soft round shadow on the floor
+const shadow = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(0,0,0,0.3)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = -1;
+  scene.add(m);
+  return m;
+})();
+
+// things to hold: a cup of water and a toilet roll, outlined like the pets
+function prop(cat, kind) {
+  const g = new THREE.Group();
+  g.scale.setScalar(1.35);
+  const toon = c => { const m = new THREE.MeshToonMaterial({ gradientMap: cat.ramp }); m.color.set(c); return m; };
+  const line = new THREE.MeshBasicMaterial({ color: 0x3a3030, side: THREE.BackSide });
+  const add = (geo, mat, y, k = 1.12) => {
+    const m = new THREE.Mesh(geo, mat); m.position.y = y; g.add(m);
+    const o = new THREE.Mesh(geo, line); o.scale.setScalar(k); m.add(o);
+    return m;
+  };
+  if (kind === 'cup') {
+    add(new THREE.CylinderGeometry(7.5, 5.8, 15, 20), toon(0xe6f5ff), 0);
+    const water = new THREE.Mesh(new THREE.CylinderGeometry(6.8, 6.8, 0.6, 20), toon(0x5fa8e6));
+    water.position.y = 5.5; g.add(water);
+  } else {
+    add(new THREE.CylinderGeometry(7.5, 7.5, 13, 20), toon(0xffffff), 0);
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 13.4, 12), toon(0xc9b79c));
+    g.add(hole);
+  }
+  return g;
+}
+
+// What each pose does over one loop (th goes 0 → 2π). Integer speeds keep the loop seamless.
+const POSES = {
+  IDLE: { base: 'sit', o: { tailSpeed: 1, tailAmp: 0.1 },
+    f: (c, th, i) => { c.extraHead.yaw = Math.sin(th) * 0.12; c.blink = i === 15 || i === 16 ? 0 : 1; } },
+  HAPPY: { base: 'sit', o: { tailSpeed: 4, tailAmp: 0.38, tailLift: 2.1 },
+    f: (c, th) => { c.pose.mouth = 0.45 + 0.25 * Math.sin(th * 2); c.pose.headRoll = Math.sin(th * 2) * 0.16; c.wingBeat = 4; return { y: Math.abs(Math.sin(th * 2)) * 3 }; } },
+  SLEEP: { base: 'loaf', o: { tailSpeed: 1, tailAmp: 0.03 }, f: c => { c.blink = 1; } },
+  WATER: { base: 'sit', o: { tailSpeed: 2, tailAmp: 0.12, headPitch: 0.12 }, prop: 'cup',
+    f: (c, th) => { c.pose.legs[1] = 1.9 + Math.sin(th * 2) * 0.08; c.pose.mouth = Math.max(0, Math.sin(th * 2)) * 0.35; } },
+  TOILET: { base: 'sit', o: { tailSpeed: 2, tailAmp: 0.12 }, prop: 'roll',
+    f: (c, th) => { c.pose.legs[1] = 1.9 + Math.sin(th * 2) * 0.08; c.pose.mouth = 0.25; } },
+  // up on the hind legs, both front paws high: a big stretch and a yawn
+  REST: { base: 'reach', o: { legs: [2.5, 2.5, -0.05, -0.05], scales: [1.05, 1.05, 0.95, 0.95], tailSpeed: 1, tailAmp: 0.12, headPitch: -0.3 },
+    f: (c, th) => {
+      const y = Math.max(0, Math.sin(th));
+      c.pose.legs[0] = c.pose.legs[1] = 2.5 + Math.sin(th * 2) * 0.12;
+      c.pose.mouth = y * 0.8; c.pose.eyeOpen = 1 - y * 0.85;
+    } },
+  DANCE: { base: 'sit', o: { tailSpeed: 4, tailAmp: 0.4, tailLift: 2.1 },
+    f: (c, th) => {
+      const s = Math.sin(th * 2);
+      c.pose.legs[0] = Math.max(0, s) * 1.5; c.pose.legs[1] = Math.max(0, -s) * 1.5;
+      c.pose.mouth = 0.35; c.pose.headRoll = s * 0.18; c.wingBeat = 4;
+      return { y: Math.abs(s) * 9, roll: s * 0.12 };
+    } },
+};
+
+function settle(cat, pose) {
+  const P = POSES[pose];
+  cat.setPose(P.base, P.o);
+  cat.gait.amp = 0; cat.extraHead.yaw = 0; cat.extraHead.pitch = 0; cat.wingBeat = 11;
+  cat.nextBlink = 1e9; cat.blink = 1;
+  for (let i = 0; i < 240; i++) cat.update(1 / 60);
+  cat.nextBlink = 1e9;
+}
+
+function frame(cat, pose, i, extra) {
+  const P = POSES[pose], th = i / N * TAU;
+  cat.time = th; // all the model's own motion runs off this
+  cat.blink = 1; cat.nextBlink = 1e9;
+  cat.pose = structuredClone(cat.target);
+  const m = P.f(cat, th, i) || {};
+  cat.update(0);
+  cat.root.position.set(0, m.y || 0, 0);
+  cat.root.rotation.set(0, YAW, 0);
+  cat.root.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), m.roll || 0);
+  if (extra) {
+    // keep the held thing upright, at the raised paw
+    const leg = cat.legs[1];
+    leg.updateWorldMatrix(true, false);
+    extra.position.copy(new THREE.Vector3(4, -30 * cat.legK, 9).applyMatrix4(leg.matrixWorld));
+    extra.position.y += 6;
+  }
+}
+
+// where the head is on the picture, for the flower and the crown
+function anchors(cat) {
+  const toPx = v => { v.project(camera); return [(v.x + 1) / 2 * CELL, (1 - v.y) / 2 * CELL]; };
+  cat.root.updateWorldMatrix(true, true);
+  const top = toPx(cat.neck.localToWorld(new THREE.Vector3(10, 34, 0)));
+  const mid = toPx(cat.neck.localToWorld(new THREE.Vector3(10, 10, 0)));
+  return [...top, ...mid, Math.hypot(top[0] - mid[0], top[1] - mid[1])].map(v => Math.round(v * 10) / 10);
+}
+
+function bounds(cat) {
+  const box = new THREE.Box3().setFromObject(cat.root), pts = [];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const v = new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse); pts.push(v);
+  }
+  return { x0: Math.min(...pts.map(p => p.x)), x1: Math.max(...pts.map(p => p.x)), y0: Math.min(...pts.map(p => p.y)), y1: Math.max(...pts.map(p => p.y)) };
+}
+
+// One look: every pose as a sheet (webp data URL), plus the head anchors for every frame.
+window.renderLook = async ({ breed, coat }) => {
+  const cat = new Cat(breed, coat || 'orange');
+  scene.add(cat.root);
+  // first pass: how much room the poses need. The sitting pet sets the size (so it stays the
+  // same size throughout); the others may make the frame a little bigger, but not much.
+  let u = null, idle = null;
+  for (const pose of Object.keys(POSES)) {
+    settle(cat, pose);
+    for (let i = 0; i < N; i += 3) {
+      frame(cat, pose, i);
+      const b = bounds(cat);
+      if (pose === 'IDLE') idle = idle ? { x0: Math.min(idle.x0, b.x0), x1: Math.max(idle.x1, b.x1), y0: Math.min(idle.y0, b.y0), y1: Math.max(idle.y1, b.y1) } : b;
+      u = u ? { x0: Math.min(u.x0, b.x0), x1: Math.max(u.x1, b.x1), y0: Math.min(u.y0, b.y0), y1: Math.max(u.y1, b.y1) } : b;
+    }
+  }
+  const iside = Math.max(idle.x1 - idle.x0, idle.y1 - idle.y0);
+  const side = Math.min(Math.max(iside * 1.25, Math.max(u.x1 - u.x0, u.y1 - u.y0) * 1.02), iside * 1.55);
+  const cx = Math.min(Math.max((idle.x0 + idle.x1) / 2, u.x1 - side / 2), u.x0 + side / 2), bottom = u.y0 - side * 0.03;
+  camera.left = cx - side / 2; camera.right = cx + side / 2;
+  camera.bottom = bottom; camera.top = bottom + side;
+  camera.updateProjectionMatrix();
+  const len = cat.spec.len * 60;
+  shadow.scale.set(len, len * 0.55, 1);
+  shadow.position.set(0, 0.2, 0);
+
+  const out = {};
+  const sheet = document.createElement('canvas');
+  sheet.width = CELL * COLS; sheet.height = CELL * Math.ceil(N / COLS);
+  const g = sheet.getContext('2d');
+  for (const [pose, P] of Object.entries(POSES)) {
+    settle(cat, pose);
+    const extra = P.prop ? prop(cat, P.prop) : null;
+    if (extra) scene.add(extra);
+    g.clearRect(0, 0, sheet.width, sheet.height);
+    const an = [];
+    for (let i = 0; i < N; i++) {
+      frame(cat, pose, i, extra);
+      renderer.render(scene, camera);
+      g.drawImage(renderer.domElement, (i % COLS) * CELL, Math.floor(i / COLS) * CELL, CELL, CELL);
+      an.push(anchors(cat));
+    }
+    if (extra) scene.remove(extra);
+    out[pose] = { webp: sheet.toDataURL('image/webp', 0.86), anchors: an };
+  }
+  scene.remove(cat.root);
+  return out;
+};
+renderer.render(scene, camera);
+window.spriteInfo = { CELL, N, COLS };
+window.ready = true;
+</script>

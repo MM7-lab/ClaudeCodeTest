@@ -62,7 +62,7 @@ class PetTileService : TileService() {
             val look = Looks.byId(parts.getOrNull(0) ?: "")
             val pose = runCatching { Pose.valueOf(parts.getOrNull(1) ?: "") }.getOrDefault(Pose.IDLE)
             val mood = parts.getOrNull(2)?.toIntOrNull() ?: 0
-            val png = PetBitmap.png(look, Frame(0.4f, pose, 1f, mood), IMG)
+            val png = PetBitmap.png(this@PetTileService, look, Frame(0.4f, pose, 1f, mood), IMG)
             ResourceBuilders.Resources.Builder()
                 .setVersion(req.version)
                 .addIdToImageMapping(
@@ -104,7 +104,7 @@ class PetTileService : TileService() {
             mood >= 1 -> Pose.HAPPY
             else -> Pose.IDLE
         }
-        val version = "${s.petId}/${pose.name}/$mood"
+        val version = "${s.petId}/${pose.name}/$mood/${if (s.style3d) "3d" else "2d"}"
 
         val top = when {
             s.paused -> "⏸ 暫停咗"

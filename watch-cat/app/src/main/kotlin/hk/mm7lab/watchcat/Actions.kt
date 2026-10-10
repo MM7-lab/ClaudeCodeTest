@@ -88,7 +88,7 @@ object Actions {
     fun changeSettings(ctx: Context, new: Settings) {
         val old = Store.settings(ctx)
         Store.saveSettings(ctx, new)
-        val timing = old.copy(petId = new.petId, name = new.name, waterGoal = new.waterGoal, strongBuzz = new.strongBuzz) != new
+        val timing = old.copy(petId = new.petId, name = new.name, waterGoal = new.waterGoal, strongBuzz = new.strongBuzz, style3d = new.style3d) != new
         if (timing) {
             val t = Reminders.restart(new, Store.timer(ctx), System.currentTimeMillis(), Store.lastSteps(ctx), Store.zone)
             Store.saveTimer(ctx, t)

@@ -150,14 +150,14 @@ private fun PetPage() {
             Box(contentAlignment = Alignment.Center) {
                 PetView(
                     s.look, pose, mood, t,
-                    Modifier.size(118.dp).clickable(
+                    Modifier.size(132.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() }, indication = null,
                     ) {
                         Actions.pet(ctx)
                         hearts.add(t)
                     },
                 )
-                HeartsView(hearts, t, Modifier.size(118.dp))
+                HeartsView(hearts, t, Modifier.size(132.dp))
             }
             if (pending != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -33,6 +33,7 @@ data class Settings(
     val waterGoal: Int = 8,
     val strongBuzz: Boolean = false,
     val paused: Boolean = false,
+    val style3d: Boolean = true,      // the 3D pets (pictures made from the desktop app's model) or the flat drawings
 ) {
     fun enabled(t: RType) = when (t) { RType.WATER -> water; RType.REST -> rest; RType.TOILET -> toilet }
     val look: Look get() = Looks.byId(petId)

@@ -6,6 +6,8 @@
 ## 有咩功能
 
 - **寵物主畫面**：11 種貓、7 種狗（同電腦版一樣），仲有一隻原創嘅黑龍仔 🐉（大綠眼、頭上有鰭、識拍翼、冇牙笑容），會呼吸、眨眼、搖尾。輕按會出心心。
+  - **3D 樣式**（預設）：用電腦版嘅 3D 模型預先渲染成動畫，同電腦版一模一樣；攞住水杯、廁紙，企起身伸懶腰，瞓覺會出 Z。唔係即時 3D，所以唔會特別食電。
+  - 喺設定「🧊 3D 樣式」熄咗佢，就會變返平面公仔畫。
   外圈係倒數圈，顯示距離下次提醒仲有幾耐。向上掃就會見到「今日」頁。
 - **提醒**：飲水 → 休息 → 飲水 → 去廁所，輪流提。可以揀每 15–90 分鐘提一次。
   - 每種提醒震法唔同，唔使望都知係咩：
@@ -59,9 +61,9 @@
    ```
    adb connect 192.168.1.23:39876
    ```
-4. 將下載咗嘅 `WatchCat-1.0.0.apk` 放入同一個資料夾，然後：
+4. 將下載咗嘅 `WatchCat-1.1.0.apk` 放入同一個資料夾，然後：
    ```
-   adb install -r WatchCat-1.0.0.apk
+   adb install -r WatchCat-1.1.0.apk
    ```
    見到 `Success` 就裝好喇。
 
@@ -88,5 +90,11 @@
 - `core/`：純 Kotlin，冇 Android。包括寵物畫法（`PetArt`）、提醒規則（`Reminders`）、統計同開心指數（`Stats`）。
   可以單獨喺電腦測試：`cd core && gradle test`，會喺 `core/build/previews/` 畫出全部寵物嘅 PNG。
 - `app/`：Wear OS app（Compose for Wear OS、Tiles、Complications）。
+- `tools/sprites/`：將電腦版嘅 3D 寵物（`desktop-cat/pet/cat.js`）渲染成手錶用嘅動畫（`app/src/main/assets/pets/`）。改咗電腦版模型之後重新渲染：
+  ```
+  cd desktop-cat && npm ci && cd ..          # 要 three.js
+  python3 -m http.server 8765 &               # 喺 repo 最頂嗰層
+  node watch-cat/tools/sprites/render.mjs     # 要 Playwright；可以只寫某幾隻，例如 orange golden
+  ```
 - GitHub Actions（`.github/workflows/watch-cat.yml`）會自動編譯，並上載 `WatchCat-x.y.z.apk`。
 - `keystore/sideload.jks` 係一條固定嘅簽名鎖匙（密碼 `watchcat`），只係用嚟令新版本可以直接覆蓋舊版本，**唔好用嚟簽其他嘢**。

@@ -16,11 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.offset
@@ -75,19 +77,41 @@ fun clock(): Float {
 @Composable
 fun storeVersion(): Long = Store.changes.collectAsState().value
 
-/** The animated pet. */
+/** The animated pet (3D or drawn, as set), with Zzz when it's asleep. */
 @Composable
 fun PetView(look: Look, pose: Pose, mood: Int, t: Float, modifier: Modifier = Modifier) {
-    // blink for a moment every few seconds
+    val ctx = LocalContext.current
+    val style3d = Store.settings(ctx).style3d
+    // blink for a moment every few seconds (the 3D pictures blink by themselves)
     val blink = if (pose != Pose.SLEEP && (t % 4.3f) < 0.13f) 0f else 1f
+    val zPaint = remember {
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(170, 190, 255)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+    }
     Canvas(modifier) {
+        // a soft glow behind, so dark pets (the black cat, the dragon) stand out on the black screen
+        val s0 = minOf(size.width, size.height)
+        drawCircle(
+            Brush.radialGradient(listOf(Color(0x33B8C8FF), Color.Transparent), center = Offset(size.width / 2, size.height * 0.58f), radius = s0 * 0.5f),
+            radius = s0 * 0.5f, center = Offset(size.width / 2, size.height * 0.58f),
+        )
         drawIntoCanvas { c ->
             val n = c.nativeCanvas
+            val s = minOf(size.width, size.height)
             n.save()
-            val k = minOf(size.width, size.height) / 200f
-            n.translate((size.width - 200f * k) / 2f, (size.height - 200f * k) / 2f)
-            n.scale(k, k)
-            hk.mm7lab.watchcat.core.PetArt.draw(AndroidPainter(n), look, Frame(t, pose, blink, mood))
+            n.translate((size.width - s) / 2f, (size.height - s) / 2f)
+            PetDraw.draw(ctx, n, s, look, Frame(t, pose, blink, mood), style3d)
+            if (pose == Pose.SLEEP) {
+                // three Zs drifting up from the head
+                for (i in 0 until 3) {
+                    val k = ((t * 0.5f + i / 3f) % 1f)
+                    zPaint.alpha = ((1f - k) * 230).toInt()
+                    zPaint.textSize = s * (0.07f + 0.05f * k)
+                    n.drawText("Z", s * (0.62f + 0.12f * k), s * (0.38f - 0.22f * k), zPaint)
+                }
+            }
             n.restore()
         }
     }

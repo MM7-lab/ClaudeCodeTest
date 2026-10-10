@@ -498,7 +498,7 @@ export class Cat {
       const busy = p.tailAmp > 0.3 || p.tailSpeed > 4.5 || g.amp > 0.9;
       const target = busy ? 1 : 0;
       this.flapK = (this.flapK ?? 0) + (target - (this.flapK ?? 0)) * Math.min(1, dt * 4);
-      const k = this.flapK, beat = Math.sin(this.time * 11);
+      const k = this.flapK, beat = Math.sin(this.time * (this.wingBeat ?? 11));
       for (const w of this.wings) {
         const lift = 0.6 - k * 0.2 + beat * 0.75 * k + Math.sin(this.time * 1.6) * 0.05;
         w.rotation.x = -w.userData.side * lift;

@@ -71,12 +71,13 @@ private fun SettingsScreen() {
             item {
                 Choice("寵物", s.look.label, icon = {
                     Image(
-                        PetBitmap.of(s.look, Frame(0.4f), 96).asImageBitmap(), null,
+                        PetBitmap.of(ctx, s.look, Frame(0.4f), 96).asImageBitmap(), null,
                         Modifier.size(ChipDefaults.LargeIconSize),
                     )
                 }) { pick(ctx, PickActivity.PET) }
             }
             item { Choice("名字", s.name) { pick(ctx, PickActivity.NAME) } }
+            item { Toggle("🧊 3D 樣式", s.style3d, if (s.style3d) "同電腦版一樣嘅 3D 寵物" else "平面公仔畫") { set(s.copy(style3d = it)) } }
             item { Choice("幾耐提一次", "每 ${s.intervalMin} 分鐘") { pick(ctx, PickActivity.INTERVAL) } }
 
             item { ListHeader { Text("提醒") } }

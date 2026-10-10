@@ -99,7 +99,7 @@ private fun PickScreen(what: String, done: () -> Unit) {
                     icon = if (o.look != null) {
                         {
                             Image(
-                                PetBitmap.of(o.look, Frame(0.4f), 96).asImageBitmap(), null,
+                                PetBitmap.of(ctx, o.look, Frame(0.4f), 96).asImageBitmap(), null,
                                 Modifier.size(ChipDefaults.LargeIconSize),
                             )
                         }

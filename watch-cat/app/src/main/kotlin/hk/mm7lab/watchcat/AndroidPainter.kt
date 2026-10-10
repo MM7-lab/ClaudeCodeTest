@@ -1,5 +1,6 @@
 package hk.mm7lab.watchcat
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -57,21 +58,49 @@ class AndroidPainter(private val c: Canvas) : Painter {
     }
 }
 
+/** Draws the pet into a square of [size] pixels at (0, 0): the 3D picture if there is one, else the drawing. */
+object PetDraw {
+    private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+    private val src = android.graphics.Rect()
+    private val dst = RectF()
+
+    fun draw(ctx: Context, c: Canvas, size: Float, look: Look, frame: Frame, style3d: Boolean) {
+        val m = if (style3d) Sprites.meta(ctx)?.takeIf { it.has(look.id) } else null
+        val sheet = m?.let { Sprites.sheet(ctx, look.id, frame.pose) }
+        if (m == null || sheet == null) {
+            c.save()
+            c.scale(size / 200f, size / 200f)
+            PetArt.draw(AndroidPainter(c), look, frame)
+            c.restore()
+            return
+        }
+        val i = Sprites.frameAt(m, frame.t)
+        dst.set(0f, 0f, size, size)
+        c.drawBitmap(sheet, Sprites.src(m, i, src), dst, paint)
+        if (frame.mood >= 2) m.head(look.id, frame.pose, i)?.let { h ->
+            c.save()
+            c.scale(size / m.cell, size / m.cell)
+            PetArt.accessories(AndroidPainter(c), frame.mood, h[0], h[1], h[2], h[3], h[4])
+            c.restore()
+        }
+    }
+}
+
 /** The pet as a picture, for the tile and the pet chooser. */
 object PetBitmap {
     private val cache = HashMap<String, Bitmap>()
 
-    fun of(look: Look, frame: Frame, size: Int): Bitmap {
-        val key = "${look.id}-${frame.pose}-${frame.mood}-$size"
+    fun of(ctx: Context, look: Look, frame: Frame, size: Int): Bitmap {
+        val style3d = Store.settings(ctx).style3d
+        val key = "${look.id}-${frame.pose}-${frame.mood}-$size-$style3d"
         return cache.getOrPut(key) {
             val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            val c = Canvas(bmp)
-            c.scale(size / 200f, size / 200f)
-            PetArt.draw(AndroidPainter(c), look, frame)
+            // the first frame of the loop (eyes open)
+            PetDraw.draw(ctx, Canvas(bmp), size.toFloat(), look, frame.copy(t = 0f), style3d)
             bmp
         }
     }
 
-    fun png(look: Look, frame: Frame, size: Int): ByteArray =
-        ByteArrayOutputStream().also { of(look, frame, size).compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+    fun png(ctx: Context, look: Look, frame: Frame, size: Int): ByteArray =
+        ByteArrayOutputStream().also { of(ctx, look, frame, size).compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
 }
