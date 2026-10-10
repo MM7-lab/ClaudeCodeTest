@@ -1,3 +1,31 @@
+# 手錶貓貓 同 手機貓貓
+
+呢度有兩個 app，用同一套提醒同 3D 寵物：
+
+- **手機貓貓**：Android 手機版（例如 Samsung Galaxy），一撳就裝到，最易用。
+- **手錶貓貓**：Wear OS 手錶版（例如 Galaxy Watch Ultra），要用無線偵錯安裝。
+
+## 手機貓貓（Android 手機）
+
+### 安裝
+1. 用手機瀏覽器開 GitHub 嘅下載連結（要登入 GitHub），下載 `PhoneCat-APK`。
+2. 用「我的檔案」開個 `.zip`，撳「解壓縮」，得到 `PhoneCat-1.0.0.apk`。
+3. 撳個 APK → 安裝。第一次會問「允許呢個來源安裝 app？」，去設定開咗「允許」再返嚟撳安裝。
+4. 如果彈出 Google Play Protect 警告（因為唔係喺 Play 商店下載），撳「仍要安裝」。
+
+### 第一次打開
+1. 允許「通知」同「體能活動」（數步數用）。
+2. 去 **⚙️ 設定 → 🔋 電池：唔好限制**，揀「允許」。Samsung 手機慳電會令 app 瞓着，咁做提醒先會準時。
+3. 揀寵物、改名、揀幾耐提一次。撳「🔔 試吓提醒」試吓震法同提醒畫面。
+
+### 主畫面小工具
+長按手機主畫面 → **小工具** → 搵「手機貓貓」→ 拖去主畫面。會顯示寵物、下次提醒、今日飲咗幾杯，撳「+1 💧」就記一杯。
+
+### 有咩功能
+同手錶版一樣（見下面）：3D 寵物、飲水／休息／去廁所輪流提、唔同震法、夜間靜音、行路當休息、今日統計同 7 日飲水圖、開心指數。
+
+---
+
 # 手錶貓貓（Wear OS 版）
 
 電腦版「桌面貓貓」嘅手錶版本，適用於 Samsung Galaxy Watch（Wear OS 4 或以上，例如 Galaxy Watch Ultra）。
@@ -30,6 +58,8 @@
 - 如果開咗「請勿打擾」或睡眠模式，就唔會震。
 
 ## 安裝（用 Windows 電腦，經 Wi-Fi）
+
+> 注意：用「File Transfer」之類嘅 app 將 APK 複製落手錶，再喺手錶撳開，係**裝唔到**嘅（會話 Cannot open file）。Wear OS 冇撳 APK 安裝嘅功能，一定要經 ADB（無線偵錯）安裝：用電腦（下面步驟），或者手機上嘅 Wear Installer 2 / Bugjaeger。
 
 呢個 app 冇上架 Google Play，要自己裝（sideload）。只需要做一次設定，之後更新都係咁裝。
 
@@ -87,6 +117,8 @@
 
 ## 開發
 
+- `shared/`：手機同手錶共用嘅 Android 程式（提醒、通知、儲存、畫寵物）同 3D 寵物圖（`assets/pets`）。
+- `phone/`：手機版（Compose Material 3、主畫面小工具）。
 - `core/`：純 Kotlin，冇 Android。包括寵物畫法（`PetArt`）、提醒規則（`Reminders`）、統計同開心指數（`Stats`）。
   可以單獨喺電腦測試：`cd core && gradle test`，會喺 `core/build/previews/` 畫出全部寵物嘅 PNG。
 - `app/`：Wear OS app（Compose for Wear OS、Tiles、Complications）。
@@ -94,7 +126,7 @@
   ```
   cd desktop-cat && npm ci && cd ..          # 要 three.js
   python3 -m http.server 8765 &               # 喺 repo 最頂嗰層
-  node watch-cat/tools/sprites/render.mjs     # 要 Playwright；可以只寫某幾隻，例如 orange golden
+  node watch-cat/tools/sprites/render.mjs     # 要 Playwright；圖會寫入 shared/src/main/assets/pets；可以只寫某幾隻，例如 orange golden
   ```
-- GitHub Actions（`.github/workflows/watch-cat.yml`）會自動編譯，並上載 `WatchCat-x.y.z.apk`。
+- GitHub Actions（`.github/workflows/watch-cat.yml`）會自動編譯，並上載 `WatchCat-x.y.z.apk` 同 `PhoneCat-x.y.z.apk`。
 - `keystore/sideload.jks` 係一條固定嘅簽名鎖匙（密碼 `watchcat`），只係用嚟令新版本可以直接覆蓋舊版本，**唔好用嚟簽其他嘢**。
