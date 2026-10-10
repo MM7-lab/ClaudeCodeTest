@@ -53,6 +53,7 @@ python3 floor-planner/build_pages.py
 | `cat-animation/3d/index.html` | 卡通 3D 躺平貓網頁（拖曳旋轉，有呼吸、擺尾同煙霧動畫） |
 | `cat-animation/3d/cat-model.js` | 3D 模型本體（網頁同匯出共用） |
 | `cat-animation/3d/lying-office-cat.glb` | 匯出嘅 3D 模型檔（Blender 等軟件開到，冇動畫） |
+| `cat-animation/figure/index.html` | WebGPU 收藏公仔版（單一 HTML，程序生成 PVC 公仔、亞加力底座、剛體物理、可擺姿勢；要支援 WebGPU 嘅瀏覽器） |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
