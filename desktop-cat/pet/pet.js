@@ -30,20 +30,22 @@ const sound = makeSound(() => S);
 // ---------- the main pet (主角): a cat, a dog, a bird or the pig ----------
 // A cat or a dog is the animal below with the full set of behaviours (ai, cat). A bird or the
 // pig takes over the reminders, the speech bubble and being called over; the cat then stays away.
-const mainKind = () => (['cat', 'dog', 'bird', 'pig'].includes(S.mainPet) ? S.mainPet : 'cat');
-const catMain = () => mainKind() === 'cat' || mainKind() === 'dog';
+const mainKind = () => (['cat', 'dog', 'bird', 'pig', 'dragon'].includes(S.mainPet) ? S.mainPet : 'cat');
+// the cat, a dog and the dragon all use the same animal model
+const catMain = () => ['cat', 'dog', 'dragon'].includes(mainKind());
 const dogMain = () => mainKind() === 'dog';
 const pigOn = () => !!S.pig || mainKind() === 'pig';
 const birdCount = () => (mainKind() === 'bird' ? Math.max(1, S.birdCount) : S.birdCount);
 const pigName = () => (mainKind() === 'pig' ? S.name : S.pigName);
 const birdName = i => (mainKind() === 'bird' && i === 0 ? S.name : S.birds[i]?.name || '雀仔');
-const word = () => ({ cat: '喵', dog: '汪', bird: '啾', pig: '噗' })[mainKind()];
-const face = () => ({ cat: '🐱', dog: '🐶', bird: '🐤', pig: '🐷' })[mainKind()];
+const word = () => ({ cat: '喵', dog: '汪', bird: '啾', pig: '噗', dragon: '嗚' })[mainKind()];
+const face = () => ({ cat: '🐱', dog: '🐶', bird: '🐤', pig: '🐷', dragon: '🐉' })[mainKind()];
 const dogPitch = () => clamp(1.25 / (BREEDS[S.dogBreed]?.size || 1), 0.75, 2.4);
 // the main pet's own voice, and its happy noise
 function voice(n = 1) {
   const k = mainKind();
   if (k === 'dog') sound.bark(n, dogPitch());
+  else if (k === 'dragon') sound.grumble(n);
   else if (k === 'bird') sound.song(PITCH[0]);
   else if (k === 'pig') sound.oink(n);
   else sound.meow(n);
@@ -51,6 +53,7 @@ function voice(n = 1) {
 function purr() {
   const k = mainKind();
   if (k === 'dog') sound.bark(1, dogPitch());
+  else if (k === 'dragon') sound.grumble(1, 0.8);
   else if (k === 'bird') sound.tweet(PITCH[0]);
   else if (k === 'pig') sound.oink(1);
   else sound.purr();
@@ -265,8 +268,8 @@ function makeFriend(id) {
     atBowl: () => atBowl(),
     cursorX: () => (cursor && cursor.x >= 0 && cursor.x <= W ? cursorWorldX() : null),
     sound: {
-      voice: n => (dog ? sound.bark(n, pitch) : sound.meow(n, pitch)),
-      happy: () => (dog ? sound.bark(1, pitch) : sound.purr()),
+      voice: n => (dog ? sound.bark(n, pitch) : b.kind === 'dragon' ? sound.grumble(n) : sound.meow(n, pitch)),
+      happy: () => (dog ? sound.bark(1, pitch) : b.kind === 'dragon' ? sound.grumble(1, 0.8) : sound.purr()),
     },
     hearts: p => hearts(3, toScreen(v.set(p.x, p.y, p.z))),
     say: (text, p) => floaters(toScreen(v.set(p.x, p.y, p.z)), 1, [text], 'heart woof'),
@@ -1549,7 +1552,7 @@ function applySettings(s) {
   if (S.sound && soundWasOn === false && frameStarted) voice(); // let them hear it when switched on
   // the main pet: which animal, and if it's the cat or a dog, which breed
   const kind = mainKind(), wasCat = cat.root.visible;
-  if (catMain()) cat.setBreed(kind === 'dog' ? (BREEDS[S.dogBreed]?.kind === 'dog' ? S.dogBreed : 'golden') : S.breed, S.coat);
+  if (catMain()) cat.setBreed(kind === 'dog' ? (BREEDS[S.dogBreed]?.kind === 'dog' ? S.dogBreed : 'golden') : kind === 'dragon' ? 'nightdragon' : S.breed, S.coat);
   cat.root.visible = shadow.visible = catMain();
   if (!catMain()) { zzz.hidden = true; drag = null; freeSlot('main'); }
   else if (!wasCat && frameStarted) { const [x0, x1] = screenBounds(); ai.x = rand(x0, x1) * 0.5; ai.y = H * 0.55; ai.surface = null; go('fall', { welcome: true }); }

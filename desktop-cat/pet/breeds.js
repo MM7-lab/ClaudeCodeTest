@@ -3,7 +3,7 @@
 //
 // size     overall scale next to the main cat   len/fat  body length / girth
 // legK     leg length                           head     head scale; headShape stretches it (x, y, z)
-// ears     cat | small | big | fold | pointy | bat | floppy   (earK scales them)
+// ears     cat | small | big | fold | pointy | bat | floppy | fins   (earK scales them)
 // snout    0 for a cat's face; a dog's muzzle length   flat  shorter, rounder cat face
 // fluff    0..1 long fur: a ruff, a fuller body and tail   tail  { n, r, lift, curl, stub }
 // colours  fur, belly, inner (ears), eye, line (outline), stripe (tabby), point (ears, face,
@@ -55,6 +55,10 @@ export const BREEDS = {
   chihuahua: { label: '吉娃娃', kind: 'dog', size: 0.55, len: 0.9, fat: 0.85, legK: 0.95, head: 1.25, headShape: [0.9, 1.05, 1.05],
     ears: 'big', earK: 1.3, snout: 6, tail: { n: 8, r: 3.6, lift: -0.15, curl: -0.38, taper: 0.04 },
     fur: 0xe8bb84, belly: 0xf6dcb6, inner: 0xf2a59a, eye: 0x2a1a10, line: 0x5a3c22, nose: 0x3a2a24 },
+  // ---------- a little dragon of our own (big green eyes, head fins, wings, a finned tail) ----------
+  nightdragon: { label: '黑龍仔', kind: 'dragon', size: 1.3, len: 1.15, fat: 0.95, legK: 0.8, head: 1.1, headShape: [1.02, 0.95, 1.12],
+    ears: 'fins', tail: { n: 12, r: 6.4, lift: 0.55, curl: -0.04, taper: 0.06, fins: true }, wings: true,
+    fur: 0x353b4a, belly: 0x404757, inner: 0x58627c, eye: 0x9fd94a, line: 0x0c0e14, nose: 0x0c0e14, paw: 0x464d5f },
 };
 export const CAT_BREEDS = Object.keys(BREEDS).filter(k => BREEDS[k].kind === 'cat');
 export const DOG_BREEDS = Object.keys(BREEDS).filter(k => BREEDS[k].kind === 'dog');

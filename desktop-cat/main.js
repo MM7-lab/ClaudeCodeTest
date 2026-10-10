@@ -35,12 +35,13 @@ const BREEDS = [
   { id: 'frenchie', label: '法國鬥牛犬', kind: 'dog' }, { id: 'shepherd', label: '德國牧羊犬', kind: 'dog' },
   { id: 'dachshund', label: '臘腸犬', kind: 'dog' }, { id: 'pomeranian', label: '博美犬', kind: 'dog' },
   { id: 'chihuahua', label: '吉娃娃', kind: 'dog' },
+  { id: 'nightdragon', label: '黑龍仔', kind: 'dragon' },
 ];
 const CAT_BREEDS = BREEDS.filter(b => b.kind === 'cat').map(b => b.id);
 const DOG_BREEDS = BREEDS.filter(b => b.kind === 'dog').map(b => b.id);
 // the main pet (主角), who gives the reminders
-const MAIN_PETS = [['cat', '貓貓'], ['dog', '狗狗'], ['bird', '雀仔'], ['pig', '豬仔']];
-const WORD = { cat: '喵', dog: '汪', bird: '啾', pig: '噗' };
+const MAIN_PETS = [['cat', '貓貓'], ['dog', '狗狗'], ['bird', '雀仔'], ['pig', '豬仔'], ['dragon', '黑龍仔']];
+const WORD = { cat: '喵', dog: '汪', bird: '啾', pig: '噗', dragon: '嗚' };
 // office furniture that can be switched on and off
 const FURNITURE = [['sofa', '梳化'], ['cooler', '飲水機'], ['shelf', '書櫃'], ['board', '白板'], ['printer', '打印機'], ['plant', '大盆栽']];
 // The plush toys (公仔) from the soft-body toy box; the cat plays with whichever are switched on.
@@ -451,7 +452,7 @@ function menuItems() {
       label: '朋友',
       submenu: [
         ...BREEDS.map(b => ({
-          label: `${b.kind === 'dog' ? '🐶' : '🐱'} ${b.label}`, type: 'checkbox', checked: S.friends.includes(b.id),
+          label: `${{ dog: '🐶', dragon: '🐉' }[b.kind] || '🐱'} ${b.label}`, type: 'checkbox', checked: S.friends.includes(b.id),
           click: (item) => saveAndApply({ friends: item.checked ? [...S.friends, b.id] : S.friends.filter(id => id !== b.id) }),
         })),
         { type: 'separator' },

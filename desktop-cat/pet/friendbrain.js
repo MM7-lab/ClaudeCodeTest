@@ -323,7 +323,10 @@ export class FriendBrain {
     if (this.mode === 'line') { this.go('sit', { dur: rand(3, 5) }); this.faceUser(); this.ctx.hearts(this.headWorld()); }
   }
   jump(v) { this.vy = v; this.y = Math.max(this.y, 0.01); }
-  voice(times) { this.ctx.sound.voice(times); this.ctx.say(this.dog ? (this.a.spec.size < 0.8 ? '汪汪！' : '汪！') : '喵～', this.headWorld()); }
+  voice(times) {
+    this.ctx.sound.voice(times);
+    this.ctx.say(this.dog ? (this.a.spec.size < 0.8 ? '汪汪！' : '汪！') : this.a.isDragon ? '嗚～' : '喵～', this.headWorld());
+  }
 
   // ---------- from the user and the others ----------
   petted() {

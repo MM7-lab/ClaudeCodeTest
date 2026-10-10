@@ -151,6 +151,28 @@ export function makeSound(getSettings) {
       }
       rest(times * 0.22 + 0.2);
     },
+    // the little dragon: a warbly chirp that drops into a low rumble
+    grumble(times = 1, pitch = 1) {
+      if (!on() || !ac()) return;
+      for (let i = 0; i < times; i++) {
+        const t = ctx.currentTime + i * 0.5, p = rand(0.9, 1.1) * pitch, len = 0.42;
+        const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),
+              f = ctx.createBiquadFilter(), g = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(380 * p, t);
+        o.frequency.exponentialRampToValueAtTime(620 * p, t + 0.08);
+        o.frequency.exponentialRampToValueAtTime(150 * p, t + len);
+        lfo.frequency.value = 26; lg.gain.value = 30 * p;
+        lfo.connect(lg).connect(o.frequency);
+        f.type = 'bandpass'; f.frequency.value = 850; f.Q.value = 1.8;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol() * 0.32, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(f).connect(g).connect(ctx.destination);
+        o.start(t); lfo.start(t); o.stop(t + len + 0.02); lfo.stop(t + len + 0.02);
+      }
+      rest(times * 0.5 + 0.2);
+    },
     purr() {
       if (!on() || !ac()) return;
       const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(),

@@ -106,9 +106,12 @@ export class Cat {
     this.mats.blush = new THREE.MeshBasicMaterial({ color: 0xff9fb0, transparent: true, opacity: 0.55, depthWrite: false });
     this.mats.outline = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
     this.mats.whisker = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
+    this.mats.smile = new THREE.MeshBasicMaterial();
+    this.mats.wing = new THREE.MeshToonMaterial({ gradientMap: this.ramp, side: THREE.DoubleSide });
   }
 
   get isDog() { return this.spec.kind === 'dog'; }
+  get isDragon() { return this.spec.kind === 'dragon'; }
 
   // Rebuild the body for another breed (only when it changes), then paint it.
   setBreed(id, coat = this.coat || 'orange') {
@@ -135,6 +138,8 @@ export class Cat {
     m.eye.color.set(c.eye);
     m.outline.color.set(c.line);
     m.whisker.color.set(c.line);
+    m.smile.color.set(c.line);
+    m.wing.color.set(c.inner);
     m.point.color.set(c.point ?? c.fur);
     m.mask.color.set(c.mask ?? c.point ?? c.belly);
     m.saddle.color.set(c.saddle ?? c.fur);
@@ -163,7 +168,7 @@ export class Cat {
   }
 
   build() {
-    const s = this.spec, R = this.root, L = s.len, F = s.fat, K = s.legK, fl = s.fluff, dog = s.kind === 'dog';
+    const s = this.spec, R = this.root, L = s.len, F = s.fat, K = s.legK, fl = s.fluff, dog = s.kind === 'dog', dragon = s.kind === 'dragon';
     const pointed = s.point != null;
     this.figure = new THREE.Group(); // squash & stretch lives here
     R.add(this.figure);
@@ -211,6 +216,11 @@ export class Cat {
       this.tail.push(joint);
       parent = joint;
     }
+    // a dragon's tail ends in two fins that spread sideways
+    if (tl.fins) for (const side of [-1, 1]) this.blob(parent, 'inner', [0, 9, 6 * side], [1.4, 7, 6.5], 1.2);
+
+    // a dragon's wings, folded along its back
+    this.wings = s.wings ? [-1, 1].map(side => this.buildWing(T, side, L, F)) : [];
 
     // head
     const [hx, hy, hzs] = s.headShape, X = x => 10 + (x - 10) * hx;
@@ -229,6 +239,7 @@ export class Cat {
     ];
     for (const st of this.foreheadStripes) st.rotation.z = -0.55;
     if (dog) this.buildDogFace(N, X, hzs);
+    else if (dragon) this.buildDragonFace(N, X, hzs);
     else this.buildCatFace(N, X, hzs, pointed);
   }
 
@@ -265,6 +276,19 @@ export class Cat {
         this.blob(inner, 'fur', [0, 11 * k, 0], [11 * k, 14 * k, 3.6 * k], 1.6);
         this.blob(inner, 'inner', [1.6, 10.5 * k, 0], [8 * k, 10.5 * k, 2.6 * k], 0);
         break;
+      case 'fins': {
+        // a big fin swept back on top, and a smaller one lower down the side of the head
+        at(4, 27, 12, 0.75);
+        inner.rotation.z = 0.75;
+        this.blob(inner, 'fur', [0, 13 * k, 0], [7 * k, 30 * k, 3 * k], 1.6, CONE);
+        this.blob(inner, 'inner', [0.8, 12 * k, 0], [3.6 * k, 19 * k, 1.6 * k], 0, CONE);
+        const low = new THREE.Group();
+        low.position.set(10 + (2 - 10) * hx, 10 + (16 - 10) * hy, 22 * hz * side);
+        low.rotation.set(0.9 * side, 0, 1.25);
+        N.add(low);
+        this.blob(low, 'fur', [0, 8, 0], [4.5, 16, 2.4], 1.4, CONE);
+        break;
+      }
       case 'floppy':
         // hanging down beside the head
         at(4, 24, 23, -0.32);
@@ -315,6 +339,74 @@ export class Cat {
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute(w, 3));
     N.add(new THREE.LineSegments(wg, this.mats.whisker));
+  }
+
+  // One wing: a membrane between three long fingers, hinged at the shoulder. update() folds and flaps it.
+  buildWing(T, side, L, F) {
+    const pivot = new THREE.Group();
+    pivot.position.set(30 * L, 30 * F, 12 * F * side);
+    pivot.scale.setScalar(1.4);
+    T.add(pivot);
+    const fold = new THREE.Group(); // squeezes the wing in when folded
+    fold.scale.z = side;
+    pivot.add(fold);
+    // the outline in the (forward, outward) plane, with scalloped trailing edges
+    const sh = new THREE.Shape();
+    sh.moveTo(6, 0);
+    sh.lineTo(16, 22);
+    sh.lineTo(4, 46);
+    sh.quadraticCurveTo(-2, 34, -12, 38);
+    sh.quadraticCurveTo(-14, 26, -24, 26);
+    sh.quadraticCurveTo(-22, 14, -30, 10);
+    sh.quadraticCurveTo(-18, 4, -16, 0);
+    sh.lineTo(6, 0);
+    const geo = new THREE.ShapeGeometry(sh, 8);
+    geo.rotateX(Math.PI / 2); // (forward, outward) → (x, z)
+    const skin = new THREE.Mesh(geo, this.mats.wing);
+    fold.add(skin);
+    const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(sh.getPoints(8).map(p => new THREE.Vector3(p.x, 0, p.y))), this.mats.whisker);
+    fold.add(edge);
+    // the fingers: from the wrist out to each point
+    const bone = (a, b, r) => {
+      const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+      const m = this.blob(fold, 'fur', [0, 0, 0], [r, len / 2, r], 0.9);
+      m.position.copy(a).addScaledVector(d, 0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    };
+    const V = (x, z) => new THREE.Vector3(x, 0.4, z), wrist = V(16, 22);
+    bone(V(4, 2), wrist, 2.4);
+    for (const tip of [V(4, 46), V(-12, 38), V(-24, 26)]) bone(wrist, tip, 1.5);
+    pivot.userData = { side, fold };
+    return pivot;
+  }
+
+  buildDragonFace(N, X, hz) {
+    this.eyes = [-1, 1].map(side => {
+      const eye = new THREE.Group();
+      eye.position.set(X(31.6), 13.5, 10.5 * hz * side);
+      eye.rotation.y = -0.36 * side;
+      N.add(eye);
+      // big round green eyes with a thin slit
+      this.blob(eye, 'eye', [0, 0, 0], [3.8, 8.4, 7.6], 0.9);
+      this.blob(eye, 'pupil', [2.5, 0, 0], [1.8, 6.8, 1.4], 0);
+      this.blob(eye, 'shine', [3.5, 3.2, 2.4], [1, 1.8, 1.8], 0);
+      return eye;
+    });
+    // a rounded nose with two little nostrils
+    this.blob(N, 'fur', [X(30), 2.5, 0], [9, 8, 12.5 * hz], 1.4);
+    for (const side of [-1, 1]) this.blob(N, 'pupil', [X(38.6), 5.4, 3.2 * side], [0.6, 0.9, 1.1], 0);
+    // the toothless smile
+    const smile = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(X(35.5), 0.6, -9.5 * hz), new THREE.Vector3(X(41.5), -3.4, 0), new THREE.Vector3(X(35.5), 0.6, 9.5 * hz)), 16, 0.55, 6), this.mats.smile);
+    N.add(smile);
+    this.mouth = this.blob(N, 'mouth', [X(36.6), -2.4, 0], [2.6, 3.6, 6], 0.6);
+    this.mouth.visible = false;
+    this.tongue = this.blob(N, 'tongue', [X(37), -3.6, 0], [2, 1.4, 3.6], 0);
+    this.tongue.visible = false;
+    for (const side of [-1, 1]) {
+      const b = this.blob(N, 'blush', [X(29.5), 5, 16 * hz * side], [1.4, 2.2, 4], 0);
+      b.rotation.y = -0.6 * side;
+    }
   }
 
   buildDogFace(N, X, hz) {
@@ -400,5 +492,19 @@ export class Cat {
     this.ears[0].rotation.z = -p.earBack - tw * 0.2 + flop;
     this.ears[1].rotation.z = -p.earBack + flop;
     this.ears[0].rotation.x = this.ears[0].userData.rx - tw;
+
+    // wings: folded up along the back, breathing a little; flapping when up in the air or excited
+    if (this.wings.length) {
+      const busy = p.tailAmp > 0.3 || p.tailSpeed > 4.5 || g.amp > 0.9;
+      const target = busy ? 1 : 0;
+      this.flapK = (this.flapK ?? 0) + (target - (this.flapK ?? 0)) * Math.min(1, dt * 4);
+      const k = this.flapK, beat = Math.sin(this.time * 11);
+      for (const w of this.wings) {
+        const lift = 0.6 - k * 0.2 + beat * 0.75 * k + Math.sin(this.time * 1.6) * 0.05;
+        w.rotation.x = -w.userData.side * lift;
+        w.rotation.z = -p.pitch * 0.6;
+        w.userData.fold.scale.z = w.userData.side * (0.7 + 0.3 * k);
+      }
+    }
   }
 }

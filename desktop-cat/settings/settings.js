@@ -14,7 +14,8 @@ function render(s) {
   $('size').value = s.size;
   const kind = s.mainPet || 'cat';
   $('mainPet').value = kind;
-  $('mainHint').textContent = { cat: '', dog: '', bird: '主角就係第 1 隻雀仔，佢嘅顏色喺下面「雀仔」度揀。', pig: '主角就係豬仔，佢嘅床喺下面「豬仔」度揀。' }[kind];
+  $('mainHint').textContent = { cat: '', dog: '', bird: '主角就係第 1 隻雀仔，佢嘅顏色喺下面「雀仔」度揀。', pig: '主角就係豬仔，佢嘅床喺下面「豬仔」度揀。',
+    dragon: '黑龍仔：大綠眼、識拍翼，會同貓貓一樣爬貓跳臺、玩公仔。' }[kind] || '';
   $('mainHint').hidden = !$('mainHint').textContent;
   $('breed').value = s.breed || 'classic';
   if ($('dogBreed').options.length) $('dogBreed').value = s.dogBreed || 'golden';
@@ -80,7 +81,7 @@ function saveBird(i, patch) {
 // office mode: who sits at each desk (the main pet, the pig, any friend that's out)
 let breedList = [];
 function renderWorkers(s) {
-  const main = { cat: '貓貓', dog: '狗狗', bird: '雀仔', pig: '豬仔' }[s.mainPet || 'cat'];
+  const main = { cat: '貓貓', dog: '狗狗', bird: '雀仔', pig: '豬仔', dragon: '黑龍仔' }[s.mainPet || 'cat'];
   const opts = [['auto', '自動揀'], ['main', `主角（${main}：${s.name}）`]];
   if (s.pig && s.mainPet !== 'pig') opts.push(['pig', `豬仔（${s.pigName}）`]);
   for (const id of s.friends || []) { const b = breedList.find(x => x.id === id); if (b) opts.push([id, b.label]); }
@@ -96,7 +97,7 @@ function buildBreeds(list) {
   breedList = list;
   for (const b of list.filter(b => b.kind === 'cat')) $('breed').append(new Option(b.label, b.id));
   for (const b of list.filter(b => b.kind === 'dog')) $('dogBreed').append(new Option(b.label, b.id));
-  for (const kind of ['dog', 'cat']) {
+  for (const kind of ['dog', 'cat', 'dragon']) {
     $(kind + 'Checks').replaceChildren(...list.filter(b => b.kind === kind).map(b => {
       const label = document.createElement('label'), box = document.createElement('input');
       box.type = 'checkbox'; box.dataset.friend = b.id;
