@@ -146,7 +146,7 @@ object Reminders {
 
 /** What the pet says. A cat says 喵, a dog 汪. */
 object Lines {
-    fun word(look: Look) = if (look.kind == Kind.CAT) "喵" else "汪"
+    fun word(look: Look) = when (look.kind) { Kind.CAT -> "喵"; Kind.DOG -> "汪"; Kind.DRAGON -> "嗚" }
 
     fun remind(type: RType, look: Look, pick: Int): String {
         val w = word(look)
@@ -166,8 +166,11 @@ object Lines {
 
     /** When you stroke it. */
     fun petted(look: Look, pick: Int): String {
-        val list = if (look.kind == Kind.CAT) listOf("喵～ 💗", "呼嚕呼嚕… 😽", "再摸多下啦 🐾", "好舒服呀 💕")
-        else listOf("汪！💗", "搖尾巴搖到停唔到 🐶", "再嚟多次！🐾", "最鍾意你 💕")
+        val list = when (look.kind) {
+            Kind.CAT -> listOf("喵～ 💗", "呼嚕呼嚕… 😽", "再摸多下啦 🐾", "好舒服呀 💕")
+            Kind.DOG -> listOf("汪！💗", "搖尾巴搖到停唔到 🐶", "再嚟多次！🐾", "最鍾意你 💕")
+            Kind.DRAGON -> listOf("嗚嚕嚕～ 💗", "（露出冇牙嘅笑容）😁", "再搲吓下巴啦 🐉", "拍吓翼，好開心 💕")
+        }
         return list[Math.floorMod(pick, list.size)]
     }
 

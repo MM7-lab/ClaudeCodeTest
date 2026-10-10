@@ -22,7 +22,7 @@ private val GOLD = rgb(0xF6C544)
 private val GOLD_DARK = rgb(0xD99A1F)
 
 /**
- * Draws a cat or a dog sitting and facing you, in a 200 × 200 box (floor at y = 188).
+ * Draws a cat, a dog or a little dragon sitting and facing you, in a 200 × 200 box (floor at y = 188).
  * Scale the painter first to fit the screen.
  */
 object PetArt {
@@ -51,6 +51,7 @@ object PetArt {
         val pawColor = look.paw ?: if (look.pointLegs && look.point != null) look.point else look.belly
 
         drawTail(p, look, t, f.pose, bodyCy)
+        if (look.kind == Kind.DRAGON) wings(p, look, t, f.pose, bodyCy)
 
         // arms up for a stretch: behind the head
         if (f.pose == Pose.REST) {
@@ -133,14 +134,31 @@ object PetArt {
         val o = look.line
         val color = look.point ?: look.saddle ?: look.fur
         val happy = pose == Pose.HAPPY || pose == Pose.DANCE || pose == Pose.WATER || pose == Pose.TOILET
-        val speed = if (look.kind == Kind.DOG && happy) 14f else if (pose == Pose.SLEEP) 1f else 2.4f
-        val amp = if (look.kind == Kind.DOG && happy) 16f else if (pose == Pose.SLEEP) 3f else 8f
+        val wagger = look.kind != Kind.CAT
+        val speed = if (wagger && happy) 14f else if (pose == Pose.SLEEP) 1f else 2.4f
+        val amp = if (wagger && happy) 16f else if (pose == Pose.SLEEP) 3f else 8f
         val wag = sin(t * speed) * amp
         p.save()
         p.translate(132f, bodyCy + 22f)
         p.rotate(wag)
         when (look.tail) {
             Tail.STUB -> p.ellipse(4f, -8f, 9f, 8f, color, o, 3f)
+            Tail.DRAGON -> {
+                // a long tail that thins out, with two fins at the end
+                val s = Shape().moveTo(0f, 0f).cubicTo(30f, 4f, 46f, -18f, 42f, -48f)
+                p.path(s, stroke = o, width = 20f)
+                p.path(s, stroke = color, width = 14f)
+                val tip = Shape().moveTo(42f, -48f).quadTo(40f, -62f, 32f, -70f)
+                p.path(tip, stroke = o, width = 11f)
+                p.path(tip, stroke = color, width = 6f)
+                for (side in listOf(-1f, 1f)) {
+                    val fin = Shape().moveTo(36f, -62f)
+                        .quadTo(36f + side * 20f, -78f, 34f + side * 22f, -66f)
+                        .quadTo(36f + side * 12f, -60f, 36f, -58f)
+                        .close()
+                    p.path(fin, fill = look.inner, stroke = o, width = 2.5f)
+                }
+            }
             Tail.CURL -> {
                 p.ellipse(10f, -40f, 24f, 20f, color, o, 3f)
                 p.ellipse(4f, -44f, 13f, 10f, look.belly)
@@ -182,6 +200,21 @@ object PetArt {
                     p.ellipse(0f, 18f * k, 13f * k, 27f * k, look.fur.mix(look.line, 0.12f), o, 3f)
                     p.restore()
                 }
+                Ears.FINS -> if (behind) {
+                    // two big swept-back fins on top, two small ones lower down
+                    val big = Shape().moveTo(100f + s * 22f * hw, headCy - 32f)
+                        .quadTo(100f + s * 40f * hw, headCy - 58f, 100f + s * 62f * hw, headCy - 66f)
+                        .quadTo(100f + s * 54f * hw, headCy - 40f, 100f + s * 44f * hw, headCy - 18f)
+                        .close()
+                    p.path(big, fill = look.fur, stroke = o, width = 3f)
+                    p.path(Shape().moveTo(100f + s * 32f * hw, headCy - 34f).quadTo(100f + s * 44f * hw, headCy - 48f, 100f + s * 56f * hw, headCy - 58f),
+                        stroke = look.inner, width = 2f)
+                    val small = Shape().moveTo(100f + s * 44f * hw, headCy - 6f)
+                        .quadTo(100f + s * 62f * hw, headCy - 18f, 100f + s * 72f * hw, headCy - 22f)
+                        .quadTo(100f + s * 64f * hw, headCy - 2f, 100f + s * 46f * hw, headCy + 8f)
+                        .close()
+                    p.path(small, fill = look.fur, stroke = o, width = 3f)
+                }
                 Ears.FOLD -> if (behind) {
                     val cx = 100f + s * 28f * hw
                     p.ellipse(cx, headCy - 36f, 13f, 10f, earColor, o, 3f)
@@ -221,6 +254,7 @@ object PetArt {
     private fun face(p: Painter, look: Look, f: Frame, headCy: Float, hw: Float) {
         val o = look.line
         val dog = look.kind == Kind.DOG
+        val dragon = look.kind == Kind.DRAGON
         val happy = f.pose == Pose.HAPPY || f.pose == Pose.DANCE
         val talking = f.pose == Pose.WATER || f.pose == Pose.REST || f.pose == Pose.TOILET
         val eyeY = headCy + 2f - look.flat * 2f
@@ -237,8 +271,12 @@ object PetArt {
                 happy -> p.path(Shape().moveTo(x - 8f, eyeY + 3f).quadTo(x, eyeY - 7f, x + 8f, eyeY + 3f), stroke = o, width = 3.2f)
                 f.blink < 0.25f -> p.path(Shape().moveTo(x - 8f, eyeY).lineTo(x + 8f, eyeY), stroke = o, width = 3f)
                 else -> {
-                    val ry = (if (dog) 8.5f else 10.5f) * max(0.2f, f.blink)
-                    if (dog) {
+                    val ry = (if (dog) 8.5f else if (dragon) 13f else 10.5f) * max(0.2f, f.blink)
+                    if (dragon) {
+                        // big round eyes, green with a thin slit
+                        p.ellipse(x, eyeY, 12f, ry, look.eye, o, 1.8f)
+                        p.ellipse(x, eyeY, 3.2f, ry * 0.82f, rgb(0x0A0C08))
+                    } else if (dog) {
                         p.ellipse(x, eyeY, 7.5f, ry, rgb(0x2A1A10))
                     } else {
                         p.ellipse(x, eyeY, 8.5f, ry, look.eye, o, 1.5f)
@@ -255,7 +293,21 @@ object PetArt {
         for (s in listOf(-1f, 1f)) p.ellipse(100f + s * 33f * hw, headCy + 15f, 7.5f, 4.5f, BLUSH.alpha(blush))
 
         val my = headCy + 14f - look.flat * 2f
-        if (dog) {
+        if (dragon) {
+            // two little nostrils and a wide smile with no teeth
+            for (s in listOf(-1f, 1f)) p.ellipse(100f + s * 6f, my - 1f, 2.2f, 1.6f, o)
+            if (happy || talking) {
+                val open = Shape().moveTo(84f, my + 6f).quadTo(100f, my + 9f, 116f, my + 6f)
+                    .quadTo(110f, my + 22f + sin(f.t * 9f), 100f, my + 22f + sin(f.t * 9f))
+                    .quadTo(90f, my + 22f, 84f, my + 6f).close()
+                p.path(open, fill = MOUTH, stroke = o, width = 2.2f)
+                p.ellipse(100f, my + 16f, 8f, 4.5f, TONGUE)
+                // pink gums where the teeth would be
+                p.path(Shape().moveTo(87f, my + 8f).quadTo(100f, my + 12f, 113f, my + 8f), stroke = rgb(0xF2A2B4), width = 3f)
+            } else {
+                p.path(Shape().moveTo(82f, my + 6f).quadTo(100f, my + 14f, 118f, my + 6f), stroke = o, width = 2.4f)
+            }
+        } else if (dog) {
             val muzzle = look.mask ?: look.belly
             p.ellipse(100f, my + 7f, 13f + 7f * look.snout, 12f + 2f * look.snout, muzzle, o, 2.5f)
             p.ellipse(100f, my, 7.5f, 5.5f, look.nose)
@@ -281,6 +333,34 @@ object PetArt {
             for (s in listOf(-1f, 1f)) for (dy in listOf(-2f, 3f)) {
                 p.path(Shape().moveTo(100f + s * 16f, my + 3f + dy * 0.5f).lineTo(100f + s * 40f, my + dy * 2f), stroke = o.alpha(0.5f), width = 1.4f)
             }
+        }
+    }
+
+    /** Folded wings behind the body; they flap a little when happy. */
+    private fun wings(p: Painter, look: Look, t: Float, pose: Pose, bodyCy: Float) {
+        val o = look.line
+        val flap = when (pose) {
+            Pose.HAPPY, Pose.DANCE -> sin(t * 9f) * 12f
+            Pose.SLEEP -> 0f
+            else -> sin(t * 1.6f) * 3f
+        }
+        for (s in listOf(-1f, 1f)) {
+            p.save()
+            p.translate(100f + s * 26f, bodyCy - 22f)
+            p.rotate(-s * flap)
+            val w = Shape().moveTo(0f, 0f)
+                .quadTo(s * 30f, -30f, s * 60f, -34f)
+                .quadTo(s * 56f, -16f, s * 62f, -2f)
+                .quadTo(s * 48f, -4f, s * 46f, 10f)
+                .quadTo(s * 34f, 6f, s * 30f, 20f)
+                .quadTo(s * 16f, 14f, 0f, 20f)
+                .close()
+            p.path(w, fill = look.inner, stroke = o, width = 3f)
+            // the wing's bones
+            for ((ex, ey) in listOf(60f to -34f, 46f to 10f, 30f to 20f)) {
+                p.path(Shape().moveTo(0f, 0f).quadTo(s * ex * 0.5f, ey * 0.5f - 8f, s * ex, ey), stroke = look.fur, width = 3f)
+            }
+            p.restore()
         }
     }
 

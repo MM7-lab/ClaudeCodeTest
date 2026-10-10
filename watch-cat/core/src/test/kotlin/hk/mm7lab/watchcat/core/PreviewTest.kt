@@ -31,7 +31,7 @@ class PreviewTest {
 
     @Test fun poses() {
         val poses = Pose.values().toList()
-        val cells = listOf("orange", "golden", "siamese", "frenchie").flatMap { id ->
+        val cells = listOf("orange", "golden", "nightdragon", "frenchie").flatMap { id ->
             poses.mapIndexed { i, pose -> Looks.byId(id) to Frame(t = 0.3f + i * 0.2f, pose = pose, mood = i % 4) }
         }
         sheet("poses", poses.size, cells)

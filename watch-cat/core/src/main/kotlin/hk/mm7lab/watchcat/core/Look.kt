@@ -1,10 +1,10 @@
 package hk.mm7lab.watchcat.core
 
-enum class Kind { CAT, DOG }
+enum class Kind { CAT, DOG, DRAGON }
 
-enum class Ears { CAT, SMALL, BIG, FOLD, POINTY, BAT, FLOPPY }
+enum class Ears { CAT, SMALL, BIG, FOLD, POINTY, BAT, FLOPPY, FINS }
 
-enum class Tail { CAT, FLUFFY, THIN, OTTER, PLUME, CURL, STUB }
+enum class Tail { CAT, FLUFFY, THIN, OTTER, PLUME, CURL, STUB, DRAGON }
 
 /**
  * What a pet looks like, front on. Colours follow the desktop app's breeds (pet/breeds.js), so the
@@ -69,7 +69,12 @@ object Looks {
         Look("chihuahua", "吉娃娃", Kind.DOG, rgb(0xE8BB84), rgb(0xF6DCB6), rgb(0xF2A59A), rgb(0x2A1A10), rgb(0x5A3C22), rgb(0x3A2A24),
             ears = Ears.BIG, earScale = 0.95f, tail = Tail.THIN, snout = 0.55f),
     )
-    val ALL = CATS + DOGS
+    /** A little black dragon of our own: big green eyes, fins on its head, folded wings and a finned tail. */
+    val DRAGONS = listOf(
+        Look("nightdragon", "黑龍仔", Kind.DRAGON, rgb(0x353B4A), rgb(0x404757), rgb(0x58627C), rgb(0x9FD94A), rgb(0x0C0E14), rgb(0x0C0E14),
+            ears = Ears.FINS, tail = Tail.DRAGON, headWide = 1.08f, snout = 0f, paw = rgb(0x464D5F)),
+    )
+    val ALL = CATS + DOGS + DRAGONS
 
     fun byId(id: String): Look = ALL.firstOrNull { it.id == id } ?: CATS[0]
 }
