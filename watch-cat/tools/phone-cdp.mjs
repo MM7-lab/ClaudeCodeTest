@@ -34,3 +34,7 @@ console.log('===== page base64 begin =====');
 for (let i = 0; i < b64.length; i += 900) console.log(b64.slice(i, i + 900));
 console.log('===== page base64 end =====');
 ws.close();
+// fail the check if the scene can't be seen
+const v = diag.result && diag.result.value;
+if (!v || !v.canvas || v.canvas[3] < 100 || v.problem) { console.log('SCENE NOT VISIBLE'); process.exit(1); }
+console.log('scene visible');

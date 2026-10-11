@@ -154,7 +154,13 @@ private fun App(scene: Scene, screenState: MutableState<String>) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 AndroidView(
-                    factory = { scene.web },
+                    factory = {
+                        scene.web.apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                     update = { it.visibility = if (screen == "home") View.VISIBLE else View.INVISIBLE },
                 )

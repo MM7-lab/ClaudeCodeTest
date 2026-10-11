@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
 import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
@@ -37,6 +38,9 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
 
     @SuppressLint("SetJavaScriptEnabled")
     val web: WebView = WebView(ctx).also { WebView.setWebContentsDebuggingEnabled(true) }.apply {
+        // fill the space it's given: with the default "as tall as the page", the page sees a 0-high
+        // window (100vh = 0) and the scene is squashed to nothing
+        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         setBackgroundColor(Color.parseColor("#1b1d25"))
         overScrollMode = View.OVER_SCROLL_NEVER
         isVerticalScrollBarEnabled = false

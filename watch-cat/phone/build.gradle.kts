@@ -15,8 +15,8 @@ android {
         applicationId = "hk.mm7lab.watchcat.phone"
         minSdk = 29
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.1.2"
+        versionCode = 5
+        versionName = "1.1.3"
     }
 
     signingConfigs {
