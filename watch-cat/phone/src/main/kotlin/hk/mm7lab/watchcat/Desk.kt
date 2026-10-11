@@ -18,7 +18,7 @@ import java.io.File
  */
 object Desk {
     data class Scene(
-        val size: Float = 1.2f,
+        val size: Float = 0.8f,
         val sound: Boolean = false,
         val chatty: Boolean = true,
         val tree: Boolean = true,
