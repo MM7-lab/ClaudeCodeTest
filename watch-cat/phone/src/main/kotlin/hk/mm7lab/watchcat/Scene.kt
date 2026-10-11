@@ -6,7 +6,10 @@ import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -43,6 +46,13 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
             .addPathHandler("/files/", WebViewAssetLoader.InternalStoragePathHandler(ctx, Desk.dir(ctx)))
             .build()
+        // the page's console in logcat, for finding problems
+        webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(m: ConsoleMessage): Boolean {
+                Log.i(TAG, "${m.messageLevel()} ${m.sourceId()}:${m.lineNumber()} ${m.message()}")
+                return true
+            }
+        }
         webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 loader.shouldInterceptRequest(request.url)
@@ -81,20 +91,25 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
     fun group(action: String) = emit("group-action", JSONObject.quote(action))
     fun comeHere() = emit("come-here", "{}")
 
+    companion object { private const val TAG = "PhoneCatScene" }
+
     fun pause() = web.onPause()
     fun resume() = web.onResume()
 
-    /** What the page can ask of the app (window.AndroidCat). Called off the main thread. */
-    private inner class Bridge {
+    /**
+     * What the page can ask of the app (window.AndroidCat). Called off the main thread. It must be
+     * a public class: the WebView reaches these methods by reflection.
+     */
+    inner class Bridge {
         @JavascriptInterface
         fun getState(): String {
-            val s = Desk.settingsJson(ctx)
+            val s = runCatching { Desk.settingsJson(ctx) }.getOrElse { Log.e(TAG, "settings", it); JSONObject() }
             lastSettings = s.toString()
             return JSONObject().put("settings", s).toString()
         }
 
         @JavascriptInterface
-        fun background(): String = Desk.backgroundCss(ctx).also { lastBg = it }
+        fun background(): String = runCatching { Desk.backgroundCss(ctx) }.getOrDefault("#1b1d25").also { lastBg = it }
 
         @JavascriptInterface
         fun answer(done: Boolean) { main.post { scope.launch { Actions.answer(ctx, done) } } }

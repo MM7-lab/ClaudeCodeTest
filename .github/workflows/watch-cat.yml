@@ -35,6 +35,9 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "out/watch/WatchCat-$v.apk"
           v=$(grep -oP 'versionName = "\K[^"]+' phone/build.gradle.kts)
           cp phone/build/outputs/apk/release/phone-release.apk "out/phone/PhoneCat-$v.apk"
+          # the phone's 3D scene must be in there
+          unzip -l out/phone/*.apk | grep -E 'assets/desk/(pet/(index.html|pet.js|phone-bridge.js)|node_modules/three/build/three.module.js)'
+          unzip -p out/phone/*.apk assets/desk/pet/index.html | grep -q 'phone-bridge.js'
           ls -lR out
       - uses: actions/upload-artifact@v4
         with:
