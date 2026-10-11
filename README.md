@@ -38,3 +38,16 @@ python3 floor-planner/build_pages.py
 ```
 
 會重新產生 `docs/index.html`。
+
+---
+
+# 下一站，有人需要你
+
+「賽馬會眾心行善 – 義工推廣校園夥伴計劃」課程 A 課堂用嘅 3D 互動遊戲：學生喺雨夜車廂入面行一次「構思．服務．領悟」六步曲，最後出善幸卡截圖交 LMS。
+
+| 路徑 | 用途 |
+|---|---|
+| `next-stop/next-stop.html` | 遊戲本體（單一檔案，用瀏覽器直接打開就玩得） |
+| `next-stop/CLAUDE.md` | 設計說明、六步曲內容同修改約束 |
+
+需要上網載入 Three.js（cdnjs）同 Noto Sans TC 字型。

@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>下一站，有人需要你</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed toon-shaded carriage on a rainy night; fixed cinematic camera. HUD floats on top — steps bar, task chip, passenger panel right, dialogue bottom. Single dark look. */
+:root{
+  --ink:#0b1430;
+  --panel:rgba(13,20,42,.9);
+  --panel-2:rgba(22,32,62,.94);
+  --line:rgba(200,214,255,.16);
+  --text:#f1f4ff;
+  --muted:#a4b0d0;
+  --amber:#ffbe55;
+  --amber-ink:#2b1a00;
+  --go:#6fe0b0;
+  --warn:#ff8f7a;
+  --sans:"Noto Sans TC","PingFang HK","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);font-size:17px;overflow:hidden;-webkit-font-smoothing:antialiased;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+textarea{-webkit-user-select:text;user-select:text}
+#gl{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+#gl.hover{cursor:pointer}
+.vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 58%,rgba(4,8,24,.5) 100%)}
+button{font-family:inherit;font-size:inherit;color:inherit}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+#top{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;right:16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;pointer-events:none}
+.brand{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;gap:1px;pointer-events:auto}
+.brand b{font-weight:900;font-size:18px;letter-spacing:.02em}
+.brand span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+#steps{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;pointer-events:auto;flex-wrap:wrap}
+.st{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:7px;color:var(--muted);font-size:14px;white-space:nowrap}
+.st i{font-style:normal;font-family:var(--mono);font-size:12px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line)}
+.st em{font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.06em;opacity:.8}
+.st.on{background:var(--amber);color:var(--amber-ink);font-weight:700}
+.st.on i{border-color:var(--amber-ink)}
+.st.done{color:var(--go)}
+.st.done i{border-color:var(--go)}
+#next-st{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:15px;pointer-events:auto;display:flex;gap:10px;align-items:center}
+#next-st small{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.08em}
+#mute{background:transparent;border:1px solid var(--line);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:13px}
+
+#task{position:fixed;top:calc(env(safe-area-inset-top,0px) + 86px);left:16px;max-width:min(440px,calc(100% - 32px));background:var(--panel-2);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:0 8px 8px 0;padding:10px 14px;font-size:15px;line-height:1.5}
+#task b{color:var(--amber);font-weight:700}
+#task .count{font-family:var(--mono);margin-left:6px}
+
+#dlg{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:min(860px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px rgba(0,0,0,.4)}
+#dlg .who{font-size:13px;font-weight:700;color:var(--amber);letter-spacing:.08em}
+#dlg .say{font-size:19px;line-height:1.65;text-wrap:pretty}
+#dlg .btns{display:flex;gap:10px;flex-wrap:wrap}
+#dlg .min{position:absolute;right:10px;top:8px;background:transparent;border:0;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px}
+#dlg.collapsed .say,#dlg.collapsed .btns{display:none}
+.btn{background:transparent;border:1px solid rgba(241,244,255,.35);border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:500;text-align:left;line-height:1.4}
+.btn:hover{background:rgba(255,255,255,.07)}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);font-weight:700}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.sel{border-color:var(--go);background:rgba(111,224,176,.14)}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn.right{border-color:var(--go);background:rgba(111,224,176,.18)}
+.btn.wrong{border-color:var(--warn);background:rgba(255,143,122,.15)}
+
+#insp{position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 86px);width:min(350px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+#insp .nav{display:flex;align-items:center;gap:8px}
+#insp .nav .idx{flex:1;text-align:center;font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:.06em}
+#insp .nav button{width:48px;height:42px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);cursor:pointer;font-size:18px}
+#insp .nav button:hover{background:rgba(255,255,255,.12)}
+#insp h3{margin:0;font-size:20px;font-weight:900;text-wrap:balance}
+#insp .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+#insp ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.55}
+#insp .fb{border-radius:8px;padding:10px 12px;line-height:1.55;font-size:15px}
+#insp .fb.ok{background:rgba(111,224,176,.15);border:1px solid rgba(111,224,176,.5)}
+#insp .fb.no{background:rgba(255,143,122,.13);border:1px solid rgba(255,143,122,.5)}
+#insp .fb.info{background:rgba(255,255,255,.06);border:1px solid var(--line)}
+#insp .row{display:flex;gap:8px;flex-wrap:wrap}
+#insp .chip{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;margin-left:6px;vertical-align:middle;font-weight:500}
+#insp .chip.y{background:rgba(111,224,176,.2);color:var(--go)}
+#insp .chip.n{background:rgba(255,255,255,.1);color:var(--muted)}
+
+#cards{position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 86px);bottom:calc(env(safe-area-inset-bottom,0px) + 200px);width:min(400px,calc(100% - 32px));overflow:auto;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.done{border-color:rgba(111,224,176,.6)}
+.card .k{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em}
+.card .t{font-weight:700;font-size:17px;line-height:1.5}
+.card .opts{display:flex;flex-direction:column;gap:6px}
+.card .opts .btn{font-size:15px;padding:8px 12px}
+.card .look{align-self:flex-start;font-size:13px;padding:5px 10px}
+
+#tip{position:fixed;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-size:13px;transform:translate(14px,14px);white-space:nowrap}
+#hint{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--dlg-h,0px) + 28px);pointer-events:none;font-size:12px;color:var(--muted);line-height:1.7;background:rgba(10,16,36,.6);padding:8px 10px;border-radius:8px;max-width:200px}
+
+.ov{position:fixed;inset:0;z-index:10;background:rgba(6,10,26,.8);display:grid;place-items:center;padding:16px;overflow:auto;backdrop-filter:blur(3px)}
+.sheet{background:#121a36;border:1px solid var(--line);border-radius:16px;width:min(760px,100%);padding:28px 30px;display:flex;flex-direction:column;gap:18px}
+.sheet h1{margin:0;font-size:clamp(28px,4vw,42px);font-weight:900;letter-spacing:.01em;line-height:1.2;text-wrap:balance}
+.sheet h1 span{color:var(--amber)}
+.sheet p{margin:0;line-height:1.75;color:#d6def5;max-width:62ch}
+.six{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.six div{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:14px;line-height:1.45}
+.six b{display:block;font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.08em;margin-bottom:2px}
+.ctrl{font-size:14px;color:var(--muted);line-height:1.8}
+.ff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ff label{display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5;min-width:0}
+.ff label b{font-family:var(--mono);color:var(--amber);font-size:12px;letter-spacing:.08em}
+.ff textarea{background:#0b1229;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:16px;padding:10px;min-height:76px;resize:vertical}
+.goodcard{border:2px dashed rgba(255,190,85,.6);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;background:rgba(255,190,85,.06)}
+.goodcard .k{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.1em}
+.goodcard .r{display:flex;gap:10px;line-height:1.55;font-size:15px}
+.goodcard .r b{min-width:4.5em;color:var(--muted);font-weight:500}
+
+@media (max-width:1180px){.brand{display:none}}
+@media (max-width:760px),(max-height:500px){
+  body{font-size:15px}
+  .ff{grid-template-columns:1fr}
+  #hint{display:none}
+  #top{top:calc(env(safe-area-inset-top,0px) + 8px);left:8px;right:8px;gap:6px;flex-wrap:nowrap}
+  .brand{display:none}
+  #steps{padding:4px;gap:2px;flex-wrap:nowrap;flex:1 1 auto;min-width:0;overflow:hidden}
+  .st{padding:5px 6px;font-size:12px;gap:4px}
+  .st em,.st:not(.on) span.lbl{display:none}
+  .st i{width:18px;height:18px;font-size:11px}
+  #next-st{margin-left:0;padding:5px 8px;font-size:12px;gap:6px}
+  #next-st small,#next-st #ns{display:none}
+  #mute{padding:3px 6px;font-size:11px}
+  #task{top:calc(env(safe-area-inset-top,0px) + 52px);left:8px;max-width:calc(100% - 16px);font-size:13px;padding:7px 10px}
+  #insp{top:calc(env(safe-area-inset-top,0px) + 52px);left:8px;right:8px;width:auto;max-height:calc(100% - var(--dlg-h,150px) - 90px);overflow:auto;padding:12px;gap:8px}
+  #insp h3{font-size:17px}
+  #insp ul{font-size:14px}
+  #cards{top:calc(env(safe-area-inset-top,0px) + 100px);left:8px;right:8px;width:auto;bottom:auto;max-height:calc(100% - var(--dlg-h,150px) - 140px)}
+  .card{padding:10px;gap:7px}
+  .card .t{font-size:15px}
+  #dlg{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);width:calc(100% - 16px);padding:12px 14px;gap:8px;max-height:46vh;overflow:auto}
+  #dlg .say{font-size:15px;line-height:1.6;padding-right:34px}
+  #dlg .btns{flex-direction:column}
+  #dlg .btn{width:100%;font-size:14px;padding:9px 12px}
+  .sheet{padding:20px 18px;gap:12px}
+  .sheet p{font-size:14px;line-height:1.65}
+  .six{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .six div{padding:7px 8px;font-size:12px}
+  .ctrl{font-size:12px}
+  .ov{place-items:start center}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<canvas id="gl" aria-label="車廂 3D 場景"></canvas>
+<div class="vignette"></div>
+
+<div id="top">
+  <div class="brand"><b>下一站，有人需要你</b><span>構思．服務．領悟 Plan-Serve-Reflect</span></div>
+  <div id="steps"></div>
+  <div id="next-st"><div><small>NEXT</small><div id="ns">下一站：花園街</div></div><button id="mute" type="button">聲音：開</button></div>
+</div>
+<div id="task" hidden></div>
+<div id="insp" hidden></div>
+<div id="cards" hidden></div>
+<div id="dlg" hidden><button class="min" id="dlgMin" type="button">收起 ▾</button><div class="who"></div><div class="say"></div><div class="btns"></div></div>
+<div id="tip" hidden></div>
+<div id="hint">撳乘客，或者用 ◀ ▶ 逐個切換觀察。</div>
+
+<div class="ov" id="intro">
+  <div class="sheet">
+    <h1>星期日嘅車廂，<span>邊個需要你？</span></h1>
+    <p>星期日傍晚，外面落緊雨，你搭緊車去探朋友。車廂本身已經唔少人，每到一站仲有更多人上車。睇清楚身邊每一個人，搵出真正需要幫助嘅人，再諗下點樣幫。</p>
+    <div class="six">
+      <div><b>STEP 1</b>生活中探索各人的需要</div>
+      <div><b>STEP 2 · WHO</b>確認需要幫助的群體</div>
+      <div><b>STEP 3 · WHY</b>觀察及了解他們的需要</div>
+      <div><b>STEP 4 · HOW</b>找出自己的強項幫助別人</div>
+      <div><b>STEP 5 · HOW</b>計劃實際的善幸</div>
+      <div><b>STEP 6</b>善幸的經驗反思（4F）</div>
+    </div>
+    <div class="ctrl">鏡頭會自動跟住劇情。到第二步，用 ◀ ▶ 逐個乘客切換鏡頭，判斷佢需唔需要幫助；亦可以直接撳畫面上嘅乘客。</div>
+    <div><button class="btn primary" id="startBtn" type="button">上車 ▸</button></div>
+  </div>
+</div>
+
+<div class="ov" id="reflect" hidden>
+  <div class="sheet">
+    <h1>第六步：<span>善幸的經驗反思</span></h1>
+    <p>用 4F 整理今次經驗。可以全班一齊討論，由老師打低大家嘅答案。</p>
+    <div class="ff">
+      <label for="f1"><b>FACT 事實</b>今日你喺車廂留意到邊幾個人有需要？</label>
+      <label for="f2"><b>FEELING 感受</b>搵唔到需要幫助嘅人嗰陣，你有咩感受？</label>
+      <textarea id="f1" placeholder="例如：拎住大包細包嘅婆婆、扭親腳嘅男仔……"></textarea>
+      <textarea id="f2" placeholder="例如：有啲心急、擔心婆婆跌親……"></textarea>
+      <label for="f3"><b>FINDING 發現</b>點解有啲人嘅需要一眼睇唔到？</label>
+      <label for="f4"><b>FUTURE 未來實踐</b>下次搭車，你會做咩小善幸？</label>
+      <textarea id="f3" placeholder="例如：孕婦件褸遮住咗襟章……"></textarea>
+      <textarea id="f4" placeholder="例如：上車先望下周圍有冇人需要個位……"></textarea>
+    </div>
+    <div class="goodcard" id="goodcard"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="againBtn" type="button">再玩一次</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const rand=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const STATIONS=['海濱','花園街','東城','碼頭','山景','大學'];
+const STEP_NAMES=[['1','','探索需要'],['2','WHO','確認對象'],['3','WHY','了解需要'],['4','HOW','我的強項'],['5','HOW','計劃善幸'],['6','','經驗反思']];
+const TOUCH=matchMedia('(pointer: coarse)').matches||('ontouchstart' in window);
+const FONT='"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif';
+
+/* ---------- renderer ---------- */
+const canvas=$('#gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,TOUCH?1.5:1.75));
+renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a1534);
+scene.fog=new THREE.Fog(0x0c1a3e,16,46);
+const camera=new THREE.PerspectiveCamera(58,1,0.05,160);
+function baseFov(){return innerWidth<innerHeight?80:56;}
+let dlgSync=()=>{};
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();dlgSync();}
+addEventListener('resize',resize);resize();
+
+scene.add(new THREE.HemisphereLight(0xc9d8ff,0x222a4e,0.58));
+const key=new THREE.DirectionalLight(0xffe2bd,0.68);key.position.set(2,6,3);scene.add(key);
+const rim=new THREE.DirectionalLight(0x7aa2ff,0.35);rim.position.set(-3,2,-5);scene.add(rim);
+
+/* ---------- materials ---------- */
+const GRAD=(()=>{const d=new Uint8Array([110,110,120,255, 190,190,195,255, 255,255,255,255]);const t=new THREE.DataTexture(d,3,1,THREE.RGBAFormat);t.minFilter=THREE.NearestFilter;t.magFilter=THREE.NearestFilter;t.generateMipmaps=false;t.needsUpdate=true;return t;})();
+const MC={},GC={};
+function toon(c,o){o=o||{};const k='t'+c+'|'+JSON.stringify(o);if(!MC[k])MC[k]=new THREE.MeshToonMaterial(Object.assign({color:c,gradientMap:GRAD},o));return MC[k];}
+function basic(c,o){o=o||{};const k='b'+c+'|'+JSON.stringify(o);if(!MC[k])MC[k]=new THREE.MeshBasicMaterial(Object.assign({color:c},o));return MC[k];}
+const OUT=new THREE.MeshBasicMaterial({color:0x1b1530,side:THREE.BackSide});
+function G(k,f){return GC[k]||(GC[k]=f());}
+const bgeo=(w,h,d)=>G('b'+w+'_'+h+'_'+d,()=>new THREE.BoxGeometry(w,h,d));
+const sgeo=(r,ws,hs)=>G('s'+r+'_'+ws+'_'+hs,()=>new THREE.SphereGeometry(r,ws||16,hs||12));
+const cgeo=(rt,rb,h,s)=>G('c'+rt+'_'+rb+'_'+h+'_'+s,()=>new THREE.CylinderGeometry(rt,rb,h,s||12));
+function mesh(g,m){return new THREE.Mesh(g,m);}
+function outline(m,t){t=t||0.011;const g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();const s=new THREE.Vector3();g.boundingBox.getSize(s);
+  const o=new THREE.Mesh(g,OUT);o.scale.set((s.x+2*t)/Math.max(s.x,1e-3),(s.y+2*t)/Math.max(s.y,1e-3),(s.z+2*t)/Math.max(s.z,1e-3));m.add(o);return m;}
+function textTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');draw(x,w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=4;return t;}
+function glowTex(){return G('glowtex',()=>textTex(64,64,(c)=>{const g=c.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.25,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,64,64);}));}
+function glow(color,size,op){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color,transparent:true,opacity:op==null?.9:op,blending:THREE.AdditiveBlending,depthWrite:false}));s.scale.set(size,size,1);return s;}
+
+/* ---------- carriage ---------- */
+const CAR={hz:1.45,h:2.36};
+const DOORS=[-6,0,6];
+const SEGS=[[-10.6,-6.75],[-5.25,-0.75],[0.75,5.25],[6.75,10.6]];
+function inDoor(x){return DOORS.some(d=>Math.abs(x-d)<0.7);}
+const world=new THREE.Group();scene.add(world);
+const M={
+  wall:toon(0xc6d0e6),lower:toon(0x8e9bbd),floor:new THREE.MeshStandardMaterial({color:0x6a7390,roughness:.32,metalness:.15}),
+  steel:toon(0xd4dceb),seat:toon(0x4f8fb5),prio:toon(0xd65a4e),door:toon(0xa9b4cf),
+  strip:basic(0xfff3df),yellow:toon(0xf1c534),dark:basic(0x141a2e)
+};
+const floor=mesh(bgeo(22.2,0.1,2.9),M.floor);floor.position.y=-0.05;world.add(floor);
+DOORS.forEach(d=>[-1,1].forEach(s=>{const y=mesh(bgeo(1.3,0.012,0.18),M.yellow);y.position.set(d,0.006,s*1.3);world.add(y);}));
+const ceil=mesh(bgeo(22.2,0.1,2.9),toon(0xaab6d2));ceil.position.y=CAR.h+0.05;world.add(ceil);
+[-0.55,0.55].forEach(z=>{for(let x=-10;x<=10;x+=2.5){const s=mesh(bgeo(2.2,0.03,0.16),M.strip);s.position.set(x,CAR.h-0.02,z);world.add(s);}});
+[-1,1].forEach(s=>{const e=mesh(bgeo(0.1,CAR.h,2.9),M.wall);e.position.set(s*11.05,CAR.h/2,0);world.add(e);
+  const g=mesh(bgeo(0.12,1.9,1.1),M.dark);g.position.set(s*11.0,0.95,0);world.add(g);});
+const rainTex=textTex(256,256,(c,w,h)=>{c.fillStyle='rgba(40,70,140,0.18)';c.fillRect(0,0,w,h);
+  for(let i=0;i<140;i++){const x=Math.random()*w,y=Math.random()*h,r=rand(1,4.5);const g=c.createRadialGradient(x-r*.3,y-r*.3,0,x,y,r);g.addColorStop(0,'rgba(230,240,255,.85)');g.addColorStop(.6,'rgba(150,180,240,.35)');g.addColorStop(1,'rgba(120,150,220,0)');c.fillStyle=g;c.beginPath();c.arc(x,y,r,0,7);c.fill();}
+  c.strokeStyle='rgba(200,220,255,.28)';c.lineWidth=1.3;for(let i=0;i<26;i++){const x=Math.random()*w,y=Math.random()*h;c.beginPath();c.moveTo(x,y);c.lineTo(x-rand(10,30),y+rand(30,80));c.stroke();}});
+rainTex.wrapS=rainTex.wrapT=THREE.RepeatWrapping;rainTex.repeat.set(2,1);
+const GLASS=new THREE.MeshBasicMaterial({map:rainTex,transparent:true,depthWrite:false,color:0xcfe0ff});
+const doorPanels=[];
+[-1,1].forEach(s=>{
+  const z=s*CAR.hz;const edges=[-11,-6.7,-5.3,-0.7,0.7,5.3,6.7,11];
+  for(let i=0;i<edges.length-1;i+=2){
+    const a=edges[i],b=edges[i+1],len=b-a,cx=(a+b)/2;
+    const lo=mesh(bgeo(len,0.95,0.08),M.lower);lo.position.set(cx,0.475,z);world.add(lo);
+    const up=mesh(bgeo(len,0.5,0.08),M.wall);up.position.set(cx,CAR.h-0.25,z);world.add(up);
+    const gl=mesh(bgeo(len,0.91,0.02),GLASS);gl.position.set(cx,1.405,z);world.add(gl);
+    const n=Math.max(1,Math.round(len/1.9));for(let k=0;k<=n;k++){const p=mesh(bgeo(0.09,0.92,0.1),M.wall);p.position.set(a+k*len/n,1.405,z);world.add(p);}
+  }
+  DOORS.forEach(d=>{
+    const hd=mesh(bgeo(1.4,0.36,0.1),M.wall);hd.position.set(d,CAR.h-0.18,z);world.add(hd);
+    const l=new THREE.Group(),r=new THREE.Group();
+    [l,r].forEach((g,j)=>{const pn=mesh(bgeo(0.7,2.0,0.06),M.door);pn.position.y=1.0;g.add(pn);
+      const w=mesh(bgeo(0.42,0.8,0.07),GLASS);w.position.y=1.4;g.add(w);
+      g.position.set(d+(j?0.35:-0.35),0,z+s*0.02);world.add(g);});
+    doorPanels.push({l,r,x:d,side:s});
+  });
+});
+const seats=[];
+SEGS.forEach((sg,si)=>{
+  const [a,b]=sg,len=b-a,n=Math.floor(len/0.53),start=a+(len-n*0.53)/2+0.265;
+  [-1,1].forEach(s=>{
+    const base=mesh(bgeo(len,0.42,0.42),M.lower);base.position.set((a+b)/2,0.21,s*1.22);world.add(base);
+    for(let i=0;i<n;i++){
+      const x=start+i*0.53;const prio=(si===0&&s===-1&&i>=n-2);const m=prio?M.prio:M.seat;
+      const cu=outline(mesh(bgeo(0.5,0.07,0.44),m),0.008);cu.position.set(x,0.45,s*1.21);world.add(cu);
+      const bk=outline(mesh(bgeo(0.5,0.5,0.06),m),0.008);bk.position.set(x,0.72,s*1.4);world.add(bk);
+      seats.push({x,z:s*1.24,side:s,prio,occ:null});
+    }
+  });
+});
+[-8.7,-3,3,8.7].concat(DOORS).forEach(x=>{const p=mesh(cgeo(0.024,0.024,CAR.h,10),M.steel);p.position.set(x,CAR.h/2,0);world.add(p);});
+[-0.72,0.72].forEach(z=>{const bar=mesh(cgeo(0.018,0.018,22,8),M.steel);bar.rotation.z=Math.PI/2;bar.position.set(0,1.98,z);world.add(bar);
+  for(let x=-10.4;x<=10.4;x+=0.62){if(inDoor(x))continue;const st=mesh(cgeo(0.008,0.008,0.2,5),M.dark);st.position.set(x,1.87,z);world.add(st);
+    const ring=mesh(G('ring',()=>new THREE.TorusGeometry(0.05,0.011,6,14)),toon(0xf6f3ea));ring.position.set(x,1.74,z);world.add(ring);}});
+function buildSigns(){
+  const t=textTex(512,160,(c,w,h)=>{c.fillStyle='#d65a4e';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='900 72px '+FONT;c.textBaseline='middle';c.fillText('關愛座',28,62);c.font='500 30px '+FONT;c.fillText('Priority Seat  請讓座予有需要人士',30,128);});
+  const p=mesh(new THREE.PlaneGeometry(0.62,0.19),new THREE.MeshBasicMaterial({map:t}));p.position.set(-7.25,1.05,-1.405);world.add(p);
+  const r=textTex(2048,128,(c,w,h)=>{c.fillStyle='#f6f4ee';c.fillRect(0,0,w,h);c.fillStyle='#1f2a45';c.font='700 30px '+FONT;c.fillText('東灣綫',24,74);
+    c.strokeStyle='#e8803a';c.lineWidth=12;c.beginPath();c.moveTo(200,64);c.lineTo(w-60,64);c.stroke();
+    STATIONS.forEach((n,i)=>{const x=260+i*(w-360)/(STATIONS.length-1);c.fillStyle='#fff';c.strokeStyle='#e8803a';c.lineWidth=6;c.beginPath();c.arc(x,64,15,0,7);c.fill();c.stroke();c.fillStyle='#1f2a45';c.font='500 26px '+FONT;c.textAlign='center';c.fillText(n,x,112);c.textAlign='left';});});
+  SEGS.forEach(([a,b])=>[-1,1].forEach(s=>{const q=mesh(new THREE.PlaneGeometry((b-a)*0.9,0.22),new THREE.MeshBasicMaterial({map:r}));q.position.set((a+b)/2,2.13,s*1.40);q.rotation.y=s<0?0:Math.PI;world.add(q);}));
+}
+
+/* ---------- outside: rainy night city ---------- */
+const movers=[];
+const outside=new THREE.Group();scene.add(outside);
+const winTex=[0,1,2].map(v=>textTex(128,256,(c,w,h)=>{c.fillStyle=['#121c3d','#162248','#1a1f3a'][v];c.fillRect(0,0,w,h);
+  for(let y=8;y<h-6;y+=14)for(let x=6;x<w-6;x+=14){const r=Math.random();c.fillStyle=r<.32?pick(['#ffd28a','#ffc46b','#fff0c8']):r<.42?pick(['#8fd0ff','#a9e6ff']):'#0d1430';c.fillRect(x,y,8,9);}}));
+const negSide=new THREE.Group();outside.add(negSide);
+for(let i=0;i<46;i++){
+  const s=i%2?1:-1;const h=rand(4,16),w=rand(3,7),d=rand(3,6);
+  const t=winTex[i%3].clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(w/4,h/8);
+  const b=mesh(bgeo(w,h,d),new THREE.MeshBasicMaterial({map:t,color:0xbfc8ff}));
+  b.position.set(rand(-60,60),h/2-6,s*rand(9,22));(s<0?negSide:outside).add(b);movers.push({o:b,k:1});
+}
+const LAMP=[0xffb35a,0xffd27f,0x6fd4ff,0xff6f7a,0xfff0c0];
+for(let i=0;i<70;i++){const s=i%2?1:-1;const g=glow(pick(LAMP),rand(0.5,1.6),rand(.45,.9));g.position.set(rand(-60,60),rand(-4,2.5),s*rand(3.2,12));(s<0?negSide:outside).add(g);movers.push({o:g,k:1});}
+[-1,1].forEach(s=>{const w=mesh(bgeo(120,0.6,0.25),basic(0x1a2346));w.position.set(0,-0.2,s*2.3);(s<0?negSide:outside).add(w);});
+const RN=900;const rainPos=new Float32Array(RN*6);const rainSeed=[];
+for(let i=0;i<RN;i++){const s=Math.random()<.5?-1:1;rainSeed.push({x:rand(-25,25),y:rand(-5,7),z:s*rand(1.7,9),v:rand(9,13)});}
+const rainGeo=new THREE.BufferGeometry();rainGeo.setAttribute('position',new THREE.BufferAttribute(rainPos,3));
+const rainLines=new THREE.LineSegments(rainGeo,new THREE.LineBasicMaterial({color:0x9fb8ff,transparent:true,opacity:.42}));rainLines.frustumCulled=false;scene.add(rainLines);
+function updateRain(dt,speed){for(let i=0;i<RN;i++){const r=rainSeed[i];r.y-=r.v*dt;r.x-=speed*dt*0.9;if(r.y<-5)r.y=7;if(r.x<-25)r.x+=50;
+  const k=i*6;rainPos[k]=r.x;rainPos[k+1]=r.y;rainPos[k+2]=r.z;rainPos[k+3]=r.x+speed*0.025+0.03;rainPos[k+4]=r.y+0.35;rainPos[k+5]=r.z;}
+  rainGeo.attributes.position.needsUpdate=true;}
+
+/* ---------- station platform ---------- */
+const plat=new THREE.Group();scene.add(plat);const signs=[];
+(function(){
+  const pf=mesh(bgeo(90,0.1,2.4),toon(0x7e86a3));pf.position.set(0,-0.05,-2.75);plat.add(pf);
+  const edge=mesh(bgeo(90,0.02,0.2),M.yellow);edge.position.set(0,0.01,-1.75);plat.add(edge);
+  const roof=mesh(bgeo(90,0.15,3),toon(0x2b3a66));roof.position.set(0,3.25,-2.6);plat.add(roof);
+  for(let x=-42;x<=42;x+=6){const p=mesh(cgeo(0.08,0.08,3.25,10),toon(0x3b4a7a));p.position.set(x,1.6,-3.3);plat.add(p);
+    const lamp=mesh(bgeo(1.2,0.05,0.25),basic(0xfff1d6));lamp.position.set(x+3,3.15,-2.4);plat.add(lamp);const g=glow(0xffe0a8,2.2,.55);g.position.set(x+3,3.0,-2.4);plat.add(g);}
+  const rail=mesh(bgeo(90,0.05,0.05),toon(0x9aa6cc));rail.position.set(0,1.0,-3.9);plat.add(rail);
+  for(let k=0;k<7;k++){const p=mesh(new THREE.PlaneGeometry(2.4,0.6),new THREE.MeshBasicMaterial({color:0xffffff}));p.position.set(-36+k*12,2.55,-2.2);plat.add(p);signs.push(p);}
+  for(let i=0;i<10;i++){const s=outline(mesh(cgeo(0.17,0.2,1.55,10),toon(pick([0x3b4a7a,0x5b4a6a,0x2f5b7c,0x6d6f8a]))),0.012);s.position.set(rand(-40,40),0.78,rand(-3.5,-2.6));plat.add(s);
+    const hd=outline(mesh(sgeo(0.13),toon(0x2a2030)),0.012);hd.position.y=0.92;s.add(hd);}
+})();
+function setSign(name){const t=textTex(800,200,(c,w,h)=>{c.fillStyle='#1d3f74';c.fillRect(0,0,w,h);c.fillStyle='#ffffff';c.font='900 96px '+FONT;c.textAlign='center';c.textBaseline='middle';c.fillText(name,w/2,92);c.font='500 30px '+FONT;c.fillStyle='#a8d4ff';c.fillText('東灣綫  East Bay Line',w/2,166);});
+  signs.forEach(p=>{p.material.map=t;p.material.needsUpdate=true;});}
+plat.position.x=200;
+
+/* ---------- toon characters ---------- */
+const people=[];const peopleGroup=new THREE.Group();scene.add(peopleGroup);
+const TOPS=[0x3f63a8,0xf1ece2,0xb2414f,0x3f8a6c,0x2a2f45,0xf0c04f,0x8f97b0,0xe07a52,0x5d86c9,0xfaf7f0,0x7d5aa0,0xa6cfe0,0xf3a6b8];
+const BOTTOMS=[0x1f2a48,0x3a3f58,0x5b4a3a,0x2a3b66,0x6d6f86,0x1a1a26,0xc9bea8];
+const SKINS=[0xffe0c7,0xf7cfae,0xedbb94,0xd9a07b,0xfbe5d2];
+const HAIRS=[0x231a1a,0x2d2230,0x3f2a22,0x5a3b2b,0x1d2340,0x6a4a3a];
+const hex=c=>'#'+c.toString(16).padStart(6,'0');
+const faceCache={};
+function faceTex(skin,mood){const k=skin+mood;if(faceCache[k])return faceCache[k];
+  const t=textTex(256,128,(c,w,h)=>{c.fillStyle=hex(skin);c.fillRect(0,0,w,h);
+    const cx=64,ey=66;
+    c.fillStyle='rgba(255,120,130,.28)';[-1,1].forEach(s=>{c.beginPath();c.ellipse(cx+s*20,ey+13,6,3.2,0,0,7);c.fill();});
+    c.strokeStyle='#2a1c22';c.lineCap='round';
+    [-1,1].forEach(s=>{const x=cx+s*12.5;
+      if(mood==='closed'){c.lineWidth=2.2;c.beginPath();c.arc(x,ey-1,5,0.15*Math.PI,0.85*Math.PI);c.stroke();}
+      else if(mood==='happy'){c.lineWidth=2.2;c.beginPath();c.arc(x,ey+3,5,1.15*Math.PI,1.85*Math.PI);c.stroke();}
+      else{c.fillStyle='#2a1c22';c.beginPath();c.ellipse(x,ey,4.4,6.4,0,0,7);c.fill();c.fillStyle='#fff';c.beginPath();c.arc(x+1.4,ey-2.4,1.6,0,7);c.fill();
+        if(mood==='tired'){c.fillStyle=hex(skin);c.fillRect(x-6,ey-9,12,6);c.lineWidth=1.6;c.beginPath();c.moveTo(x-5.5,ey-3);c.lineTo(x+5.5,ey-3);c.stroke();}}
+      c.lineWidth=1.6;c.beginPath();if(mood==='tired'){c.moveTo(x-5,ey-10+s*1.5);c.lineTo(x+5,ey-10-s*1.5);}else{c.moveTo(x-5,ey-11);c.lineTo(x+5,ey-12);}c.stroke();});
+    c.lineWidth=1.6;c.beginPath();if(mood==='tired'){c.moveTo(cx-4,ey+19);c.quadraticCurveTo(cx,ey+16,cx+4,ey+19);}else if(mood==='closed'){c.moveTo(cx-3,ey+17);c.lineTo(cx+3,ey+17);}else{c.moveTo(cx-4,ey+16);c.quadraticCurveTo(cx,ey+20,cx+4,ey+16);}c.stroke();
+  });faceCache[k]=t;return t;}
+let pid=0;
+function limb(r1,r2,len,m){return outline(mesh(cgeo(r1,r2,len,10),m),0.009);}
+function makePerson(o){
+  const s=o.scale||1;
+  const g=new THREE.Group();const root=new THREE.Group();root.scale.setScalar(s);g.add(root);
+  const hips=new THREE.Group();hips.position.y=0.88;root.add(hips);
+  const skinM=toon(o.skin),topM=toon(o.top),botM=toon(o.bottom),shoeM=toon(o.shoe||0x2a2a3a);
+  const pel=outline(mesh(cgeo(0.165,0.155,0.16,12),o.skirt?toon(o.skirt):botM),0.01);pel.position.y=0.02;pel.scale.z=0.75;hips.add(pel);
+  if(o.skirt){const sk=outline(mesh(cgeo(0.17,0.25,0.34,14),toon(o.skirt)),0.01);sk.position.y=-0.12;sk.scale.z=0.8;hips.add(sk);}
+  const legs=[];
+  [-1,1].forEach(sd=>{
+    const hip=new THREE.Group();hip.position.x=sd*0.085;hips.add(hip);
+    const th=limb(0.068,0.058,0.44,o.skirt||o.shorts?skinM:botM);th.position.y=-0.22;hip.add(th);
+    const knee=new THREE.Group();knee.position.y=-0.44;hip.add(knee);
+    const sn=limb(0.056,0.046,0.42,o.shorts||o.skirt?skinM:botM);sn.position.y=-0.21;knee.add(sn);
+    const sh=outline(mesh(sgeo(0.07,12,8),shoeM),0.008);sh.scale.set(0.95,0.6,1.75);sh.position.set(0,-0.42,0.05);knee.add(sh);
+    legs.push({hip,knee,shin:sn,shoe:sh});
+  });
+  const spine=new THREE.Group();hips.add(spine);
+  const torso=outline(mesh(cgeo(0.15,0.165,0.52,14),topM),0.011);torso.scale.z=0.72;torso.position.y=0.3;spine.add(torso);
+  let coat=null;if(o.coat){coat=outline(mesh(cgeo(0.175,0.23,0.86,14),toon(o.coat)),0.011);coat.scale.z=0.78;coat.position.y=0.15;spine.add(coat);}
+  let belly=null;if(o.belly){belly=outline(mesh(sgeo(0.13),toon(o.top)),0.01);belly.scale.set(1.05,1.15,0.9);belly.position.set(0,0.12,0.1);spine.add(belly);}
+  let badge=null;
+  if(o.badge){const t=textTex(128,128,(c)=>{c.fillStyle='#f48fb1';c.beginPath();c.arc(64,64,60,0,7);c.fill();c.fillStyle='#fff';c.font='900 40px Arial';c.textAlign='center';c.fillText('BB',64,62);c.font='700 17px Arial';c.fillText('on board',64,90);});
+    badge=mesh(new THREE.CircleGeometry(0.035,20),new THREE.MeshBasicMaterial({map:t}));badge.position.set(0.13,0.42,0.142);badge.rotation.y=0.25;spine.add(badge);}
+  if(o.backpack){const b=outline(mesh(bgeo(0.3,0.38,0.15),toon(pick([0x2a3b66,0xb2414f,0x3f8a6c]))),0.012);b.position.set(0,0.32,-0.19);spine.add(b);}
+  const arms=[];
+  [-1,1].forEach(sd=>{
+    const sh=new THREE.Group();sh.position.set(sd*0.2,0.52,0);spine.add(sh);
+    const ball=mesh(sgeo(0.055,10,8),toon(o.coat||o.top));sh.add(ball);
+    const up=limb(0.05,0.045,0.28,toon(o.coat||o.top));up.position.y=-0.14;sh.add(up);
+    const el=new THREE.Group();el.position.y=-0.28;sh.add(el);
+    const fa=limb(0.043,0.036,0.26,o.longSleeve?toon(o.coat||o.top):skinM);fa.position.y=-0.13;el.add(fa);
+    const hand=outline(mesh(sgeo(0.045,10,8),skinM),0.007);hand.position.y=-0.29;el.add(hand);
+    arms.push({sh,el,hand,sd});
+  });
+  const neck=new THREE.Group();neck.position.y=0.56;spine.add(neck);
+  const nk=mesh(cgeo(0.04,0.045,0.08,8),skinM);nk.position.y=0.02;neck.add(nk);
+  const head=mesh(sgeo(0.145,24,18),toon(0xffffff,{map:faceTex(o.skin,o.mood||'normal')}));head.scale.set(0.95,1.04,0.95);head.position.y=0.17;neck.add(head);outline(head,0.012);
+  const hairM=toon(o.hair,{side:THREE.DoubleSide});
+  const cap=mesh(G('hcap',()=>new THREE.SphereGeometry(0.158,22,14,0,Math.PI*2,0,Math.PI*0.4)),hairM);cap.position.y=0.185;neck.add(cap);
+  const back=mesh(G('hback',()=>new THREE.SphereGeometry(0.16,22,14,Math.PI*0.95,Math.PI*1.1,0,Math.PI*0.72)),hairM);back.position.y=0.18;neck.add(back);
+  for(let i=-2;i<=2;i++){const f=mesh(G('fringe',()=>new THREE.ConeGeometry(0.04,0.11,6)),hairM);f.position.set(i*0.045,0.245,0.12);f.rotation.set(Math.PI*0.92,0,i*0.12);neck.add(f);}
+  if(o.hairStyle==='long'){const l=outline(mesh(cgeo(0.14,0.17,0.42,14),toon(o.hair)),0.01);l.scale.z=0.55;l.position.set(0,-0.04,-0.075);neck.add(l);}
+  if(o.hairStyle==='bun'){const b=outline(mesh(sgeo(0.07,12,10),toon(o.hair)),0.01);b.position.set(0,0.31,-0.08);neck.add(b);}
+  if(o.hairStyle==='pony'){const b=outline(mesh(cgeo(0.05,0.02,0.3,8),toon(o.hair)),0.01);b.position.set(0,0.12,-0.19);b.rotation.x=0.4;neck.add(b);}
+  if(o.headphones){const hp=mesh(G('hp',()=>new THREE.TorusGeometry(0.165,0.017,6,20,Math.PI)),toon(0x20243a));hp.position.y=0.19;neck.add(hp);
+    [-1,1].forEach(sd=>{const cu=outline(mesh(sgeo(0.05,10,8),toon(0x20243a)),0.008);cu.scale.set(0.6,1,1);cu.position.set(sd*0.155,0.16,0);neck.add(cu);});}
+  if(o.mask){const m=mesh(sgeo(0.1,14,10),toon(0xf6f8ff));m.scale.set(1.1,0.55,0.55);m.position.set(0,0.12,0.1);neck.add(m);}
+  if(o.glasses){[-1,1].forEach(sd=>{const r=mesh(G('gl',()=>new THREE.TorusGeometry(0.03,0.006,5,14)),basic(0x2a1c22));r.position.set(sd*0.05,0.18,0.135);neck.add(r);});}
+  if(o.arm==='phone'||o.phone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
+  let bandage=null;if(o.bandage){bandage=outline(mesh(cgeo(0.06,0.06,0.1,12),toon(0xffffff)),0.007);bandage.position.y=-0.36;legs[1].knee.add(bandage);legs[1].shoe.rotation.x=0.2;}
+  const p={id:o.id||('p'+(pid++)),g,root,hips,spine,neck,head,torso,legs,arms,coat,belly,badge,bandage,o,
+    label:o.label,clues:o.clues||[],need:!!o.need,feedback:o.feedback||'',focus:o.focus||'head',
+    pose:'stand',arm:o.arm||'down',path:[],phase:Math.random()*10,seat:null,judged:null,s,spawned:true,occ:false};
+  g.traverse(m=>{m.userData.person=p;});
+  peopleGroup.add(g);people.push(p);
+  return p;
+}
+const GENERIC=[
+ {label:'碌緊手機嘅上班族',clues:['專心碌緊手機','企得好穩，精神唔錯'],arm:'phone'},
+ {label:'行完街嘅後生女',clues:['手上拎住一個細紙袋','同朋友講緊笑，好輕鬆']},
+ {label:'聽緊歌嘅中學生',clues:['戴住耳機跟住節奏郁頭','孭住書包，企得好穩'],headphones:true,backpack:true},
+ {label:'閉目養神嘅姐姐',clues:['合埋眼休息','冇拎重嘢，坐得舒服'],mood:'closed'},
+ {label:'睇緊書嘅大學生',clues:['好專心睇緊書','冇咩特別困難']},
+ {label:'戴口罩嘅叔叔',clues:['戴住口罩望出窗外落雨','冇明顯困難'],mask:true},
+ {label:'傾緊偈嘅朋友',clues:['同身邊朋友傾緊下晝食咩','心情幾好'],mood:'happy'},
+ {label:'返工嘅姐姐',clues:['著住制服，望住報站顯示','睇落準備落車']}
+];
+function randomLook(extra){
+  const gen=Object.assign({},pick(GENERIC));const fem=Math.random()<0.5;
+  return Object.assign({skin:pick(SKINS),top:pick(TOPS),bottom:pick(BOTTOMS),hair:pick(HAIRS),hairStyle:fem?pick(['long','long','bun','pony']):'short',
+    skirt:fem&&Math.random()<.35?pick([0x2a3b66,0x6d4a7a,0x3f5f8a]):null,
+    scale:fem?rand(.93,.99):rand(.98,1.05),glasses:Math.random()<.22,label:gen.label,clues:gen.clues,arm:gen.arm,headphones:gen.headphones,backpack:gen.backpack,mask:gen.mask,mood:gen.mood},extra||{});
+}
+function freeSeat(filter){const f=seats.filter(s=>!s.occ&&(!filter||filter(s)));return f.length?pick(f):null;}
+function sitAt(p,seat){seat.occ=p;p.seat=seat;p.pose='sit';p.g.position.set(seat.x,0,seat.z);p.g.rotation.y=seat.side<0?0:Math.PI;if(p.arm==='down')p.arm='lap';}
+const SPOTS=[];for(let x=-10;x<=10.01;x+=0.72)[-0.42,0.42].forEach(z=>SPOTS.push({x,z,occ:null}));
+function reserve(x,z,p){SPOTS.forEach(s=>{if(Math.hypot(s.x-x,s.z-z)<0.6)s.occ=s.occ||p;});}
+function freeSpot(nearX){let f=SPOTS.filter(s=>!s.occ&&!inDoor(s.x)&&s.x>-9.4);
+  if(nearX!=null){f.sort((a,b)=>Math.abs(a.x-nearX)-Math.abs(b.x-nearX));f=f.slice(0,6);}return f.length?pick(f):null;}
+function standAt(p,spot,face){if(spot){spot.occ=p;p.spot=spot;p.g.position.set(spot.x,0,spot.z);}p.pose='stand';p.g.rotation.y=face!=null?face:pick([0,Math.PI,Math.PI/2,-Math.PI/2]);
+  if(p.arm==='down'&&Math.random()<.6)p.arm='strap';}
+
+/* ---------- camera rig ---------- */
+const OVERVIEW={pos:V3(-10.35,2.12,1.02),look:V3(-2.2,0.75,-0.55)};
+const cam={pos:OVERVIEW.pos.clone(),look:OVERVIEW.look.clone(),tPos:OVERVIEW.pos.clone(),tLook:OVERVIEW.look.clone(),fov:baseFov(),tFov:baseFov(),follow:null,mode:'over'};
+function setShot(pos,look,fov){cam.follow=null;cam.mode='fixed';cam.tPos.copy(pos);cam.tLook.copy(look);cam.tFov=fov||baseFov();}
+function overview(){cam.follow=null;cam.mode='over';cam.tPos.copy(OVERVIEW.pos);cam.tLook.copy(OVERVIEW.look);cam.tFov=baseFov();}
+function shotPerson(p,part,dist){cam.mode='follow';cam.follow={p,part:part||null,dist:dist||null};}
+function focusPoint(p,part){const v=new THREE.Vector3();let o=p.torso;
+  if(part==='head')o=p.head;else if(part==='legs')o=p.bandage||p.legs[1].shin;else if(part==='hands')o=p.arms[1].hand;else if(part==='badge')o=p.badge||p.torso;else if(part==='knees')o=p.legs[0].knee;
+  else if(part&&part.isObject3D)o=part;o.getWorldPosition(v);return v;}
+function followTarget(){
+  const f=cam.follow,p=f.p;const pt=focusPoint(p,f.part);
+  if(!f.part){const h=focusPoint(p,'head');pt.lerp(h,0.45);}
+  const dist=f.part?Math.max(f.dist||0,1.15):(f.dist||(p.pose==='sit'?1.45:1.6));
+  const ry=p.g.rotation.y;const cands=[0.35,-0.35,0.8,-0.8,1.3,-1.3,Math.PI/2+0.4,-Math.PI/2-0.4];
+  let best=null,bs=-1;
+  cands.forEach((a,i)=>{const dx=Math.sin(ry+a),dz=Math.cos(ry+a);const ccx=clamp(pt.x+dx*dist,-10.6,10.6),ccz=clamp(pt.z+dz*dist,-0.98,0.98);
+    const eff=Math.hypot(ccx-pt.x,ccz-pt.z);const sc=Math.min(eff,dist)-i*0.03;if(sc>bs){bs=sc;best={x:ccx,z:ccz};}});
+  const camY=f.part?Math.max(0.9,pt.y+0.35):Math.max(1.05,pt.y+0.2);
+  const port=innerWidth<innerHeight;
+  const lift=(port&&(!$('#insp').hidden||!$('#cards').hidden))?0.3:0;
+  cam.tPos.set(best.x,camY+lift*0.5,best.z);cam.tLook.copy(pt);cam.tLook.y+=lift;cam.tFov=f.part?(port?66:46):(port?74:50);
+}
+const _ab=new THREE.Vector3(),_q=new THREE.Vector3(),_c=new THREE.Vector3();
+function updateOccluders(){
+  const a=camera.position;_ab.copy(cam.look).sub(a);const L=_ab.length();_ab.normalize();
+  people.forEach(p=>{let occ=false;
+    if(cam.mode!=='over'&&p.spawned&&!(cam.follow&&p===cam.follow.p)&&!(p===granny&&cam.mode==='fixed')){
+      p.torso.getWorldPosition(_q);
+      const t=_q.clone().sub(a).dot(_ab);
+      if(t>0&&t<L-0.2){_c.copy(a).addScaledVector(_ab,t);if(Math.hypot(_c.x-_q.x,_c.z-_q.z)<0.34)occ=true;}
+      if(Math.hypot(_q.x-a.x,_q.z-a.z)<0.5)occ=true;}
+    p.occ=occ;p.g.visible=p.spawned&&!occ;});
+}
+
+/* ---------- train ---------- */
+const train={speed:13,state:'run',doorOpen:0,doorTarget:0,boarding:[]};
+let platDist=200;
+function arrive(name,onBoard,onDone){setSign(name);train.state='arriving';train.decel=train.speed*train.speed/(2*26);platDist=26;plat.position.x=platDist;train.onBoard=onBoard;train.onDone=onDone;$('#ns').textContent='即將到達：'+name;}
+
+/* ---------- audio ---------- */
+let AC=null,rumbleGain=null,rainGain=null,muted=false;
+function noiseBuf(){const len=AC.sampleRate*2,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;return buf;}
+function initAudio(){try{AC=new (window.AudioContext||window.webkitAudioContext)();
+  const s1=AC.createBufferSource();s1.buffer=noiseBuf();s1.loop=true;const f1=AC.createBiquadFilter();f1.type='lowpass';f1.frequency.value=160;rumbleGain=AC.createGain();rumbleGain.gain.value=0;s1.connect(f1);f1.connect(rumbleGain);rumbleGain.connect(AC.destination);s1.start();
+  const s2=AC.createBufferSource();s2.buffer=noiseBuf();s2.loop=true;const f2=AC.createBiquadFilter();f2.type='highpass';f2.frequency.value=2500;rainGain=AC.createGain();rainGain.gain.value=0.02;s2.connect(f2);f2.connect(rainGain);rainGain.connect(AC.destination);s2.start();
+}catch(e){AC=null;}}
+function tone(freq,t0,dur,vol){if(!AC||muted)return;const o=AC.createOscillator(),g=AC.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0,AC.currentTime+t0);g.gain.linearRampToValueAtTime(vol||.15,AC.currentTime+t0+.02);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+t0+dur);o.connect(g);g.connect(AC.destination);o.start(AC.currentTime+t0);o.stop(AC.currentTime+t0+dur+.05);}
+function chime(){tone(659,0,.9);tone(523,.45,1.1);}
+function beeps(){for(let i=0;i<4;i++)tone(1046,i*.32,.18,.08);}
+$('#mute').addEventListener('click',()=>{muted=!muted;$('#mute').textContent='聲音：'+(muted?'關':'開');if(rainGain)rainGain.gain.value=muted?0:0.02;});
+
+/* ---------- UI helpers ---------- */
+const S={step:0,stop:0,found:new Set(),wrong:0,strengths:[],actions:new Set(),needsOK:0,cast:[],ci:0};
+function renderSteps(){$('#steps').innerHTML=STEP_NAMES.map((n,i)=>{const k=i+1;const c=k===S.step?'on':(k<S.step?'done':'');return `<div class="st ${c}"><i>${k<S.step?'✓':n[0]}</i>${n[1]?`<em>${n[1]}</em>`:''}<span class="lbl">${n[2]}</span></div>`;}).join('');}
+function setStep(n){S.step=n;renderSteps();}
+function syncDlg(){const d=$('#dlg');document.documentElement.style.setProperty('--dlg-h',(d.hidden?0:d.offsetHeight)+'px');}
+dlgSync=syncDlg;
+function say(who,text,btns){const d=$('#dlg');d.hidden=false;d.querySelector('.who').textContent=who;d.querySelector('.say').innerHTML=text;const b=d.querySelector('.btns');b.innerHTML='';
+  (btns||[]).forEach(o=>{const e=document.createElement('button');e.type='button';e.className='btn'+(o.primary?' primary':'');e.textContent=o.label;e.addEventListener('click',o.on);b.appendChild(e);});
+  d.classList.remove('collapsed');$('#dlgMin').textContent='收起 ▾';syncDlg();}
+$('#dlgMin').addEventListener('click',()=>{const d=$('#dlg');d.classList.toggle('collapsed');$('#dlgMin').textContent=d.classList.contains('collapsed')?'展開 ▴':'收起 ▾';syncDlg();});
+function setTask(html){const t=$('#task');if(!html){t.hidden=true;return;}t.hidden=false;t.innerHTML=html;}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* ---------- crowd ---------- */
+function populate(){
+  const prio=seats.filter(s=>s.prio).sort((a,b)=>b.x-a.x);
+  const youth=makePerson({id:'youth',skin:SKINS[1],top:0x2a2f45,bottom:0x3a3f58,hair:0x231a1a,hairStyle:'short',headphones:true,arm:'phone',
+    label:'坐關愛座、戴住耳機嘅後生仔',clues:['坐緊關愛座','戴住耳機專心打機，完全冇留意身邊'],
+    feedback:'佢自己冇明顯困難，但佢坐緊關愛座又冇留意周圍。記住佢——之後可能幫到手。'});
+  sitAt(youth,prio[0]);
+  const grandpa=makePerson({id:'grandpa',skin:SKINS[2],top:0x8f97b0,bottom:0x3a3f58,hair:0xd9d6d0,hairStyle:'short',glasses:true,mood:'happy',
+    label:'睇緊報紙嘅伯伯',clues:['已經有位坐','精神奕奕，睇緊報紙'],feedback:'佢係長者，但已經坐低，精神唔錯，暫時冇即時需要。唔好單憑年紀判斷。'});
+  sitAt(grandpa,prio[1]);
+  const uncle=makePerson({id:'uncle',skin:SKINS[3],top:0x3f8a6c,bottom:0x1f2a48,hair:0x2d2230,hairStyle:'short',mood:'closed',
+    label:'瞓著咗嘅叔叔',clues:['頭側埋一邊瞓著咗','著住地盤靴，可能做完嘢好攰'],feedback:'佢只係攰到瞓著咗，坐得安穩，唔需要即時幫助。可以留意，但唔好打擾佢休息。'});
+  sitAt(uncle,seats.find(s=>s.side===-1&&Math.abs(s.x+2.6)<0.3)||freeSeat());uncle.sleep=true;
+  const mum=makePerson({id:'mum',skin:SKINS[0],top:0xe07a52,bottom:0x2a3b66,hair:0x3f2a22,hairStyle:'long',mood:'happy',label:'湊住小朋友嘅媽媽',clues:['同個仔坐埋一齊','講緊故仔俾個仔聽'],feedback:'兩母子都有位坐，玩得開心，暫時冇明顯需要。'});
+  sitAt(mum,seats.find(s=>s.side===1&&Math.abs(s.x+3.8)<0.3)||freeSeat());
+  const kid=makePerson({id:'kid',skin:SKINS[0],top:0xf0c04f,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',scale:0.62,shorts:true,label:'細路仔',clues:['坐喺媽媽身邊','扭計想飲嘢'],feedback:'有媽媽照顧緊，冇即時需要幫助。'});
+  sitAt(kid,seats.find(s=>s.side===1&&Math.abs(s.x+4.33)<0.3)||freeSeat());
+  const hurt=makePerson({id:'hurt',need:true,skin:SKINS[2],top:0xfaf7f0,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',bandage:true,shorts:true,focus:'legs',mood:'tired',
+    label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳','右腳踭包住紗布，鞋踭冇穿好'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
+  standAt(hurt,{x:-2.2,z:0.4,occ:null},-Math.PI*0.6);reserve(-2.2,0.4,hurt);hurt.arm='strap';hurt.injured=true;
+  const free=seats.filter(s=>!s.occ);free.sort(()=>Math.random()-.5);
+  free.slice(0,Math.floor(free.length*0.62)).forEach(s=>{const p=makePerson(randomLook());sitAt(p,s);});
+  for(let i=0;i<5;i++){const sp=freeSpot();if(!sp)break;const p=makePerson(randomLook());standAt(p,sp);}
+}
+function boardPerson(p,door,target,delay){
+  p.g.position.set(door+rand(-0.35,0.35),0,-2.1);p.spawned=false;p.g.visible=false;p.pose='walk';p.delay=delay;
+  const mid={x:door+rand(-0.3,0.3),z:-0.95};
+  if(target.seat){const s=target.seat;s.occ=p;p.path=[mid,{x:s.x,z:s.side*0.5}];p.onArrive=()=>{sitAt(p,s);};}
+  else{const sp=target.spot;sp.occ=p;p.path=[mid,{x:sp.x,z:sp.z}];p.onArrive=()=>{standAt(p,null,target.face);p.spot=sp;};}
+  train.boarding.push(p);
+}
+function boardStop(n){
+  if(n===1){for(let i=0;i<6;i++){const d=pick(DOORS);const seat=i<3?freeSeat():null;const sp=seat?null:freeSpot(d);if(!seat&&!sp)continue;const p=makePerson(randomLook());boardPerson(p,d,seat?{seat}:{spot:sp},i*0.5);}}
+  if(n===2){
+    const preg=makePerson({id:'preg',need:true,skin:SKINS[4],top:0xf6eee6,bottom:0x3a3f58,coat:0x7f8f5c,belly:true,badge:true,hair:0x3f2a22,hairStyle:'long',longSleeve:true,arm:'belly',focus:'badge',
+      label:'著住長褸嘅女士',clues:['一隻手一直輕輕扶住個肚','褸邊隱約見到粉紅色襟章：「BB on board」'],feedback:'答對！佢係孕婦，件褸遮住咗大部分襟章，要細心先發現到。'});
+    reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
+    const rest=seats.filter(s=>!s.occ);rest.forEach((s,i)=>{const p=makePerson(randomLook());boardPerson(p,pick(DOORS),{seat:s},0.6+i*0.35);});
+    for(let i=0;i<3;i++){const d=pick(DOORS);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},1+i*0.5);}
+  }
+  if(n===3){
+    granny=makeGranny();reserve(-5.55,-0.38,granny);reserve(-4.3,0.85,granny);
+    boardPerson(granny,-6,{spot:{x:-5.3,z:-0.4,occ:null},face:-Math.PI*0.45},0.8);
+    granny.onArrive=()=>{granny.pose='stand';granny.g.rotation.y=-Math.PI*0.45;granny.arm='pole';};
+    for(let i=0;i<6;i++){const d=pick([0,6,6]);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},i*0.45);}
+  }
+}
+let granny=null,trolley=null,bags=[];
+function makeGranny(){
+  const p=makePerson({id:'granny',need:true,skin:0xf2c9a6,top:0xa86a94,bottom:0x3a3a54,hair:0xe4e1da,hairStyle:'bun',glasses:true,scale:0.9,focus:'hands',mood:'tired',
+    label:'拎住大包細包嘅婆婆',clues:['拎住兩大袋餸，仲拖住架手推車','企唔係好穩，一路用力扶住扶手'],feedback:'答對！婆婆係車廂入面最需要幫助嘅人之一。下一步，睇清楚佢遇到咩困難。'});
+  p.spine.rotation.x=0.2;p.granny=true;
+  const bm=[toon(0xd8383a),toon(0xf1ece0)];
+  bags=bm.map((m,i)=>{const b=new THREE.Group();const body=outline(mesh(bgeo(0.22,0.26,0.13),m),0.01);body.position.y=-0.2;b.add(body);
+    const h=mesh(G('bagh',()=>new THREE.TorusGeometry(0.05,0.01,5,10)),m);h.position.y=-0.05;b.add(h);b.position.set(i?0.06:-0.06,-0.02,i?0.04:-0.04);p.arms[1].hand.add(b);b.traverse(o=>o.userData.person=p);return b;});
+  trolley=new THREE.Group();
+  const bk=outline(mesh(bgeo(0.32,0.42,0.24),toon(0x8a2d45)),0.012);bk.position.y=0.38;trolley.add(bk);
+  const fr=mesh(cgeo(0.012,0.012,0.95,6),M.steel);fr.position.set(0,0.55,-0.13);trolley.add(fr);
+  const hb=mesh(cgeo(0.012,0.012,0.3,6),M.steel);hb.rotation.z=Math.PI/2;hb.position.set(0,1.02,-0.13);trolley.add(hb);
+  [-1,1].forEach(s=>{const w=outline(mesh(cgeo(0.07,0.07,0.04,12),toon(0x22222e)),0.008);w.rotation.z=Math.PI/2;w.position.set(s*0.15,0.07,-0.05);trolley.add(w);});
+  trolley.position.set(-6.15,0,-1.05);trolley.rotation.set(0,0.4,0.28);trolley.visible=false;trolley.traverse(o=>o.userData.person=p);scene.add(trolley);
+  return p;
+}
+
+/* ---------- animation ---------- */
+function poseArms(p){
+  const A=p.arms;A.forEach(a=>{a.sh.rotation.set(0,0,a.sd*0.08);a.el.rotation.set(0,0,0);});
+  const R=A[1],L=A[0];
+  switch(p.arm){
+    case'strap':R.sh.rotation.x=-2.85;break;
+    case'pole':L.sh.rotation.x=-1.15;L.sh.rotation.z=0.25;L.el.rotation.x=-0.4;R.sh.rotation.x=0.05;break;
+    case'phone':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-1.25;a.sh.rotation.z=-a.sd*0.15;});break;
+    case'lap':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-0.75;});break;
+    case'belly':R.sh.rotation.x=-0.25;R.el.rotation.x=-1.35;R.sh.rotation.z=-0.35;L.sh.rotation.x=-1.0;L.sh.rotation.z=0.4;L.el.rotation.x=-0.6;break;
+  }
+}
+function updatePeople(dt,t){
+  people.forEach(p=>{
+    if(p.delay>0){p.delay-=dt;return;}
+    if(p.path.length){
+      p.spawned=true;if(p===granny)trolley.visible=true;
+      const tg=p.path[0];const dx=tg.x-p.g.position.x,dz=tg.z-p.g.position.z,d=Math.hypot(dx,dz);
+      const sp=(p.granny?0.55:1.15)*dt;
+      if(d<sp){p.g.position.x=tg.x;p.g.position.z=tg.z;p.path.shift();if(!p.path.length){p.pose='stand';p.onArrive&&p.onArrive();p.onArrive=null;}}
+      else{p.g.position.x+=dx/d*sp;p.g.position.z+=dz/d*sp;p.g.rotation.y=Math.atan2(dx,dz);p.pose='walk';}
+      if(p===granny)trolley.position.set(p.g.position.x-0.35,0,p.g.position.z-0.25);
+    }
+    const L=p.legs;p.root.position.y=0;p.hips.rotation.z=0;
+    if(p.pose==='walk'){p.phase+=dt*(p.granny?5:7.5);const w=Math.sin(p.phase);L[0].hip.rotation.x=w*.45;L[1].hip.rotation.x=-w*.45;L[0].knee.rotation.x=Math.max(0,-w)*.6;L[1].knee.rotation.x=Math.max(0,w)*.6;
+      p.arms.forEach((a,i)=>{a.sh.rotation.set((i?w:-w)*.35,0,a.sd*.08);a.el.rotation.x=-.2;});if(p.arm==='phone')poseArms(p);if(p.granny)p.arms[1].sh.rotation.x=0.05;}
+    else if(p.pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.5;l.knee.rotation.x=1.5;});p.root.position.y=0.47-0.88*p.s;poseArms(p);}
+    else{L.forEach(l=>{l.hip.rotation.x=0;l.knee.rotation.x=0;});
+      if(p.injured){L[1].hip.rotation.x=0.18;L[1].knee.rotation.x=0.4;p.hips.rotation.z=0.06+Math.sin(t*2+p.phase)*0.02;}
+      if(p.granny){const tr=0.14+Math.sin(t*22)*0.025;L.forEach(l=>{l.hip.rotation.x=-tr;l.knee.rotation.x=tr*2;});p.root.position.y=-0.02;}
+      poseArms(p);p.root.rotation.z=Math.sin(t*1.5+p.phase)*0.018*Math.min(1,train.speed/10);}
+    if(p.sleep)p.neck.rotation.set(0.45,0,0.3);
+    else if(p.pose!=='walk')p.neck.rotation.y=Math.sin(t*0.3+p.phase)*0.22;
+  });
+}
+
+/* ---------- picking ---------- */
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function pickAt(cx,cy){const r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+  const objs=[peopleGroup];if(trolley)objs.push(trolley);const hit=ray.intersectObjects(objs,true).find(h=>{const p=h.object.userData.person;return p&&p.g.visible;});return hit?hit.object.userData.person:null;}
+let down=null;
+canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
+canvas.addEventListener('pointermove',e=>{if(TOUCH)return;const p=(S.step===1||S.step===2)?pickAt(e.clientX,e.clientY):null;const tp=$('#tip');
+  if(p){tp.hidden=false;tp.style.left=e.clientX+'px';tp.style.top=e.clientY+'px';tp.textContent=p.label||'乘客';canvas.classList.add('hover');}else{tp.hidden=true;canvas.classList.remove('hover');}});
+canvas.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>8;down=null;if(moved)return;
+  if(S.step===1||S.step===2){const p=pickAt(e.clientX,e.clientY);if(p){const i=S.cast.indexOf(p);if(i>=0)S.ci=i;inspect(p);}}});
+canvas.addEventListener('pointerleave',()=>{$('#tip').hidden=true;});
+addEventListener('keydown',e=>{if(S.step!==2||!current)return;if(e.key==='ArrowRight')stepCast(1);if(e.key==='ArrowLeft')stepCast(-1);});
+
+/* ---------- inspect / passenger switching ---------- */
+let current=null;
+const CORE=['hurt','youth','grandpa','uncle','preg','mum','granny','kid'];
+function buildCast(){
+  const named=['hurt','youth','grandpa','uncle','preg','mum','granny'].map(id=>people.find(p=>p.id===id)).filter(Boolean);
+  const extras=people.filter(p=>CORE.indexOf(p.id)<0&&p.spawned&&p.g.position.x>-9.5&&p.g.position.x<1.5).sort(()=>Math.random()-.5).slice(0,3);
+  const all=named.concat(extras);
+  all.sort((a,b)=>a.g.position.x-b.g.position.x);
+  if(all[0]&&all[0].id==='granny')all.push(all.shift());
+  S.cast=all;S.ci=0;
+}
+function inspect(p){
+  if(S.step>=3)return;
+  current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:null);
+  const panel=$('#insp');panel.hidden=false;
+  const n=S.cast.length,i=S.cast.indexOf(p);
+  let html='';
+  if(S.step===2&&n)html+=`<div class="nav"><button type="button" id="pv" aria-label="上一位">◀</button><div class="idx">乘客 ${i>=0?i+1:'–'} / ${n}</div><button type="button" id="nx" aria-label="下一位">▶</button></div>`;
+  const tag=p.judged==='ok'?(p.need?'<span class="chip y">需要幫助</span>':'<span class="chip n">冇特別需要</span>'):'';
+  html+=`<div class="lbl">觀察</div><h3>${esc(p.label||'乘客')}${tag}</h3><ul>${(p.clues.length?p.clues:['冇咩特別']).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
+  if(S.step===1)html+=`<div class="fb info">先觀察。到第二步先判斷邊個需要幫助。</div>`;
+  if(S.step===2){
+    if(p.judged)html+=`<div class="fb ${p.judged==='ok'?'ok':'no'}">${esc(p.lastFb)}</div>`;
+    if(p.judged!=='ok')html+=`<div class="row"><button class="btn primary" id="jy" type="button">佢需要幫助</button><button class="btn" id="jn" type="button">佢冇特別需要</button></div>`;
+  }
+  html+=`<div class="row"><button class="btn" id="jb" type="button">返回全景</button></div>`;
+  panel.innerHTML=html;
+  const jy=$('#jy'),jn=$('#jn');if(jy)jy.onclick=()=>judge(p,true);if(jn)jn.onclick=()=>judge(p,false);
+  $('#jb').onclick=closeInspect;
+  const pv=$('#pv'),nx=$('#nx');if(pv)pv.onclick=()=>stepCast(-1);if(nx)nx.onclick=()=>stepCast(1);
+}
+function stepCast(d){const n=S.cast.length;if(!n)return;let i=S.cast.indexOf(current);if(i<0)i=S.ci;i=(i+d+n)%n;S.ci=i;inspect(S.cast[i]);}
+function closeInspect(){current=null;$('#insp').hidden=true;overview();}
+function judge(p,yes){
+  if(yes&&p.need){p.judged='ok';p.lastFb=p.feedback;S.found.add(p.id);}
+  else if(!yes&&!p.need){p.judged='ok';p.lastFb=p.feedback||'冇錯，佢暫時冇明顯需要。';}
+  else if(yes&&!p.need){p.judged='no';S.wrong++;p.lastFb=p.feedback||'佢暫時睇唔到有明顯困難。幫人之前，要先觀察清楚對方係咪真係有需要。';}
+  else{p.judged='no';S.wrong++;p.lastFb='再望清楚啲……睇下佢隻手、對腳，同埋身上嘅標記。';}
+  inspect(p);updateFound();
+}
+function updateFound(){
+  const judged=S.cast.filter(p=>p.judged==='ok').length;
+  setTask(`<b>任務 WHO：</b>逐個乘客觀察，判斷佢需唔需要幫助。<span class="count">已發現 ${S.found.size} / 3</span><br><span style="color:var(--muted);font-size:13px">已判斷 ${judged} / ${S.cast.length} 位．提示：留意手、腳同身上嘅標記。</span>`);
+  if(S.found.has('granny')){
+    say('旁白',S.found.size>=3?'好細心！三個有需要嘅人你都搵到晒。而家集中幫最急需要嘅婆婆。':`你搵到婆婆喇。車廂入面仲有 ${3-S.found.size} 個人嘅需要冇咁易睇到，可以繼續用 ◀ ▶ 搵，或者直接幫婆婆。`,
+      [{label:'▸ 第三步：了解婆婆嘅需要',primary:true,on:goStep3}]);
+  }
+}
+
+/* ---------- flow ---------- */
+function nextStop(){
+  S.stop++;const name=STATIONS[S.stop];
+  say('車廂廣播',`下一站：${name}。Next station: ${name}.`,[]);
+  if(current)closeInspect();
+  arrive(name,()=>boardStop(S.stop),()=>{
+    $('#ns').textContent='下一站：'+STATIONS[S.stop+1];
+    if(S.stop===1)say('旁白','又多咗幾個人上車。窗外仲落緊雨，車廂越嚟越迫。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
+    else if(S.stop===2)say('旁白','座位已經坐滿晒。可以撳任何乘客，鏡頭會影近佢。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
+    else startStep2();
+  });
+}
+function startStep2(){
+  setStep(2);buildCast();
+  say('旁白','一位婆婆拎住大包細包，拖住手推車上咗車。車廂已經冇位坐……<br>用 <b>◀ ▶</b> 逐個乘客切換鏡頭，判斷佢<b>需唔需要幫助</b>。',[]);
+  updateFound();setTimeout(()=>inspect(S.cast[0]),600);
+}
+const DIFFS=[
+  {part:'bags',k:'困難一',t:'兩大袋餸勒到手指發紅',opts:['有人幫手分擔重物','有人陪佢傾偈','教佢用手機睇報站'],ans:0},
+  {part:'knees',k:'困難二',t:'膝頭不停微微震，要用力扶住扶手',opts:['一個可以坐低嘅位','一樽水','再多一個購物袋'],ans:0},
+  {part:'trolley',k:'困難三',t:'手推車個轆卡咗喺車門邊，拉唔返出嚟',opts:['有人幫手扶穩手推車','叫佢以後唔好用手推車','幫佢搵職員報站'],ans:0}
+];
+function partObj(part){if(part==='bags')return bags[0];if(part==='knees')return granny.legs[0].knee;if(part==='trolley')return trolley;return null;}
+function goStep3(){
+  current=null;$('#insp').hidden=true;setStep(3);setTask('<b>任務 WHY：</b>觀察婆婆遇到嘅困難，配對佢嘅需要。');
+  shotPerson(granny,null,1.5);
+  say('旁白','你行近婆婆。睇清楚佢遇到咩困難——每個困難反映咗咩需要？',[]);
+  const box=$('#cards');box.hidden=false;box.innerHTML='';
+  DIFFS.forEach((d,i)=>{
+    const c=document.createElement('div');c.className='card';
+    const opts=d.opts.map((o,j)=>({o,j})).sort(()=>Math.random()-.5);
+    c.innerHTML=`<div class="k">${d.k}</div><div class="t">${esc(d.t)}</div><button class="btn look" type="button">🔍 鏡頭影近</button><div class="k">反映咗佢需要……</div><div class="opts">${opts.map(x=>`<button class="btn" type="button" data-j="${x.j}">${esc(x.o)}</button>`).join('')}</div>`;
+    c.querySelector('.look').onclick=()=>shotPerson(granny,partObj(d.part),0.85);
+    c.querySelectorAll('.opts .btn').forEach(b=>b.onclick=()=>{
+      shotPerson(granny,partObj(d.part),0.85);
+      if(+b.dataset.j===d.ans){b.classList.add('right');c.classList.add('done');c.querySelectorAll('.opts .btn').forEach(x=>x.disabled=true);S.needsOK++;
+        if(S.needsOK===3)say('旁白','你睇清楚晒婆婆嘅三個需要：<b>分擔重物、一個座位、扶穩手推車</b>。',[{label:'▸ 第四步：我嘅強項',primary:true,on:goStep4}]);}
+      else{b.classList.add('wrong');b.disabled=true;}
+    });
+    if(i===0)setTimeout(()=>shotPerson(granny,partObj(d.part),0.85),900);
+    box.appendChild(c);
+  });
+}
+const STRENGTHS=['有禮貌，敢開口請人幫手','有力氣，拎得起重嘢','細心，留意到細節','冷靜，唔怕人望住'];
+const SCENE5={pos:V3(-4.3,1.75,0.85),look:V3(-6.6,0.85,-0.85)};
+function goStep4(){
+  setStep(4);setTask('<b>任務 HOW：</b>揀兩樣你嘅強項，諗下點樣用嚟幫婆婆。');shotPerson(granny,null,1.9);
+  const box=$('#cards');box.innerHTML='';
+  const c=document.createElement('div');c.className='card';
+  c.innerHTML=`<div class="k">我叻……（揀兩項）</div><div class="opts">${STRENGTHS.map((s,i)=>`<button class="btn" type="button" data-i="${i}">${esc(s)}</button>`).join('')}</div>`;
+  box.appendChild(c);
+  say('旁白','每個人都有自己嘅強項。你覺得自己有咩可以幫到婆婆？',[]);
+  c.querySelectorAll('.btn').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i;const k=S.strengths.indexOf(i);
+    if(k>=0){S.strengths.splice(k,1);b.classList.remove('sel');}else if(S.strengths.length<2){S.strengths.push(i);b.classList.add('sel');}
+    if(S.strengths.length===2)say('旁白',`你嘅強項：<b>${S.strengths.map(i=>STRENGTHS[i]).join('、')}</b>。`,[{label:'▸ 第五步：計劃實際嘅善幸',primary:true,on:goStep5}]);
+    else say('旁白','每個人都有自己嘅強項。你覺得自己有咩可以幫到婆婆？',[]);
+  });
+}
+function scene5Shot(){setShot(SCENE5.pos,SCENE5.look,innerWidth<innerHeight?80:54);}
+function goStep5(){
+  setStep(5);$('#cards').hidden=true;setTask('<b>任務 HOW：</b>計劃實際嘅善幸，幫婆婆解決困難。');scene5Shot();
+  say('旁白','你企喺婆婆身邊。第一步，你會點做？',[
+    {label:'先問婆婆：「婆婆，使唔使幫手呀？」',on:askFirst},
+    {label:'二話不說，直接攞走婆婆手上嘅袋',on:()=>say('婆婆','「哎呀！做咩呀你？」婆婆嚇親，捉實袋餸，望住你。<br><span style="color:var(--muted)">幫人之前，先問對方意願，尊重佢嘅決定。</span>',[{label:'再諗過',primary:true,on:goStep5}])},
+    {label:'扮睇唔到，繼續睇手機',on:()=>say('旁白','車廂搖咗一下，婆婆差啲企唔穩，個袋撞到扶手。<br><span style="color:var(--muted)">留意到需要，下一步就係行動。</span>',[{label:'再諗過',primary:true,on:goStep5}])}
+  ]);
+}
+const ACTIONS=[
+  {id:'seat',label:'有禮貌咁問關愛座上戴耳機嘅後生仔，可唔可以讓個位俾婆婆',need:'座位'},
+  {id:'bags',label:'幫婆婆拎住兩袋餸',need:'分擔重物'},
+  {id:'trolley',label:'幫婆婆將手推車扶返正，推埋一邊',need:'扶穩手推車'}
+];
+function askFirst(){
+  say('婆婆','「哎，唔該你呀，我隻腳有啲痛，啲餸又重……」<br>婆婆願意接受幫助。你會做啲咩？（可以揀多項）',[]);
+  const btns=$('#dlg .btns');btns.innerHTML='';
+  ACTIONS.forEach(a=>{const b=document.createElement('button');b.type='button';b.className='btn'+(S.actions.has(a.id)?' sel':'');b.textContent=a.label;b.onclick=()=>{if(S.actions.has(a.id)){S.actions.delete(a.id);b.classList.remove('sel');}else{S.actions.add(a.id);b.classList.add('sel');}go.disabled=!S.actions.size;};btns.appendChild(b);});
+  const go=document.createElement('button');go.type='button';go.className='btn primary';go.textContent='▸ 行動';go.disabled=!S.actions.size;go.onclick=doActions;btns.appendChild(go);syncDlg();
+}
+let acted=false;
+function doActions(){
+  if(acted)return;acted=true;say('旁白','……',[]);
+  const youth=people.find(p=>p.id==='youth');const seat=youth.seat;let t=0;
+  if(S.actions.has('trolley'))setTimeout(()=>{trolley.rotation.set(0,0,0);trolley.position.set(-6.05,0,-0.75);},t+=300);
+  if(S.actions.has('bags'))setTimeout(()=>{bags.forEach((b,i)=>{b.parent.remove(b);b.position.set(0.05,0.88,0.02+i*0.04);b.rotation.set(0,0,0);trolley.add(b);});granny.arm='pole';},t+=600);
+  if(S.actions.has('seat')){
+    setTimeout(()=>{say('後生仔','（除低耳機）「吓？呀，唔好意思，頭先冇留意。婆婆你坐啦！」',[]);youth.arm='down';shotPerson(youth,null,1.5);},t+=900);
+    setTimeout(()=>{seat.occ=null;youth.seat=null;youth.pose='stand';youth.g.position.z=seat.side*0.55;youth.path=[{x:-8.9,z:-0.3}];youth.onArrive=()=>{standAt(youth,null,Math.PI/2);youth.arm='strap';};scene5Shot();},t+=1800);
+    setTimeout(()=>{granny.path=[{x:seat.x,z:-0.55}];granny.onArrive=()=>{sitAt(granny,seat);granny.arm='lap';granny.spine.rotation.x=0.05;granny.head.material=toon(0xffffff,{map:faceTex(granny.o.skin,'happy')});};
+      if(!S.actions.has('trolley'))trolley.rotation.set(0,0,0);},t+=1500);
+    t+=3600;
+  }
+  setTimeout(()=>{if(granny.pose==='sit')shotPerson(granny,null,1.4);outcome();},t+600);
+}
+function outcome(){
+  const miss=ACTIONS.filter(a=>!S.actions.has(a.id));let txt;
+  if(!miss.length)txt='婆婆坐低咗，手推車扶正咗，啲餸都放好晒。「多謝你哋呀，好人有好報！」<br>你用咗你嘅強項，回應咗婆婆三個需要。';
+  else if(S.actions.has('seat'))txt=`婆婆終於坐得低：「多謝你呀！」<br><span style="color:var(--muted)">仲有需要未照顧到：${miss.map(a=>a.need).join('、')}。</span>`;
+  else txt=`婆婆輕鬆咗啲：「唔該晒你。」但佢隻腳仲係好攰，要一路企住。<br><span style="color:var(--muted)">仲有需要未照顧到：${miss.map(a=>a.need).join('、')}。</span>`;
+  say('婆婆',txt,[{label:'▸ 第六步：經驗反思',primary:true,on:goStep6}]);
+}
+function goStep6(){
+  setStep(6);setTask(null);overview();
+  const found=['granny','hurt','preg'].filter(id=>S.found.has(id)).map(id=>({granny:'拎住大包細包嘅婆婆',hurt:'腳受傷嘅男仔',preg:'孕婦'}[id]));
+  $('#goodcard').innerHTML=`<div class="k">我的善幸卡 · ${new Date().toLocaleDateString('zh-HK')}</div>
+   <div class="r"><b>WHO</b><span>${found.length?esc(found.join('、')):'—'}（發現 ${S.found.size}/3）</span></div>
+   <div class="r"><b>WHY</b><span>分擔重物、一個座位、扶穩手推車</span></div>
+   <div class="r"><b>強項</b><span>${esc(S.strengths.map(i=>STRENGTHS[i]).join('、'))}</span></div>
+   <div class="r"><b>善幸</b><span>先問婆婆意願；${esc(ACTIONS.filter(a=>S.actions.has(a.id)).map(a=>a.label).join('；'))}</span></div>
+   <div class="r" style="color:var(--muted);font-size:13px"><b></b><span>可以截圖呢張卡，上載到 LMS 記錄小善幸。</span></div>`;
+  $('#reflect').hidden=false;$('#dlg').hidden=true;syncDlg();
+}
+$('#againBtn').onclick=()=>location.reload();
+$('#startBtn').onclick=()=>{
+  $('#intro').hidden=true;initAudio();setStep(1);
+  say('旁白','星期日傍晚，外面落緊雨。你搭緊車去探朋友，車廂本身已經唔少人，有人坐，有人企。<br>可以撳畫面上嘅乘客，鏡頭會影近佢。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
+};
+renderSteps();
+
+/* ---------- loop ---------- */
+const clock=new THREE.Clock();
+function loop(){
+  const dt=Math.min(clock.getDelta(),0.05),t=clock.elapsedTime;
+  if(train.state==='arriving'){train.speed=Math.max(0,train.speed-train.decel*dt);platDist-=train.speed*dt;plat.position.x=Math.max(0,platDist);
+    if(train.speed<=0.01){train.speed=0;plat.position.x=0;train.state='stopped';train.doorTarget=1;chime();setTimeout(()=>{train.onBoard&&train.onBoard();},900);train.waitT=0;}}
+  else if(train.state==='stopped'){train.waitT+=dt;
+    const busy=train.boarding.some(p=>p.path.length||p.delay>0);
+    if(train.waitT>3&&!busy&&train.doorTarget===1){train.doorTarget=0;beeps();train.closeT=0;}
+    if(train.doorTarget===0){train.closeT+=dt;if(train.closeT>1.6){train.state='departing';train.boarding=[];}}}
+  else if(train.state==='departing'){train.speed=Math.min(13,train.speed+4*dt);plat.position.x-=train.speed*dt;
+    if(plat.position.x<-60){plat.position.x=200;train.state='run';train.onDone&&train.onDone();}}
+  train.doorOpen+=(train.doorTarget-train.doorOpen)*Math.min(1,dt*4);
+  doorPanels.forEach(d=>{const o=d.side<0?train.doorOpen*0.62:0;d.l.position.x=d.x-0.35-o;d.r.position.x=d.x+0.35+o;});
+  negSide.visible=Math.abs(plat.position.x)>58;
+  movers.forEach(m=>{m.o.position.x-=train.speed*dt*m.k;if(m.o.position.x<-62)m.o.position.x+=124;});
+  updateRain(dt,train.speed);
+  rainTex.offset.y+=dt*0.04;rainTex.offset.x-=dt*0.004*train.speed;
+  if(rumbleGain)rumbleGain.gain.value=muted?0:0.06+train.speed/13*0.2;
+  updatePeople(dt,t);
+  if(cam.follow)followTarget();
+  const k=Math.min(1,dt*3.2);
+  cam.pos.lerp(cam.tPos,k);cam.look.lerp(cam.tLook,k);cam.fov+=(cam.tFov-cam.fov)*k;
+  const sway=cam.mode==='over'?Math.sin(t*0.35)*0.05:0;
+  camera.position.set(cam.pos.x,cam.pos.y+Math.sin(t*1.7)*0.004*(train.speed/13),cam.pos.z+sway);
+  camera.lookAt(cam.look);
+  if(Math.abs(camera.fov-cam.fov)>0.01){camera.fov=cam.fov;camera.updateProjectionMatrix();}
+  updateOccluders();
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+addEventListener('resize',()=>{if(cam.mode==='over')cam.tFov=baseFov();});
+const ready=document.fonts&&document.fonts.load?Promise.race([Promise.all([document.fonts.load('900 40px "Noto Sans TC"'),document.fonts.load('500 20px "Noto Sans TC"')]),new Promise(r=>setTimeout(r,2500))]):Promise.resolve();
+ready.catch(()=>{}).then(()=>{buildSigns();populate();setSign(STATIONS[0]);loop();});
+})();
+</script>
+</body>
+</html>
