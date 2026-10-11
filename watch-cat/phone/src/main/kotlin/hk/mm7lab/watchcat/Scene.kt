@@ -19,6 +19,8 @@ import hk.mm7lab.watchcat.core.RType
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.File
+import java.io.InputStream
 
 /**
  * The home screen's 3D world: the desktop app's pet page in a WebView. The app's reminders and
@@ -42,9 +44,11 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
+        // serve the app's files to the page, saying exactly what each one is (scripts must be
+        // "text/javascript" or the browser won't run them as modules)
         val loader = WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
-            .addPathHandler("/files/", WebViewAssetLoader.InternalStoragePathHandler(ctx, Desk.dir(ctx)))
+            .addPathHandler("/assets/") { path -> serve(path) { ctx.assets.open(path) } }
+            .addPathHandler("/files/") { path -> serve(path) { File(Desk.dir(ctx), path.substringBefore('?')).inputStream() } }
             .build()
         // the page's console in logcat, for finding problems
         webChromeClient = object : WebChromeClient() {
@@ -56,9 +60,32 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
         webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 loader.shouldInterceptRequest(request.url)
+
+            override fun onPageFinished(view: WebView, url: String) { Log.i(TAG, "page loaded: $url") }
         }
         addJavascriptInterface(Bridge(), "AndroidCat")
         loadUrl("https://appassets.androidplatform.net/assets/desk/pet/index.html")
+    }
+
+    private fun serve(path: String, open: () -> InputStream): WebResourceResponse? = try {
+        val type = mime(path)
+        WebResourceResponse(type, if (type.startsWith("text/") || type.endsWith("json")) "utf-8" else null, open())
+    } catch (e: Exception) {
+        Log.w(TAG, "missing: $path ($e)")
+        null
+    }
+
+    private fun mime(path: String) = when (path.substringBefore('?').substringAfterLast('.', "").lowercase()) {
+        "html", "htm" -> "text/html"
+        "js", "mjs" -> "text/javascript"
+        "css" -> "text/css"
+        "json" -> "application/json"
+        "png" -> "image/png"
+        "jpg", "jpeg" -> "image/jpeg"
+        "webp" -> "image/webp"
+        "svg" -> "image/svg+xml"
+        "wasm" -> "application/wasm"
+        else -> "application/octet-stream"
     }
 
     private fun js(code: String) = web.evaluateJavascript(code, null)

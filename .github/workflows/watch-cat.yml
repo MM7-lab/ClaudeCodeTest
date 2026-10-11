@@ -35,9 +35,12 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "out/watch/WatchCat-$v.apk"
           v=$(grep -oP 'versionName = "\K[^"]+' phone/build.gradle.kts)
           cp phone/build/outputs/apk/release/phone-release.apk "out/phone/PhoneCat-$v.apk"
-          # the phone's 3D scene must be in there
-          unzip -l out/phone/*.apk | grep -E 'assets/desk/(pet/(index.html|pet.js|phone-bridge.js)|node_modules/three/build/three.module.js)'
-          unzip -p out/phone/*.apk assets/desk/pet/index.html | grep -q 'phone-bridge.js'
+          # the phone's 3D scene must be in there, every file
+          unzip -l out/phone/*.apk | grep 'assets/desk/' | awk '{print $4}' | sort | head -80
+          for f in pet/index.html pet/pet.js pet/cat.js pet/pet.css pet/phone-bridge.js node_modules/three/build/three.module.js node_modules/three/build/three.core.js; do
+            unzip -l out/phone/*.apk "assets/desk/$f" > /dev/null || { echo "missing assets/desk/$f"; exit 1; }
+          done
+          unzip -p out/phone/*.apk assets/desk/pet/index.html | grep 'phone-bridge.js'
           ls -lR out
       - uses: actions/upload-artifact@v4
         with:
@@ -49,3 +52,29 @@ jobs:
           name: PhoneCat-APK
           path: watch-cat/out/phone/*.apk
           if-no-files-found: error
+
+  # Open the phone app in an Android emulator and print what it shows (the scene is a WebView).
+  phone-check:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/download-artifact@v4
+        with:
+          name: PhoneCat-APK
+          path: apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash watch-cat/tools/phone-check.sh

@@ -15,8 +15,8 @@ android {
         applicationId = "hk.mm7lab.watchcat.phone"
         minSdk = 29
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.1.2"
     }
 
     signingConfigs {
@@ -76,6 +76,8 @@ val copyDesk by tasks.registering(Sync::class) {
             }
         }
     }
+    // the phone's stand-in for Electron's preload, next to the page that loads it
+    from("src/scene") { into("pet") }
     into(layout.buildDirectory.dir("generated/deskAssets/desk"))
 }
 tasks.named("preBuild") { dependsOn(copyDesk) }
