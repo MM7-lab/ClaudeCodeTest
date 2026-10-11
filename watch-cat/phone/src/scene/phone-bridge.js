@@ -19,6 +19,7 @@
   addEventListener('unhandledrejection', e => problem(String((e.reason && (e.reason.stack || e.reason.message)) || e.reason)));
   setTimeout(() => { if (!started) problem('等咗 15 秒都未開到（部手機可能唔支援 WebGL）'); }, 15000);
 
+  console.log('phone bridge: start', innerWidth + 'x' + innerHeight, 'dpr', devicePixelRatio);
   const A = window.AndroidCat;
   if (!A) { problem('同 app 嘅連接（AndroidCat）唔見咗'); return; }
   const listeners = {};

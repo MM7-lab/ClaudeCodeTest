@@ -36,7 +36,7 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
     private var shownNags = 0
 
     @SuppressLint("SetJavaScriptEnabled")
-    val web: WebView = WebView(ctx).apply {
+    val web: WebView = WebView(ctx).also { WebView.setWebContentsDebuggingEnabled(true) }.apply {
         setBackgroundColor(Color.parseColor("#1b1d25"))
         overScrollMode = View.OVER_SCROLL_NEVER
         isVerticalScrollBarEnabled = false
@@ -64,7 +64,7 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
             override fun onPageFinished(view: WebView, url: String) { Log.i(TAG, "page loaded: $url") }
         }
         addJavascriptInterface(Bridge(), "AndroidCat")
-        loadUrl("https://appassets.androidplatform.net/assets/desk/pet/index.html")
+        loadUrl("https://appassets.androidplatform.net/assets/desk/pet/index.html?debug")
     }
 
     private fun serve(path: String, open: () -> InputStream): WebResourceResponse? = try {
@@ -132,11 +132,14 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
         fun getState(): String {
             val s = runCatching { Desk.settingsJson(ctx) }.getOrElse { Log.e(TAG, "settings", it); JSONObject() }
             lastSettings = s.toString()
+            Log.i(TAG, "getState: $lastSettings")
             return JSONObject().put("settings", s).toString()
         }
 
         @JavascriptInterface
-        fun background(): String = runCatching { Desk.backgroundCss(ctx) }.getOrDefault("#1b1d25").also { lastBg = it }
+        fun background(): String = runCatching { Desk.backgroundCss(ctx) }
+            .getOrElse { Log.e(TAG, "background", it); "#1b1d25" }
+            .also { lastBg = it; Log.i(TAG, "background: ${it.take(60)}") }
 
         @JavascriptInterface
         fun answer(done: Boolean) { main.post { scope.launch { Actions.answer(ctx, done) } } }
@@ -146,6 +149,7 @@ class Scene(private val ctx: Context, private val onSettings: () -> Unit) {
 
         @JavascriptInterface
         fun ready() {
+            Log.i(TAG, "scene ready")
             main.post {
                 ready = true
                 shownPending = null

@@ -16,9 +16,14 @@ sleep 8
 adb exec-out screencap -p > shot2.png
 set +x
 echo "===== logcat ====="
-adb logcat -d | grep -E "PhoneCatScene|chromium|AndroidRuntime|FATAL|cr_" | tail -150
+adb logcat -d | grep -E "PhoneCatScene|AndroidRuntime|FATAL" | tail -120
+echo "===== inside the WebView ====="
+PID=$(adb shell pidof $PKG | tr -d '\r')
+adb forward tcp:9222 localabstract:webview_devtools_remote_$PID
+sleep 1
+node watch-cat/tools/phone-cdp.mjs || echo "devtools failed"
 for f in shot1 shot2; do
-  convert $f.png -resize 270x $f-small.jpg 2>/dev/null || cp $f.png $f-small.jpg
+  convert $f.png -resize 240x $f-small.jpg 2>/dev/null || cp $f.png $f-small.jpg
   echo "===== $f base64 begin ====="
   base64 -w 0 $f-small.jpg | fold -w 900
   echo
