@@ -401,11 +401,13 @@ function makePerson(o){
   });
   const spine=new THREE.Group();hips.add(spine);
   const torso=outline(mesh(cgeo(0.15,0.165,0.52,14),topM),0.011);torso.scale.z=0.72;torso.position.y=0.3;spine.add(torso);
-  let coat=null;if(o.coat){coat=outline(mesh(cgeo(0.175,0.23,0.86,14),toon(o.coat)),0.011);coat.scale.z=0.78;coat.position.y=0.15;spine.add(coat);}
-  let belly=null;if(o.belly){belly=outline(mesh(sgeo(0.13),toon(o.top)),0.01);belly.scale.set(1.05,1.15,0.9);belly.position.set(0,0.12,0.1);spine.add(belly);}
+  let coat=null;if(o.coat){const cm=toon(o.coat,{side:THREE.DoubleSide});coat=new THREE.Group();spine.add(coat);
+    const body=mesh(G('coatOpen',()=>new THREE.CylinderGeometry(0.19,0.245,0.98,20,1,false,0.6,Math.PI*2-1.2)),cm);body.scale.z=0.8;body.position.y=0.07;coat.add(body);
+    [-1,1].forEach(sd=>{const lp=outline(mesh(bgeo(0.05,0.15,0.012),cm),0.006);lp.position.set(sd*0.088,0.47,0.112);lp.rotation.set(-0.1,sd*0.5,sd*0.38);coat.add(lp);});}
+  let belly=null;if(o.belly){belly=outline(mesh(sgeo(0.14,22,16),toon(o.top)),0.01);belly.scale.set(0.9,1.1,0.85);belly.position.set(0,0.2,0.05);spine.add(belly);}
   let badge=null;
   if(o.badge){const t=textTex(128,128,(c)=>{c.fillStyle='#f48fb1';c.beginPath();c.arc(64,64,60,0,7);c.fill();c.fillStyle='#fff';c.font='900 40px Arial';c.textAlign='center';c.fillText('BB',64,62);c.font='700 17px Arial';c.fillText('on board',64,90);});
-    badge=mesh(new THREE.CircleGeometry(0.035,20),new THREE.MeshBasicMaterial({map:t}));badge.position.set(0.13,0.42,0.142);badge.rotation.y=0.25;spine.add(badge);}
+    badge=mesh(new THREE.CircleGeometry(0.035,20),new THREE.MeshBasicMaterial({map:t}));badge.position.set(0.085,0.4,0.1);badge.rotation.y=0.55;spine.add(badge);}
   if(o.backpack){const b=outline(mesh(bgeo(0.3,0.38,0.15),toon(pick([0x2a3b66,0xb2414f,0x3f8a6c]))),0.012);b.position.set(0,0.32,-0.19);spine.add(b);}
   const arms=[];
   [-1,1].forEach(sd=>{
@@ -429,7 +431,11 @@ function makePerson(o){
   if(o.hairStyle==='pony'){const b=outline(mesh(cgeo(0.05,0.02,0.3,8),toon(o.hair)),0.01);b.position.set(0,0.12,-0.19);b.rotation.x=0.4;neck.add(b);}
   if(o.headphones){const hp=mesh(G('hp',()=>new THREE.TorusGeometry(0.165,0.017,6,20,Math.PI)),toon(0x20243a));hp.position.y=0.19;neck.add(hp);
     [-1,1].forEach(sd=>{const cu=outline(mesh(sgeo(0.05,10,8),toon(0x20243a)),0.008);cu.scale.set(0.6,1,1);cu.position.set(sd*0.155,0.16,0);neck.add(cu);});}
-  if(o.mask){const m=mesh(sgeo(0.1,14,10),toon(0xf6f8ff));m.scale.set(1.1,0.55,0.55);m.position.set(0,0.12,0.1);neck.add(m);}
+  if(o.mask){const mt=G('masktex',()=>textTex(128,64,(c,w,h)=>{c.fillStyle='#cfe3f2';c.fillRect(0,0,w,h);c.fillStyle='#f4f8fb';c.fillRect(0,0,w,7);
+      c.strokeStyle='rgba(70,110,150,.35)';c.lineWidth=2;[22,36,50].forEach(y=>{c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();});}));
+    const m=mesh(G('maskgeo',()=>new THREE.SphereGeometry(0.153,20,10,Math.PI/2-1.1,2.2,Math.PI*0.585,Math.PI*0.3)),toon(0xffffff,{map:mt,side:THREE.DoubleSide}));
+    m.scale.copy(head.scale);m.position.copy(head.position);neck.add(m);
+    [-1,1].forEach(sd=>{const lp=mesh(G('maskloop',()=>new THREE.TorusGeometry(0.032,0.003,4,12)),basic(0xe8eef5));lp.rotation.y=Math.PI/2;lp.position.set(sd*0.138,0.145,0.03);neck.add(lp);});}
   if(o.glasses){[-1,1].forEach(sd=>{const r=mesh(G('gl',()=>new THREE.TorusGeometry(0.03,0.006,5,14)),basic(0x2a1c22));r.position.set(sd*0.05,0.18,0.135);neck.add(r);});}
   if(o.arm==='phone'||o.phone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
   let bandage=null;if(o.bandage){bandage=outline(mesh(cgeo(0.06,0.06,0.1,12),toon(0xffffff)),0.007);bandage.position.y=-0.36;legs[1].knee.add(bandage);legs[1].shoe.rotation.x=0.2;}
@@ -442,16 +448,16 @@ function makePerson(o){
 }
 const GENERIC=[
  {label:'碌緊手機嘅上班族',clues:['專心碌緊手機','企得好穩，精神唔錯'],arm:'phone'},
- {label:'行完街嘅後生女',clues:['手上拎住一個細紙袋','同朋友講緊笑，好輕鬆']},
+ {g:'f',label:'行完街嘅後生女',clues:['手上拎住一個細紙袋','同朋友講緊笑，好輕鬆']},
  {label:'聽緊歌嘅中學生',clues:['戴住耳機跟住節奏郁頭','孭住書包，企得好穩'],headphones:true,backpack:true},
- {label:'閉目養神嘅姐姐',clues:['合埋眼休息','冇拎重嘢，坐得舒服'],mood:'closed'},
+ {g:'f',label:'閉目養神嘅姐姐',clues:['合埋眼休息','冇拎重嘢，坐得舒服'],mood:'closed'},
  {label:'睇緊書嘅大學生',clues:['好專心睇緊書','冇咩特別困難']},
- {label:'戴口罩嘅叔叔',clues:['戴住口罩望出窗外落雨','冇明顯困難'],mask:true},
+ {g:'m',label:'戴口罩嘅叔叔',clues:['戴住口罩望出窗外落雨','冇明顯困難'],mask:true},
  {label:'傾緊偈嘅朋友',clues:['同身邊朋友傾緊下晝食咩','心情幾好'],mood:'happy'},
- {label:'返工嘅姐姐',clues:['著住制服，望住報站顯示','睇落準備落車']}
+ {g:'f',label:'返工嘅姐姐',clues:['著住制服，望住報站顯示','睇落準備落車']}
 ];
 function randomLook(extra){
-  const gen=Object.assign({},pick(GENERIC));const fem=Math.random()<0.5;
+  const gen=Object.assign({},pick(GENERIC));const fem=gen.g?gen.g==='f':Math.random()<0.5;
   return Object.assign({skin:pick(SKINS),top:pick(TOPS),bottom:pick(BOTTOMS),hair:pick(HAIRS),hairStyle:fem?pick(['long','long','bun','pony']):'short',
     skirt:fem&&Math.random()<.35?pick([0x2a3b66,0x6d4a7a,0x3f5f8a]):null,
     scale:fem?rand(.93,.99):rand(.98,1.05),glasses:Math.random()<.22,label:gen.label,clues:gen.clues,arm:gen.arm,headphones:gen.headphones,backpack:gen.backpack,mask:gen.mask,mood:gen.mood},extra||{});
@@ -563,7 +569,7 @@ function boardPerson(p,door,target,delay){
 function boardStop(n){
   if(n===1){for(let i=0;i<6;i++){const d=pick(DOORS);const seat=i<3?freeSeat():null;const sp=seat?null:freeSpot(d);if(!seat&&!sp)continue;const p=makePerson(randomLook());boardPerson(p,d,seat?{seat}:{spot:sp},i*0.5);}}
   if(n===2){
-    const preg=makePerson({id:'preg',need:true,skin:SKINS[4],top:0xf6eee6,bottom:0x3a3f58,coat:0x7f8f5c,belly:true,badge:true,hair:0x3f2a22,hairStyle:'long',longSleeve:true,arm:'belly',focus:'badge',
+    const preg=makePerson({id:'preg',need:true,skin:SKINS[4],top:0xd8c2aa,bottom:0x3a3f58,coat:0x6f7d52,belly:true,badge:true,hair:0x3f2a22,hairStyle:'long',longSleeve:true,arm:'belly',focus:'badge',
       label:'著住長褸嘅女士',clues:['一隻手一直輕輕扶住個肚','褸邊隱約見到粉紅色襟章：「BB on board」'],feedback:'答對！佢係孕婦，件褸遮住咗大部分襟章，要細心先發現到。'});
     reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
     const rest=seats.filter(s=>!s.occ);rest.forEach((s,i)=>{const p=makePerson(randomLook());boardPerson(p,pick(DOORS),{seat:s},0.6+i*0.35);});
@@ -602,7 +608,7 @@ function poseArms(p){
     case'pole':L.sh.rotation.x=-1.15;L.sh.rotation.z=0.25;L.el.rotation.x=-0.4;R.sh.rotation.x=0.05;break;
     case'phone':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-1.25;a.sh.rotation.z=-a.sd*0.15;});break;
     case'lap':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-0.75;});break;
-    case'belly':R.sh.rotation.x=-0.25;R.el.rotation.x=-1.35;R.sh.rotation.z=-0.35;L.sh.rotation.x=-1.0;L.sh.rotation.z=0.4;L.el.rotation.x=-0.6;break;
+    case'belly':R.sh.rotation.x=-0.3;R.sh.rotation.z=-0.2;R.el.rotation.x=-1.05;R.el.rotation.z=-0.5;L.sh.rotation.x=-2.85;break;
   }
 }
 function updatePeople(dt,t){
