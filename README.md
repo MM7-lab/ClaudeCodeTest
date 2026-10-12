@@ -52,4 +52,13 @@ python3 floor-planner/build_pages.py
 - **匯出**：「匯出 CSV」有日圓同港幣兩欄，Excel 或 Google Sheets 直接開到；「複製文字總結」可以貼去 WhatsApp；「備份 JSON」同「匯入備份」用嚟換手機或者還原。
 - 資料只會儲喺你部手機嘅瀏覽器（localStorage）。清除瀏覽器資料會清走記錄，所以旅程中間記得間中撳「備份 JSON」。
 
+### 私隱
+
+- 記錄只儲喺你部手機嘅瀏覽器，唔會上載去任何伺服器，亦冇任何追蹤或分析。
+- 網頁只會連去兩個地方：Google Fonts（載入字型，Google 會見到你嘅 IP）同 open.er-api.com（只喺你撳「攞最新匯率」嗰陣）。兩個都唔會收到你嘅記錄，亦唔會收到來源網址。
+- 網頁設定咗 Content Security Policy，就算有問題，都唔可以將資料傳去其他網站。
+- 匯入嘅備份檔會先清理先用，偽造嘅檔案唔可以喺網頁度執行程式碼；匯出嘅 CSV 已防止 Excel 公式注入。
+- GitHub Pages 上同一個帳戶嘅所有網頁共用同一個瀏覽器儲存空間，所以唔好喺同一個帳戶放唔信得過嘅網頁。
+- 匯出嘅 CSV／JSON 檔案有齊你嘅消費記錄，分享之前諗清楚。
+
 開咗 GitHub Pages（見上面）之後，網址係 `https://<帳戶>.github.io/<repo>/japan-trip/`。建議喺手機瀏覽器「加至主畫面」。

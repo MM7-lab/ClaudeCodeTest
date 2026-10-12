@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F3F4F8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:; connect-src https://open.er-api.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%23B83A2E%22/%3E%3Ctext x=%228%22 y=%2212%22 font-size=%2210%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22%3E%C2%A5%3C/text%3E%3C/svg%3E">
 <title>日本旅程記帳</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -289,9 +291,34 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) return Object.assign(blank(), JSON.parse(raw));
+      if (raw) return clean(JSON.parse(raw));
     } catch (e) { /* storage blocked or corrupt; start fresh */ }
     return null;
+  }
+  // Rebuild state from untrusted JSON (localStorage or an imported file), keeping only known fields of the right shape.
+  function clean(data) {
+    if (!data || typeof data !== 'object') throw new Error('bad');
+    const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+    const pos = (v) => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null);
+    const s = blank();
+    s.trip = str(data.trip, 60) || s.trip;
+    s.rate = pos(data.rate) || DEFAULT_RATE;
+    s.rateDate = str(data.rateDate, 60);
+    s.budgetHKD = pos(data.budgetHKD);
+    s.display = data.display === 'HKD' ? 'HKD' : 'JPY';
+    s.inputCur = data.inputCur === 'HKD' ? 'HKD' : 'JPY';
+    s.sample = data.sample === true;
+    s.expenses = (Array.isArray(data.expenses) ? data.expenses : []).filter((x) => x && pos(x.amount) && (x.cur === 'JPY' || x.cur === 'HKD'))
+      .map((x) => ({
+        id: /^[a-z0-9]{1,32}$/i.test(x.id) ? x.id : uid(),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : today(),
+        amount: x.amount,
+        cur: x.cur,
+        cat: CATS.some((c) => c.id === x.cat) ? x.cat : 'other',
+        pay: PAYS.includes(x.pay) ? x.pay : '其他',
+        note: str(x.note, 80),
+      }));
+    return s;
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -455,7 +482,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
   $('#fetchRate').addEventListener('click', async () => {
     setMsg('#rateMsg', '攞緊匯率…');
     try {
-      const res = await fetch('https://open.er-api.com/v6/latest/HKD');
+      const res = await fetch('https://open.er-api.com/v6/latest/HKD', { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' });
       const data = await res.json();
       const jpy = data && data.rates && data.rates.JPY;
       if (!jpy) throw new Error('no rate');
@@ -485,7 +512,8 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
 
   $('#exportCsv').addEventListener('click', () => {
     if (!state.expenses.length) { setMsg('#ioMsg', '未有記錄可以匯出', 'err'); return; }
-    const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    // Prefix text that Excel would run as a formula (=, +, -, @).
+    const esc = (v) => { let s = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const rows = [['日期', '類別', '付款方式', '備註', '原始金額', '原始貨幣', '日圓 JPY', '港幣 HKD', '匯率 (1 HKD = ? JPY)']];
     let tj = 0, th = 0;
     sorted().forEach((e) => {
@@ -509,9 +537,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.expenses)) throw new Error('bad');
-      data.expenses = data.expenses.filter((x) => x && x.amount > 0 && (x.cur === 'JPY' || x.cur === 'HKD'))
-        .map((x) => Object.assign({ id: x.id || uid(), date: x.date || today(), cat: 'other', pay: '其他', note: '' }, x));
-      state = Object.assign(blank(), data, { sample: false });
+      state = Object.assign(clean(data), { sample: false });
       save(); resetForm(); render();
       setMsg('#ioMsg', `已匯入 ${state.expenses.length} 筆記錄`, 'ok');
     } catch (err) {
@@ -610,9 +636,9 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
     $('#ledger').innerHTML = days.map(([date, list]) => {
       const sum = list.reduce((s, e) => s + inDisplay(e), 0);
       return `<div class="day">
-        <div class="day-head"><b>${fmtDate(date)}</b><span class="num">${fmt(sum, d)}</span></div>
+        <div class="day-head"><b>${escHtml(fmtDate(date))}</b><span class="num">${fmt(sum, d)}</span></div>
         ${list.map((e) => `
-          <button type="button" class="entry${e.id === editingId ? ' editing' : ''}" data-id="${e.id}" aria-label="修改：${escHtml(e.note || catName(e.cat))}">
+          <button type="button" class="entry${e.id === editingId ? ' editing' : ''}" data-id="${escHtml(e.id)}" aria-label="修改：${escHtml(e.note || catName(e.cat))}">
             <span class="what">${escHtml(e.note || catName(e.cat))}</span>
             <span class="meta"><span class="tag">${catName(e.cat)}</span>${escHtml(e.pay)}</span>
             <span class="amt">${fmt(inDisplay(e), d)}<small>${e.cur === d ? '≈ ' + fmt(convert(e.amount, e.cur, o), o) : '原本 ' + fmt(e.amount, e.cur)}</small></span>
