@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#24427A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="旅程記帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src https://open.er-api.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%23B83A2E%22/%3E%3Ctext x=%228%22 y=%2212%22 font-size=%2210%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22%3E%C2%A5%3C/text%3E%3C/svg%3E">
+<title>日本旅程記帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a travel wallet. Summary + entry form on the left, a receipt-style ledger grouped by day on the right; one column on phones. */
+:root{
+  --bg:#F3F4F8; --paper:#FFFFFF; --ink:#18213A; --muted:#5E6782; --rule:#DCE0EA;
+  --ai:#24427A; --ai-soft:rgba(36,66,122,.09); --shu:#B83A2E; --shu-soft:rgba(184,58,46,.10);
+  --matcha:#4C7A3A; --warn:#A8620B;
+  --shadow:0 1px 2px rgba(24,33,58,.05),0 8px 24px rgba(24,33,58,.06);
+  --f-ui:"Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif;
+  --f-display:"Zen Kaku Gothic New","Noto Sans HK","PingFang HK",system-ui,sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1422; --paper:#171E30; --ink:#E6EAF4; --muted:#9AA3BC; --rule:#28314A;
+  --ai:#8FB0F0; --ai-soft:rgba(143,176,240,.13); --shu:#F08A7C; --shu-soft:rgba(240,138,124,.13);
+  --matcha:#9CCB86; --warn:#F0B460;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0F1422; --paper:#171E30; --ink:#E6EAF4; --muted:#9AA3BC; --rule:#28314A;
+  --ai:#8FB0F0; --ai-soft:rgba(143,176,240,.13); --shu:#F08A7C; --shu-soft:rgba(240,138,124,.13);
+  --matcha:#9CCB86; --warn:#F0B460;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-ui);padding-inline:16px;padding-block:16px 40px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1080px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.stamp{flex:none;width:40px;height:40px;border-radius:50%;border:2px solid var(--shu);color:var(--shu);display:grid;place-items:center;font:700 13px/1 var(--f-display);transform:rotate(-8deg)}
+.brand h1{margin:0;font:700 22px/1.2 var(--f-display);text-wrap:balance}
+h1 input.trip-name{border:0;background:transparent;padding:0 4px;margin-left:-4px;border-radius:6px;font:700 22px/1.2 var(--f-display);width:100%;min-width:0}
+h1 input.trip-name:hover,h1 input.trip-name:focus{background:var(--ai-soft);box-shadow:none}
+.sub{color:var(--muted);font-size:13px}
+
+.seg{display:inline-flex;border:1px solid var(--rule);background:var(--paper);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ai);color:var(--paper)}
+
+.grid{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,400px) minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{margin:0;font:700 15px/1.3 var(--f-display);letter-spacing:.04em;color:var(--muted)}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+/* Summary */
+.total{display:flex;flex-direction:column;gap:2px}
+.total .big{font:600 34px/1.1 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.total .alt{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px dashed var(--rule);padding-top:12px}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.stat .v{font:600 15px/1.3 var(--f-num);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.budget{display:flex;flex-direction:column;gap:6px}
+.bar{height:8px;border-radius:99px;background:var(--ai-soft);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--ai);border-radius:99px;transition:width .3s}
+.bar.over > i{background:var(--shu)}
+.budget .line{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.cats{display:flex;flex-direction:column;gap:8px}
+.cat-row{display:grid;grid-template-columns:5.5em minmax(0,1fr) auto;align-items:center;gap:10px;font-size:13px}
+.cat-row .bar{height:10px}
+.cat-row .amt{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
+
+/* Form */
+form{display:flex;flex-direction:column;gap:12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+input[type=text],input[type=number],input[type=date],select{width:100%;border:1px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;color:var(--ink);min-width:0}
+input:focus,select:focus{border-color:var(--ai);outline:none;box-shadow:0 0 0 3px var(--ai-soft)}
+.amount-row{display:flex;gap:8px;align-items:stretch}
+.amount-row input{font:600 24px/1.2 var(--f-num);padding:10px 12px;flex:1}
+.amount-row .seg{align-self:center;flex:none}
+.preview{font-size:13px;color:var(--muted);margin-top:-6px}
+.preview:empty,.msg:empty{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips label{border:1px solid var(--rule);border-radius:999px;padding:5px 12px;font-size:14px;cursor:pointer;background:var(--paper);color:var(--ink)}
+.chips input:checked + label{background:var(--ai-soft);border-color:var(--ai);color:var(--ai);font-weight:600}
+.chips input:focus-visible + label{outline:2px solid var(--ai);outline-offset:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--rule);background:var(--paper);border-radius:10px;padding:9px 14px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--ai)}
+.btn.primary{background:var(--ai);border-color:var(--ai);color:var(--paper);flex:1;padding:12px 16px;font-size:16px}
+.btn.danger{color:var(--shu);border-color:var(--shu-soft)}
+.btn.danger.armed{background:var(--shu);color:var(--paper);border-color:var(--shu)}
+.btn.small{padding:6px 10px;font-size:13px}
+
+/* Ledger */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toolbar select{width:auto;padding:6px 10px;font-size:14px}
+.day{display:flex;flex-direction:column}
+.day-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 2px 6px;border-bottom:2px solid var(--ink)}
+.day-head b{font:700 15px/1.3 var(--f-display)}
+.day-head .num{font-weight:600}
+.entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 2px;border-bottom:1px dashed var(--rule);text-align:left;background:transparent;border-inline:0;border-top:0;width:100%;border-radius:0}
+.entry:hover{background:var(--ai-soft)}
+.entry.editing{background:var(--ai-soft);box-shadow:inset 3px 0 0 var(--ai)}
+.entry .what{font-weight:500;overflow-wrap:anywhere}
+.entry .meta{font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.entry .amt{font:600 15px/1.3 var(--f-num);font-variant-numeric:tabular-nums;text-align:right;align-self:center;grid-row:1 / span 2;grid-column:2;display:flex;flex-direction:column;align-items:flex-end}
+.entry .amt small{font-weight:400;font-size:11px;color:var(--muted)}
+.tag{display:inline-block;padding:0 7px;border-radius:99px;background:var(--ai-soft);color:var(--ai);font-size:11px;line-height:1.7}
+.empty{padding:24px 8px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty p{margin:0;max-width:34em}
+.sample-note{font-size:12px;color:var(--warn);border:1px dashed var(--warn);border-radius:8px;padding:6px 10px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+/* Settings */
+.rate-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rate-row input{width:7.5em;font-family:var(--f-num)}
+.msg{font-size:12px;color:var(--muted)}
+.msg.ok{color:var(--matcha)}
+.msg.err{color:var(--shu)}
+details summary{cursor:pointer;font-weight:600}
+textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10px;background:var(--bg);color:var(--ink);font:12px/1.5 var(--f-num);padding:10px}
+.install{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--ai-soft);border:1px solid var(--ai);border-radius:14px;padding:12px 14px}
+.install img{width:40px;height:40px;border-radius:10px;flex:none}
+.install .txt{display:flex;gap:12px;align-items:center;min-width:0;flex:1 1 16em}
+.install p{margin:0;font-size:13px;color:var(--ink)}
+.install b{display:block;font-size:14px}
+.install .actions{flex:none}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);z-index:10}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="stamp" aria-hidden="true">旅</div>
+      <div style="min-width:0">
+        <h1><input class="trip-name" id="tripName" type="text" aria-label="旅程名稱" value="日本之旅"></h1>
+        <div class="sub" id="tripSub">記低每一筆，回程再算總數</div>
+      </div>
+    </div>
+    <div class="seg" role="group" aria-label="顯示貨幣">
+      <button type="button" data-display="JPY" aria-pressed="true">¥ 日圓</button>
+      <button type="button" data-display="HKD" aria-pressed="false">HK$ 港幣</button>
+    </div>
+  </header>
+
+  <section class="install" id="installBox" hidden aria-label="安裝到手機">
+    <div class="txt">
+      <img src="icon-192.png" alt="">
+      <p><b>裝落手機，當 App 咁用</b><span id="installHow">有自己嘅圖示，冇網絡都用得。</span></p>
+    </div>
+    <div class="actions">
+      <button class="btn small primary" type="button" id="installBtn" hidden>安裝</button>
+      <button class="btn small" type="button" id="installLater">遲啲先</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card" aria-labelledby="sumTitle">
+        <div class="card-head"><h2 id="sumTitle">總支出</h2><span class="sub" id="rateNote"></span></div>
+        <div class="total">
+          <div class="big" id="totalBig">¥0</div>
+          <div class="alt num" id="totalAlt">≈ HK$0.00</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="k">筆數</span><span class="v" id="stCount">0</span></div>
+          <div class="stat"><span class="k">日數</span><span class="v" id="stDays">0</span></div>
+          <div class="stat"><span class="k">每日平均</span><span class="v" id="stAvg">¥0</span></div>
+        </div>
+        <div class="budget" id="budgetBox" hidden>
+          <div class="bar" id="budgetBar"><i style="width:0"></i></div>
+          <div class="line"><span id="budgetUsed"></span><span id="budgetLeft"></span></div>
+        </div>
+        <div class="cats" id="cats"></div>
+      </section>
+
+      <section class="card" aria-labelledby="formTitle">
+        <div class="card-head"><h2 id="formTitle">記一筆</h2><span class="sub" id="editHint" hidden>修改緊一筆舊記錄</span></div>
+        <form id="form" autocomplete="off">
+          <label class="f">金額
+            <div class="amount-row">
+              <input id="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" required>
+              <div class="seg" role="group" aria-label="輸入貨幣">
+                <button type="button" data-cur="JPY" aria-pressed="true">¥</button>
+                <button type="button" data-cur="HKD" aria-pressed="false">HK$</button>
+              </div>
+            </div>
+          </label>
+          <div class="preview num" id="amountPreview"></div>
+          <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">類別
+            <div class="chips" id="catChips"></div>
+          </div>
+          <div class="two">
+            <label class="f">付款方式
+              <select id="pay"></select>
+            </label>
+            <label class="f">日期
+              <input id="date" type="date" required>
+            </label>
+          </div>
+          <label class="f">備註（買咗乜、喺邊度）
+            <input id="note" type="text" maxlength="80" placeholder="例如：一蘭拉麵 道頓堀店">
+          </label>
+          <div class="actions">
+            <button class="btn primary" type="submit" id="submitBtn">記低</button>
+            <button class="btn" type="button" id="cancelEdit" hidden>取消</button>
+            <button class="btn danger" type="button" id="deleteBtn" hidden>刪除</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card" aria-labelledby="ledgerTitle">
+        <div class="card-head">
+          <h2 id="ledgerTitle">每日明細</h2>
+          <div class="toolbar">
+            <select id="filterCat" aria-label="篩選類別"></select>
+          </div>
+        </div>
+        <div class="sample-note" id="sampleNote" hidden>
+          <span>而家顯示緊示範資料，唔係你嘅真實記錄。</span>
+          <button class="btn small" type="button" id="clearSample">清除示範資料</button>
+        </div>
+        <div id="ledger"></div>
+      </section>
+
+      <section class="card" aria-labelledby="setTitle">
+        <h2 id="setTitle">匯率、預算同匯出</h2>
+        <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">
+          匯率（所有換算都用呢個數）
+          <div class="rate-row">
+            <span>1 HK$ =</span>
+            <input id="rate" type="number" inputmode="decimal" min="0" step="any" aria-label="一港元兌日圓">
+            <span>¥</span>
+            <button class="btn small" type="button" id="fetchRate">攞最新匯率</button>
+          </div>
+          <div class="msg" id="rateMsg"></div>
+        </div>
+        <label class="f">總預算（HK$，留空就唔顯示）
+          <input id="budget" type="number" inputmode="decimal" min="0" step="any" placeholder="例如 10000">
+        </label>
+        <div class="actions">
+          <button class="btn" type="button" id="exportCsv">匯出 CSV（Excel）</button>
+          <button class="btn" type="button" id="exportJson">備份 JSON</button>
+          <button class="btn" type="button" id="importBtn">匯入備份</button>
+          <button class="btn" type="button" id="copySummary">複製文字總結</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <div class="msg" id="ioMsg"></div>
+        <details>
+          <summary>文字總結預覽</summary>
+          <textarea id="summaryText" readonly aria-label="文字總結"></textarea>
+        </details>
+        <div class="actions">
+          <button class="btn danger small" type="button" id="clearAll">清除全部記錄</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const KEY = 'jp-trip-expenses-v1';
+  const CATS = [
+    { id: 'food', name: '餐飲' },
+    { id: 'transport', name: '交通' },
+    { id: 'stay', name: '住宿' },
+    { id: 'shopping', name: '購物' },
+    { id: 'drugstore', name: '藥妝' },
+    { id: 'ticket', name: '門票景點' },
+    { id: 'other', name: '其他' },
+  ];
+  const PAYS = ['現金', '信用卡', 'Suica / ICOCA', 'PayPay', '其他'];
+  const DEFAULT_RATE = 19; // 1 HKD ≈ 19 JPY; a placeholder until the user fetches or types the real rate
+
+  const $ = (s) => document.querySelector(s);
+  const catName = (id) => (CATS.find((c) => c.id === id) || CATS[CATS.length - 1]).name;
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function blank() {
+    return { trip: '日本之旅', rate: DEFAULT_RATE, rateDate: '', budgetHKD: null, display: 'JPY', inputCur: 'JPY', sample: false, expenses: [] };
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return clean(JSON.parse(raw));
+    } catch (e) { /* storage blocked or corrupt; start fresh */ }
+    return null;
+  }
+  // Rebuild state from untrusted JSON (localStorage or an imported file), keeping only known fields of the right shape.
+  function clean(data) {
+    if (!data || typeof data !== 'object') throw new Error('bad');
+    const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+    const pos = (v) => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null);
+    const s = blank();
+    s.trip = str(data.trip, 60) || s.trip;
+    s.rate = pos(data.rate) || DEFAULT_RATE;
+    s.rateDate = str(data.rateDate, 60);
+    s.budgetHKD = pos(data.budgetHKD);
+    s.display = data.display === 'HKD' ? 'HKD' : 'JPY';
+    s.inputCur = data.inputCur === 'HKD' ? 'HKD' : 'JPY';
+    s.sample = data.sample === true;
+    s.expenses = (Array.isArray(data.expenses) ? data.expenses : []).filter((x) => x && pos(x.amount) && (x.cur === 'JPY' || x.cur === 'HKD'))
+      .map((x) => ({
+        id: /^[a-z0-9]{1,32}$/i.test(x.id) ? x.id : uid(),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : today(),
+        amount: x.amount,
+        cur: x.cur,
+        cat: CATS.some((c) => c.id === x.cat) ? x.cat : 'other',
+        pay: PAYS.includes(x.pay) ? x.pay : '其他',
+        note: str(x.note, 80),
+      }));
+    return s;
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { flash('儲唔到資料：瀏覽器封鎖咗儲存空間，記得用「備份 JSON」'); }
+  }
+
+  let state = load();
+  if (!state) { state = blank(); loadSample(); }
+  let editingId = null;
+
+  function loadSample() {
+    const base = new Date(); base.setDate(base.getDate() - 2);
+    const day = (n) => { const d = new Date(base); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    state.sample = true;
+    state.expenses = [
+      { id: uid(), date: day(0), amount: 1300, cur: 'JPY', cat: 'transport', pay: 'Suica / ICOCA', note: '關西機場 → 難波 南海電鐵' },
+      { id: uid(), date: day(0), amount: 1180, cur: 'JPY', cat: 'food', pay: '現金', note: '一蘭拉麵' },
+      { id: uid(), date: day(0), amount: 2400, cur: 'HKD', cat: 'stay', pay: '信用卡', note: '酒店三晚（出發前已付）' },
+      { id: uid(), date: day(1), amount: 8640, cur: 'JPY', cat: 'drugstore', pay: '信用卡', note: '松本清 退稅後' },
+      { id: uid(), date: day(1), amount: 2700, cur: 'JPY', cat: 'ticket', pay: 'PayPay', note: '大阪城天守閣 + 庭園' },
+      { id: uid(), date: day(1), amount: 3200, cur: 'JPY', cat: 'food', pay: '現金', note: '黑門市場' },
+      { id: uid(), date: day(2), amount: 15800, cur: 'JPY', cat: 'shopping', pay: '信用卡', note: 'Uniqlo 心齋橋' },
+    ];
+  }
+
+  // ---- money ----
+  function convert(amount, from, to) {
+    if (from === to) return amount;
+    const r = Number(state.rate) || DEFAULT_RATE;
+    return from === 'JPY' ? amount / r : amount * r;
+  }
+  function fmt(v, cur) {
+    if (cur === 'JPY') return '¥' + Math.round(v).toLocaleString('en-US');
+    return 'HK$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const other = (cur) => (cur === 'JPY' ? 'HKD' : 'JPY');
+  const inDisplay = (e) => convert(e.amount, e.cur, state.display);
+  const fmtDate = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return iso;
+    const wk = '日一二三四五六'[d.getDay()];
+    return `${d.getMonth() + 1}月${d.getDate()}日（${wk}）`;
+  };
+
+  // ---- form setup ----
+  const chipBox = $('#catChips');
+  CATS.forEach((c, i) => {
+    chipBox.insertAdjacentHTML('beforeend',
+      `<input type="radio" name="cat" id="cat-${c.id}" value="${c.id}" ${i === 0 ? 'checked' : ''}><label for="cat-${c.id}">${c.name}</label>`);
+  });
+  $('#pay').innerHTML = PAYS.map((p) => `<option>${p}</option>`).join('');
+  $('#filterCat').innerHTML = '<option value="">全部類別</option>' + CATS.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+  $('#date').value = today();
+
+  function setPressed(attr, value) {
+    document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === value)));
+  }
+  document.querySelectorAll('[data-display]').forEach((b) => b.addEventListener('click', () => {
+    state.display = b.dataset.display; save(); render();
+  }));
+  document.querySelectorAll('[data-cur]').forEach((b) => b.addEventListener('click', () => {
+    state.inputCur = b.dataset.cur; save(); setPressed('cur', state.inputCur); updatePreview();
+  }));
+
+  function updatePreview() {
+    const v = parseFloat($('#amount').value);
+    const cur = state.inputCur;
+    $('#amountPreview').textContent = v > 0 ? `${fmt(v, cur)} ≈ ${fmt(convert(v, cur, other(cur)), other(cur))}` : '';
+  }
+  $('#amount').addEventListener('input', updatePreview);
+
+  function resetForm() {
+    editingId = null;
+    $('#form').reset();
+    $('#date').value = today();
+    $('#cat-food').checked = true;
+    $('#submitBtn').textContent = '記低';
+    $('#cancelEdit').hidden = true;
+    $('#deleteBtn').hidden = true;
+    disarm($('#deleteBtn'), '刪除');
+    $('#editHint').hidden = true;
+    setPressed('cur', state.inputCur);
+    updatePreview();
+  }
+
+  function startEdit(id) {
+    const e = state.expenses.find((x) => x.id === id);
+    if (!e) return;
+    editingId = id;
+    $('#amount').value = e.amount;
+    state.inputCur = e.cur; setPressed('cur', e.cur);
+    const chip = document.getElementById('cat-' + e.cat); if (chip) chip.checked = true;
+    $('#pay').value = e.pay;
+    $('#date').value = e.date;
+    $('#note').value = e.note || '';
+    $('#submitBtn').textContent = '更新';
+    $('#cancelEdit').hidden = false;
+    $('#deleteBtn').hidden = false;
+    $('#editHint').hidden = false;
+    updatePreview();
+    renderLedger();
+    $('#formTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  $('#form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const amount = parseFloat($('#amount').value);
+    if (!(amount > 0)) { flash('請輸入大過 0 嘅金額'); $('#amount').focus(); return; }
+    const entry = {
+      date: $('#date').value || today(),
+      amount: state.inputCur === 'JPY' ? Math.round(amount) : Math.round(amount * 100) / 100,
+      cur: state.inputCur,
+      cat: (document.querySelector('input[name=cat]:checked') || {}).value || 'other',
+      pay: $('#pay').value,
+      note: $('#note').value.trim(),
+    };
+    if (state.sample) { state.expenses = []; state.sample = false; }
+    if (editingId) {
+      const i = state.expenses.findIndex((x) => x.id === editingId);
+      if (i >= 0) state.expenses[i] = Object.assign({ id: editingId }, entry);
+      flash('已更新');
+    } else {
+      state.expenses.push(Object.assign({ id: uid() }, entry));
+      flash(`已記低 ${fmt(entry.amount, entry.cur)}`);
+    }
+    save(); resetForm(); render();
+  });
+  $('#cancelEdit').addEventListener('click', () => { resetForm(); renderLedger(); });
+
+  // Two-tap confirm, since dialogs aren't reliable everywhere.
+  function armable(btn, label, armedLabel, action) {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('armed')) { disarm(btn, label); action(); return; }
+      btn.classList.add('armed'); btn.textContent = armedLabel;
+      clearTimeout(btn._t); btn._t = setTimeout(() => disarm(btn, label), 4000);
+    });
+  }
+  function disarm(btn, label) { btn.classList.remove('armed'); btn.textContent = label; clearTimeout(btn._t); }
+  armable($('#deleteBtn'), '刪除', '再撳一次確認刪除', () => {
+    state.expenses = state.expenses.filter((x) => x.id !== editingId);
+    save(); resetForm(); render(); flash('已刪除');
+  });
+  armable($('#clearAll'), '清除全部記錄', '再撳一次：真係全部清除', () => {
+    state.expenses = []; state.sample = false; save(); resetForm(); render(); flash('已清除全部記錄');
+  });
+  $('#clearSample').addEventListener('click', () => {
+    state.expenses = []; state.sample = false; save(); render(); flash('示範資料已清除');
+  });
+
+  // ---- trip + settings ----
+  $('#tripName').addEventListener('change', (e) => { state.trip = e.target.value.trim() || '日本之旅'; save(); render(); });
+  $('#rate').addEventListener('change', (e) => {
+    const v = parseFloat(e.target.value);
+    if (v > 0) { state.rate = v; state.rateDate = '手動輸入 ' + today(); save(); render(); setMsg('#rateMsg', '已用你輸入嘅匯率', 'ok'); }
+    else { e.target.value = state.rate; setMsg('#rateMsg', '匯率要大過 0', 'err'); }
+  });
+  $('#budget').addEventListener('change', (e) => {
+    const v = parseFloat(e.target.value);
+    state.budgetHKD = v > 0 ? v : null; save(); render();
+  });
+  $('#fetchRate').addEventListener('click', async () => {
+    setMsg('#rateMsg', '攞緊匯率…');
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/HKD', { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' });
+      const data = await res.json();
+      const jpy = data && data.rates && data.rates.JPY;
+      if (!jpy) throw new Error('no rate');
+      state.rate = Math.round(jpy * 10000) / 10000;
+      const when = data.time_last_update_utc ? new Date(data.time_last_update_utc) : new Date();
+      state.rateDate = `市場參考價 ${when.toISOString().slice(0, 10)}`;
+      save(); render();
+      setMsg('#rateMsg', `已更新：1 HK$ = ¥${state.rate}（市場中間價，同銀行或信用卡實際價會有少少差別）`, 'ok');
+    } catch (e) {
+      setMsg('#rateMsg', '攞唔到網上匯率（可能冇網絡）。可以喺上面直接輸入，例如兌換店牌價。', 'err');
+    }
+  });
+  function setMsg(sel, text, kind) { const el = $(sel); el.textContent = text; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  // ---- export / import ----
+  function download(name, text, type) {
+    const blob = new Blob([text], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  // ASCII file names: some browsers drop non-ASCII names and save as "download".
+  const fileStem = () => 'japan-trip_' + today();
+  const sorted = () => state.expenses.slice().sort((a, b) => a.date.localeCompare(b.date));
+
+  $('#exportCsv').addEventListener('click', () => {
+    if (!state.expenses.length) { setMsg('#ioMsg', '未有記錄可以匯出', 'err'); return; }
+    // Prefix text that Excel would run as a formula (=, +, -, @).
+    const esc = (v) => { let s = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const rows = [['日期', '類別', '付款方式', '備註', '原始金額', '原始貨幣', '日圓 JPY', '港幣 HKD', '匯率 (1 HKD = ? JPY)']];
+    let tj = 0, th = 0;
+    sorted().forEach((e) => {
+      const j = convert(e.amount, e.cur, 'JPY'), h = convert(e.amount, e.cur, 'HKD');
+      tj += j; th += h;
+      rows.push([e.date, catName(e.cat), e.pay, e.note, e.amount, e.cur, Math.round(j), h.toFixed(2), state.rate]);
+    });
+    rows.push([]);
+    rows.push(['總計', '', '', '', '', '', Math.round(tj), th.toFixed(2), state.rate]);
+    const csv = '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n');
+    download(fileStem() + '.csv', csv, 'text/csv;charset=utf-8');
+    setMsg('#ioMsg', '已匯出 CSV，可以用 Excel 或 Google Sheets 打開', 'ok');
+  });
+  $('#exportJson').addEventListener('click', () => {
+    download(fileStem() + '_backup.json', JSON.stringify(state, null, 2), 'application/json');
+    setMsg('#ioMsg', '已下載備份。換手機或者清咗瀏覽器之後，可以用「匯入備份」攞返', 'ok');
+  });
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data.expenses)) throw new Error('bad');
+      state = Object.assign(clean(data), { sample: false });
+      save(); resetForm(); render();
+      setMsg('#ioMsg', `已匯入 ${state.expenses.length} 筆記錄`, 'ok');
+    } catch (err) {
+      setMsg('#ioMsg', '呢個檔案唔係本工具嘅備份 JSON，請揀返「備份 JSON」下載嘅檔案', 'err');
+    }
+    e.target.value = '';
+  });
+
+  function summaryText() {
+    const d = state.display, o = other(d);
+    const tot = state.expenses.reduce((s, e) => s + convert(e.amount, e.cur, d), 0);
+    const days = new Set(state.expenses.map((e) => e.date)).size;
+    const lines = [
+      `${state.trip} 支出總結`,
+      `總支出：${fmt(tot, d)}（≈ ${fmt(convert(tot, d, o), o)}）`,
+      `筆數 ${state.expenses.length}｜${days} 日｜每日平均 ${fmt(days ? tot / days : 0, d)}`,
+      `匯率：1 HK$ = ¥${state.rate}`,
+      '',
+      '按類別：',
+    ];
+    byCat(d).forEach(([id, v]) => lines.push(`・${catName(id)}：${fmt(v, d)}（${tot ? Math.round(v / tot * 100) : 0}%）`));
+    lines.push('', '按日：');
+    byDay().forEach(([date, list]) => lines.push(`・${fmtDate(date)}：${fmt(list.reduce((s, e) => s + inDisplay(e), 0), d)}`));
+    return lines.join('\n');
+  }
+  $('#copySummary').addEventListener('click', () => {
+    const text = summaryText();
+    const ta = $('#summaryText'); ta.value = text;
+    const fallback = () => { ta.closest('details').open = true; ta.select(); setMsg('#ioMsg', '已選取總結文字，請手動複製', ''); };
+    try {
+      navigator.clipboard.writeText(text).then(() => setMsg('#ioMsg', '已複製總結，可以貼去 WhatsApp 或 Notes', 'ok'), fallback);
+    } catch (e) { fallback(); }
+  });
+
+  // ---- aggregation ----
+  function byCat(cur) {
+    const m = {};
+    state.expenses.forEach((e) => { m[e.cat] = (m[e.cat] || 0) + convert(e.amount, e.cur, cur); });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }
+  function byDay(filter) {
+    const m = {};
+    state.expenses.filter((e) => !filter || e.cat === filter).forEach((e) => { (m[e.date] = m[e.date] || []).push(e); });
+    return Object.entries(m).sort((a, b) => b[0].localeCompare(a[0]));
+  }
+
+  // ---- render ----
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function renderSummary() {
+    const d = state.display, o = other(d);
+    const tot = state.expenses.reduce((s, e) => s + inDisplay(e), 0);
+    const days = new Set(state.expenses.map((e) => e.date)).size;
+    $('#totalBig').textContent = fmt(tot, d);
+    $('#totalAlt').textContent = '≈ ' + fmt(convert(tot, d, o), o);
+    $('#stCount').textContent = state.expenses.length;
+    $('#stDays').textContent = days;
+    $('#stAvg').textContent = fmt(days ? tot / days : 0, d);
+    $('#rateNote').textContent = `1 HK$ = ¥${state.rate}`;
+
+    const totHKD = convert(tot, d, 'HKD');
+    const box = $('#budgetBox');
+    if (state.budgetHKD) {
+      box.hidden = false;
+      const pct = totHKD / state.budgetHKD * 100;
+      const bar = $('#budgetBar');
+      bar.classList.toggle('over', pct > 100);
+      bar.firstElementChild.style.width = Math.min(pct, 100) + '%';
+      const budgetD = convert(state.budgetHKD, 'HKD', d);
+      $('#budgetUsed').textContent = `已用預算 ${Math.round(pct)}%（預算 ${fmt(budgetD, d)}）`;
+      const left = budgetD - tot;
+      $('#budgetLeft').textContent = left >= 0 ? `仲有 ${fmt(left, d)}` : `超支 ${fmt(-left, d)}`;
+    } else box.hidden = true;
+
+    const cats = byCat(d);
+    const max = cats.length ? cats[0][1] : 0;
+    $('#cats').innerHTML = cats.map(([id, v]) => `
+      <div class="cat-row"><span>${catName(id)}</span>
+        <div class="bar"><i style="width:${max ? (v / max * 100).toFixed(1) : 0}%"></i></div>
+        <span class="amt">${fmt(v, d)}</span></div>`).join('');
+  }
+
+  function renderLedger() {
+    const d = state.display, o = other(d);
+    const filter = $('#filterCat').value;
+    const days = byDay(filter);
+    $('#sampleNote').hidden = !state.sample;
+    if (!days.length) {
+      $('#ledger').innerHTML = `<div class="empty">
+        <p>${filter ? '呢個類別未有記錄。' : '未有記錄。喺「記一筆」輸入金額，揀日圓或港幣，撳「記低」就得。'}</p>
+        ${filter ? '' : '<button class="btn small" type="button" id="loadSample">睇吓示範資料</button>'}</div>`;
+      const ls = $('#loadSample');
+      if (ls) ls.addEventListener('click', () => { loadSample(); save(); render(); });
+      return;
+    }
+    $('#ledger').innerHTML = days.map(([date, list]) => {
+      const sum = list.reduce((s, e) => s + inDisplay(e), 0);
+      return `<div class="day">
+        <div class="day-head"><b>${escHtml(fmtDate(date))}</b><span class="num">${fmt(sum, d)}</span></div>
+        ${list.map((e) => `
+          <button type="button" class="entry${e.id === editingId ? ' editing' : ''}" data-id="${escHtml(e.id)}" aria-label="修改：${escHtml(e.note || catName(e.cat))}">
+            <span class="what">${escHtml(e.note || catName(e.cat))}</span>
+            <span class="meta"><span class="tag">${catName(e.cat)}</span>${escHtml(e.pay)}</span>
+            <span class="amt">${fmt(inDisplay(e), d)}<small>${e.cur === d ? '≈ ' + fmt(convert(e.amount, e.cur, o), o) : '原本 ' + fmt(e.amount, e.cur)}</small></span>
+          </button>`).join('')}
+      </div>`;
+    }).join('');
+  }
+  $('#ledger').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.entry'); if (b) startEdit(b.dataset.id);
+  });
+  $('#filterCat').addEventListener('change', renderLedger);
+
+  function render() {
+    setPressed('display', state.display);
+    setPressed('cur', state.inputCur);
+    $('#tripName').value = state.trip;
+    $('#rate').value = state.rate;
+    $('#budget').value = state.budgetHKD || '';
+    $('#tripSub').textContent = state.rateDate ? `匯率：${state.rateDate}` : '匯率未更新：請喺下面撳「攞最新匯率」或者自己輸入';
+    renderSummary();
+    renderLedger();
+    $('#summaryText').value = summaryText();
+    updatePreview();
+  }
+
+  let toastT;
+  function flash(text) {
+    const t = $('#toast'); t.textContent = text; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 1800);
+  }
+
+  // ---- phone app: offline cache, install prompt, keep storage ----
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* not supported */ }
+
+  const DISMISS_KEY = 'jp-trip-install-dismissed';
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { /* storage blocked */ }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let promptEvent = null;
+  if (!standalone && !dismissed) {
+    if (ios) {
+      $('#installHow').textContent = '用 Safari 撳下面「分享」掣，再揀「加至主畫面」。之後喺主畫面個 App 度記帳（Safari 同 App 嘅記錄係分開儲）。';
+      $('#installBox').hidden = false;
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); promptEvent = e;
+      $('#installBtn').hidden = false; $('#installBox').hidden = false;
+    });
+  }
+  $('#installBtn').addEventListener('click', async () => {
+    if (!promptEvent) return;
+    promptEvent.prompt();
+    const choice = await promptEvent.userChoice.catch(() => null);
+    promptEvent = null;
+    if (choice && choice.outcome === 'accepted') { $('#installBox').hidden = true; flash('已安裝，喺主畫面搵「旅程記帳」'); }
+  });
+  $('#installLater').addEventListener('click', () => {
+    $('#installBox').hidden = true;
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) { /* storage blocked */ }
+  });
+  window.addEventListener('appinstalled', () => { $('#installBox').hidden = true; });
+
+  render();
+})();
+</script>
+</body>
+</html>
