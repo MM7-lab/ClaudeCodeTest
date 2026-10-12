@@ -141,6 +141,21 @@ input:focus,select:focus{border-color:var(--ai);outline:none;box-shadow:0 0 0 3p
 .msg.err{color:var(--shu)}
 details summary{cursor:pointer;font-weight:600}
 textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10px;background:var(--bg);color:var(--ink);font:12px/1.5 var(--f-num);padding:10px}
+.perms{display:flex;flex-direction:column;gap:10px}
+.perm{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--rule);border-radius:12px;padding:12px}
+.perm.ok{border-color:var(--matcha)}
+.perm-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 14em}
+.perm-txt b{font-size:14px}
+.perm-txt span{font-size:12px;color:var(--muted)}
+.perm-act{display:flex;gap:6px;align-items:center;flex:none}
+.perm-act .btn,.pend .btn{flex:none}
+.perm-ok{color:var(--matcha);font-weight:600;font-size:13px}
+.pend{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-bottom:1px dashed var(--rule)}
+.pend-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 12em}
+.pend-txt .sub{overflow-wrap:anywhere}
+.pend-txt b{font:600 17px/1.3 var(--f-num)}
+.app-row{display:flex;gap:8px;align-items:center;padding:6px 0;font-size:14px}
+.card h3{margin:0;font:700 14px/1.3 var(--f-display)}
 .install{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--ai-soft);border:1px solid var(--ai);border-radius:14px;padding:12px 14px}
 .install img{width:40px;height:40px;border-radius:10px;flex:none}
 .install .txt{display:flex;gap:12px;align-items:center;min-width:0;flex:1 1 16em}
@@ -196,6 +211,35 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
           <div class="line"><span id="budgetUsed"></span><span id="budgetLeft"></span></div>
         </div>
         <div class="cats" id="cats"></div>
+      </section>
+
+      <section class="card" id="autoCard" hidden aria-labelledby="autoTitle">
+        <div class="card-head"><h2 id="autoTitle">自動記帳</h2><span class="sub" id="autoState"></span></div>
+        <p class="sub" style="margin:0">讀取八達通、PayMe、信用卡、Google Wallet、PayPay 等 App 嘅付款通知，全部喺你部手機上處理，唔會上載。絕不讀取短訊、一次性密碼（OTP）或銀行密碼。</p>
+        <div class="perms" id="perms">
+          <div class="perm" data-perm="listener">
+            <div class="perm-txt"><b>自動擷取付款通知</b><span>允許「自動記帳」讀取通知。如果見到「受限制的設定」，先撳「App 資料」→ 右上角 ⋮ →「允許受限制的設定」，再返嚟撳啟用。</span></div>
+            <div class="perm-act"><span class="perm-ok" hidden>已啟用 ✓</span><button class="btn small" type="button" data-act="appinfo">App 資料</button><button class="btn small primary" type="button" data-act="listener">啟用</button></div>
+          </div>
+          <div class="perm" data-perm="battery">
+            <div class="perm-txt"><b>背景持續運作</b><span>唔好俾省電模式停咗佢。小米／紅米手機仲要喺「App 資料」開「自動啟動」。</span></div>
+            <div class="perm-act"><span class="perm-ok" hidden>已啟用 ✓</span><button class="btn small primary" type="button" data-act="battery">啟用</button></div>
+          </div>
+          <div class="perm" data-perm="notify">
+            <div class="perm-txt"><b>一鍵確認</b><span>偵測到付款就彈通知，撳「記帳」記低，撳「略過」唔記。</span></div>
+            <div class="perm-act"><span class="perm-ok" hidden>已啟用 ✓</span><button class="btn small primary" type="button" data-act="notify">啟用</button></div>
+          </div>
+        </div>
+        <div class="actions"><button class="btn small" type="button" id="permsToggle" hidden>權限設定</button></div>
+        <div id="pendingBox" hidden>
+          <div class="card-head"><h3>待確認</h3><button class="btn small" type="button" id="confirmAll" hidden>全部記帳</button></div>
+          <div id="pendingList"></div>
+        </div>
+        <details id="appsBox">
+          <summary>讀取邊啲 App 嘅通知</summary>
+          <p class="sub">剔咗嘅 App 先會讀。付款同銀行 App 會自動剔；有 App 彈過通知先會出現喺度。</p>
+          <div id="appList"></div>
+        </details>
       </section>
 
       <section class="card" aria-labelledby="formTitle">
@@ -297,7 +341,9 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
     { id: 'ticket', name: '門票景點' },
     { id: 'other', name: '其他' },
   ];
-  const PAYS = ['現金', '信用卡', 'Suica / ICOCA', 'PayPay', '其他'];
+  const PAYS = ['現金', '信用卡', '八達通', 'PayMe', 'Suica / ICOCA', 'PayPay', 'AlipayHK', 'WeChat Pay', '其他'];
+  // Present only inside the Android app (自動記帳), which adds payments read from notifications.
+  const bridge = window.TripBridge || null;
   const DEFAULT_RATE = 19; // 1 HKD ≈ 19 JPY; a placeholder until the user fetches or types the real rate
 
   const $ = (s) => document.querySelector(s);
@@ -340,12 +386,13 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
         cat: CATS.some((c) => c.id === x.cat) ? x.cat : 'other',
         pay: PAYS.includes(x.pay) ? x.pay : '其他',
         note: str(x.note, 80),
+        auto: x.auto === true,
       }));
     return s;
   }
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); }
-    catch (e) { flash('儲唔到資料：瀏覽器封鎖咗儲存空間，記得用「備份 JSON」'); }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+    catch (e) { flash('儲唔到資料：瀏覽器封鎖咗儲存空間，記得用「備份 JSON」'); return false; }
   }
 
   let state = load();
@@ -522,6 +569,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
 
   // ---- export / import ----
   function download(name, text, type) {
+    if (bridge) { bridge.share(name, type, text); return; }
     const blob = new Blob([text], { type });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -663,7 +711,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
         ${list.map((e) => `
           <button type="button" class="entry${e.id === editingId ? ' editing' : ''}" data-id="${escHtml(e.id)}" aria-label="修改：${escHtml(e.note || catName(e.cat))}">
             <span class="what">${escHtml(e.note || catName(e.cat))}</span>
-            <span class="meta"><span class="tag">${catName(e.cat)}</span>${escHtml(e.pay)}</span>
+            <span class="meta"><span class="tag">${catName(e.cat)}</span>${e.auto ? '<span class="tag">自動</span>' : ''}${escHtml(e.pay)}</span>
             <span class="amt">${fmt(inDisplay(e), d)}<small>${e.cur === d ? '≈ ' + fmt(convert(e.amount, e.cur, o), o) : '原本 ' + fmt(e.amount, e.cur)}</small></span>
           </button>`).join('')}
       </div>`;
@@ -695,7 +743,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
 
   // ---- phone app: offline cache, install prompt, keep storage ----
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  if (!bridge && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* not supported */ }
@@ -705,7 +753,7 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
   try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { /* storage blocked */ }
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let promptEvent = null;
-  if (!standalone && !dismissed) {
+  if (!standalone && !dismissed && !bridge) {
     if (ios) {
       $('#installHow').textContent = '用 Safari 撳下面「分享」掣，再揀「加至主畫面」。之後喺主畫面個 App 度記帳（Safari 同 App 嘅記錄係分開儲）。';
       $('#installBox').hidden = false;
@@ -728,7 +776,109 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
   });
   window.addEventListener('appinstalled', () => { $('#installBox').hidden = true; });
 
+  // ---- Android app: payments read from notifications ----
+  const CAT_WORDS = [
+    ['transport', /MTR|港鐵|KMB|九巴|城巴|citybus|巴士|小巴|的士|taxi|uber|渡輪|ferry|\bJR\b|suica|icoca|pasmo|地下鉄|metro|電鐵|新幹線|shinkansen|機場快綫|airport express|停車|parking|caltex|esso/i],
+    ['drugstore', /松本清|matsumoto|kiyoshi|welcia|sundrug|cocokara|萬寧|mannings|屈臣氏|watsons|藥妝|drug/i],
+    ['stay', /hotel|酒店|hostel|airbnb|booking\.com|agoda|旅館|ryokan/i],
+    ['ticket', /ticket|門票|入場|museum|博物館|universal|disney|迪士尼|usj|teamlab|展覽|樂園|水族館/i],
+    ['shopping', /uniqlo|don ?quijote|唐吉訶德|ドン・キホーテ|bic ?camera|yodobashi|loft|muji|無印|daiso|大創|ikea|hktvmall|amazon|淘寶|taobao|百貨|zara|h&m/i],
+    ['food', /restaurant|餐廳|cafe|café|coffee|咖啡|starbucks|mcdonald|麥當勞|kfc|吉野家|yoshinoya|すき家|sukiya|一蘭|ichiran|ramen|拉麵|sushi|壽司|bakery|麵包|7-eleven|7-11|lawson|ローソン|familymart|全家|便利|百佳|parknshop|park n shop|惠康|wellcome|大家樂|美心|maxim|譚仔|tamjai/i],
+  ];
+  const guessCat = (text) => (CAT_WORDS.find(([, re]) => re.test(text)) || ['other'])[0];
+  const validNative = (x) => x && typeof x.id === 'string' && /^[a-z0-9]{1,32}$/i.test(x.id)
+    && typeof x.amount === 'number' && x.amount > 0 && x.amount < 1e7 && (x.cur === 'JPY' || x.cur === 'HKD');
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function fromNative(x) {
+    const d = new Date(Number(x.time) || Date.now());
+    const text = String(x.text || '');
+    return {
+      id: x.id,
+      date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
+      amount: x.cur === 'JPY' ? Math.round(x.amount) : Math.round(x.amount * 100) / 100,
+      cur: x.cur,
+      cat: guessCat(text),
+      pay: PAYS.includes(x.pay) ? x.pay : '信用卡',
+      note: (text || String(x.app || '')).slice(0, 80),
+      auto: true,
+    };
+  }
+  const readJson = (fn, fallback) => { try { return JSON.parse(fn()); } catch (e) { return fallback; } };
+  let permsOpen = false;
+
+  function syncNative() {
+    if (!bridge) return;
+    const list = readJson(() => bridge.confirmedList(), []).filter(validNative);
+    if (list.length) {
+      if (state.sample) { state.expenses = []; state.sample = false; }
+      const have = new Set(state.expenses.map((e) => e.id));
+      const fresh = list.filter((x) => !have.has(x.id)).map(fromNative);
+      state.expenses.push(...fresh);
+      if (save()) bridge.ackConfirmed(JSON.stringify(list.map((x) => x.id)));
+      if (fresh.length) flash(`自動記低 ${fresh.length} 筆`);
+      render();
+      console.log('[trip] synced ' + fresh.length);
+    }
+    renderAuto();
+  }
+
+  function renderAuto() {
+    if (!bridge) return;
+    $('#autoCard').hidden = false;
+    const st = readJson(() => bridge.status(), {});
+    const keys = ['listener', 'battery', 'notify'];
+    keys.forEach((k) => {
+      const row = document.querySelector(`.perm[data-perm="${k}"]`);
+      const ok = st[k] === true;
+      row.classList.toggle('ok', ok);
+      row.querySelector(`[data-act="${k}"]`).hidden = ok;
+      row.querySelector('.perm-ok').hidden = !ok;
+    });
+    const all = keys.every((k) => st[k] === true);
+    $('#autoState').textContent = st.listener ? (all ? '已開啟' : '已開啟，仲有設定未完成') : '未開啟';
+    $('#perms').hidden = all && !permsOpen;
+    $('#permsToggle').hidden = !all;
+    $('#permsToggle').textContent = permsOpen ? '收起權限設定' : '權限設定';
+
+    const pend = readJson(() => bridge.pending(), []).filter(validNative).reverse();
+    $('#pendingBox').hidden = !pend.length;
+    $('#confirmAll').hidden = pend.length < 2;
+    $('#pendingList').innerHTML = pend.map((x) => `
+      <div class="pend">
+        <div class="pend-txt"><b>${fmt(x.amount, x.cur)}</b><span class="meta"><span class="tag">${escHtml(x.app || '')}</span> ${escHtml(x.pay || '')}</span><span class="sub">${escHtml(x.text || '')}</span></div>
+        <div class="actions"><button class="btn small primary" type="button" data-pconfirm="${escHtml(x.id)}">記帳</button><button class="btn small" type="button" data-pskip="${escHtml(x.id)}">略過</button></div>
+      </div>`).join('');
+    console.log('[trip] pending ' + pend.length);
+
+    const apps = readJson(() => bridge.apps(), []).filter((a) => a && typeof a.pkg === 'string')
+      .sort((a, b) => (b.watched - a.watched) || String(a.label).localeCompare(String(b.label)));
+    $('#appList').innerHTML = apps.length
+      ? apps.map((a) => `<label class="app-row"><input type="checkbox" data-pkg="${escHtml(a.pkg)}" ${a.watched ? 'checked' : ''}><span>${escHtml(a.label || a.pkg)}</span></label>`).join('')
+      : '<p class="sub">未收過任何通知。開咗「自動擷取付款通知」之後，有 App 彈通知就會喺度出現。</p>';
+  }
+
+  if (bridge) {
+    $('#autoCard').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button'); if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'listener') bridge.openListenerSettings();
+      else if (act === 'battery') bridge.requestBattery();
+      else if (act === 'notify') bridge.requestNotify();
+      else if (act === 'appinfo') bridge.openAppInfo();
+      else if (b.dataset.pconfirm) { bridge.confirm(b.dataset.pconfirm); syncNative(); }
+      else if (b.dataset.pskip) { bridge.skip(b.dataset.pskip); renderAuto(); }
+      else if (b.id === 'confirmAll') { readJson(() => bridge.pending(), []).filter(validNative).forEach((x) => bridge.confirm(x.id)); syncNative(); }
+      else if (b.id === 'permsToggle') { permsOpen = !permsOpen; renderAuto(); }
+    });
+    $('#appList').addEventListener('change', (ev) => {
+      const c = ev.target; if (c.dataset && c.dataset.pkg) bridge.setWatched(c.dataset.pkg, c.checked);
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNative(); });
+    window.tripNative = { refresh: syncNative };
+  }
+
   render();
+  syncNative();
 })();
 </script>
 </body>

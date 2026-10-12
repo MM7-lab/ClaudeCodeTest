@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">自動記帳</string>
+    <string name="listener_label">自動記帳：讀取付款通知</string>
+    <string name="channel_confirm">一鍵確認</string>
+    <string name="channel_confirm_desc">偵測到付款時問你要唔要記低</string>
+</resources>

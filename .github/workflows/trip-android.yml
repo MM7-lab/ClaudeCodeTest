@@ -1,0 +1,94 @@
+name: Build 自動記帳 Android app
+
+on:
+  push:
+    paths:
+      - 'trip-android/**'
+      - 'docs/japan-trip/**'
+      - '.github/workflows/trip-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trip-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+      # The signing key comes only from repository secrets; it is never stored in the repo.
+      - name: Signing key from secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.TRIP_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "TRIP_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Signing with the key from secrets"
+          else
+            echo "::warning::TRIP_KEYSTORE_B64 is not set: this APK is signed with a throwaway key, so a later build cannot update it in place."
+          fi
+      - name: Test and build
+        env:
+          TRIP_KEYSTORE_PASSWORD: ${{ secrets.TRIP_KEYSTORE_PASSWORD }}
+          TRIP_KEY_ALIAS: ${{ secrets.TRIP_KEY_ALIAS }}
+        run: gradle --no-daemon :core:test :app:assembleRelease :app:assembleDebug
+      - name: Name the APKs
+        run: |
+          v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p out/release out/check
+          cp app/build/outputs/apk/release/app-release.apk "out/release/AutoLedger-$v.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk out/check/AutoLedger-check.apk
+          unzip -l out/release/*.apk | grep -E 'assets/web/(index.html|icon-192.png)' || { echo "the page is missing from the APK"; exit 1; }
+          ls -lR out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoLedger-APK
+          path: trip-android/out/release/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoLedger-check-APK
+          path: trip-android/out/check/*.apk
+          if-no-files-found: error
+
+  # Open the app in an Android emulator and feed it payment notifications.
+  emulator-check:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/download-artifact@v4
+        with:
+          name: AutoLedger-check-APK
+          path: apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash trip-android/tools/emulator-check.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AutoLedger-emulator-screens
+          path: shots/

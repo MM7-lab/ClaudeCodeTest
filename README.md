@@ -72,3 +72,28 @@ python3 floor-planner/build_pages.py
 網址：`https://mm7-lab.github.io/ClaudeCodeTest/japan-trip/`
 
 App 檔案：`index.html`、`manifest.webmanifest`（名稱同圖示）、`sw.js`（離線快取）、`icon-*.png`。改咗任何檔案之後，要將 `sw.js` 入面嘅 `VERSION` 加一，手機先會攞新版本。
+
+---
+
+# 自動記帳（Android App）
+
+`trip-android/`：Android 版，入面係同一個記帳頁面（`docs/japan-trip`），再加自動讀取付款通知。
+
+- **自動擷取付款通知**：讀取八達通、PayMe、信用卡／銀行 App、Google Wallet、PayPay、AlipayHK、WeChat Pay 等嘅通知，讀出 HKD 或 JPY 金額。
+- **一鍵確認**：偵測到付款就彈通知，撳「記帳」記低，撳「略過」唔記；亦可以喺 App 入面「待確認」度處理。
+- **背景持續運作**：要求唔受省電限制。小米／紅米手機要喺「App 資料」開「自動啟動」。
+- 喺「讀取邊啲 App 嘅通知」揀要讀邊啲 App；付款同銀行 App 會自動剔。
+
+### 私隱同安全
+
+- 所有處理都喺手機上做。App 本身唔會上載任何資料，亦唔會讀短訊。
+- 有一次性密碼（OTP）、驗證碼、密碼字眼嘅通知會即刻略過，唔會儲存。收款、退款、增值唔會當支出。
+- 冇金額嘅通知唔會儲存；只記低邊個 App 彈過通知（App 名，唔包內容），方便你揀。
+- 關閉咗 Android 雲端備份，記錄唔會上傳去 Google。換手機請用「備份 JSON」。
+- 簽署金鑰唔放喺 repo。正式金鑰放喺 GitHub Secrets：`TRIP_KEYSTORE_B64`、`TRIP_KEYSTORE_PASSWORD`、`TRIP_KEY_ALIAS`。冇設定嘅話，每次打包都用臨時金鑰，新版本要先移除舊版先裝到。
+
+### 打包同安裝
+
+GitHub Actions（`.github/workflows/trip-android.yml`）會跑測試、打包 APK，再喺 Android 模擬器試讀付款通知。APK 喺該次 Actions 執行頁面嘅「AutoLedger-APK」。
+
+Android 13 或以上安裝咗網上下載嘅 App 之後，開通知權限前可能要：設定 → 應用程式 → 自動記帳 → 右上角 ⋮ →「允許受限制的設定」。

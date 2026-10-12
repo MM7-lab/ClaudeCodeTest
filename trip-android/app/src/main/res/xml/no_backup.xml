@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spending records stay on this phone: no cloud backup, no device-to-device copy. Use the JSON backup instead. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>
