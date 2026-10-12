@@ -3,8 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F3F4F8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:; connect-src https://open.er-api.com; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#24427A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="旅程記帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src https://open.er-api.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%23B83A2E%22/%3E%3Ctext x=%228%22 y=%2212%22 font-size=%2210%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22%3E%C2%A5%3C/text%3E%3C/svg%3E">
 <title>日本旅程記帳</title>
@@ -135,6 +141,12 @@ input:focus,select:focus{border-color:var(--ai);outline:none;box-shadow:0 0 0 3p
 .msg.err{color:var(--shu)}
 details summary{cursor:pointer;font-weight:600}
 textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10px;background:var(--bg);color:var(--ink);font:12px/1.5 var(--f-num);padding:10px}
+.install{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--ai-soft);border:1px solid var(--ai);border-radius:14px;padding:12px 14px}
+.install img{width:40px;height:40px;border-radius:10px;flex:none}
+.install .txt{display:flex;gap:12px;align-items:center;min-width:0;flex:1 1 16em}
+.install p{margin:0;font-size:13px;color:var(--ink)}
+.install b{display:block;font-size:14px}
+.install .actions{flex:none}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);z-index:10}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -154,6 +166,17 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
       <button type="button" data-display="HKD" aria-pressed="false">HK$ 港幣</button>
     </div>
   </header>
+
+  <section class="install" id="installBox" hidden aria-label="安裝到手機">
+    <div class="txt">
+      <img src="icon-192.png" alt="">
+      <p><b>裝落手機，當 App 咁用</b><span id="installHow">有自己嘅圖示，冇網絡都用得。</span></p>
+    </div>
+    <div class="actions">
+      <button class="btn small primary" type="button" id="installBtn" hidden>安裝</button>
+      <button class="btn small" type="button" id="installLater">遲啲先</button>
+    </div>
+  </section>
 
   <div class="grid">
     <div class="col">
@@ -669,6 +692,41 @@ textarea{width:100%;min-height:8em;border:1px solid var(--rule);border-radius:10
     const t = $('#toast'); t.textContent = text; t.hidden = false;
     clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 1800);
   }
+
+  // ---- phone app: offline cache, install prompt, keep storage ----
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* not supported */ }
+
+  const DISMISS_KEY = 'jp-trip-install-dismissed';
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { /* storage blocked */ }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let promptEvent = null;
+  if (!standalone && !dismissed) {
+    if (ios) {
+      $('#installHow').textContent = '用 Safari 撳下面「分享」掣，再揀「加至主畫面」。之後喺主畫面個 App 度記帳（Safari 同 App 嘅記錄係分開儲）。';
+      $('#installBox').hidden = false;
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); promptEvent = e;
+      $('#installBtn').hidden = false; $('#installBox').hidden = false;
+    });
+  }
+  $('#installBtn').addEventListener('click', async () => {
+    if (!promptEvent) return;
+    promptEvent.prompt();
+    const choice = await promptEvent.userChoice.catch(() => null);
+    promptEvent = null;
+    if (choice && choice.outcome === 'accepted') { $('#installBox').hidden = true; flash('已安裝，喺主畫面搵「旅程記帳」'); }
+  });
+  $('#installLater').addEventListener('click', () => {
+    $('#installBox').hidden = true;
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) { /* storage blocked */ }
+  });
+  window.addEventListener('appinstalled', () => { $('#installBox').hidden = true; });
 
   render();
 })();

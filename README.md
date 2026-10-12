@@ -61,4 +61,14 @@ python3 floor-planner/build_pages.py
 - GitHub Pages 上同一個帳戶嘅所有網頁共用同一個瀏覽器儲存空間，所以唔好喺同一個帳戶放唔信得過嘅網頁。
 - 匯出嘅 CSV／JSON 檔案有齊你嘅消費記錄，分享之前諗清楚。
 
-開咗 GitHub Pages（見上面）之後，網址係 `https://<帳戶>.github.io/<repo>/japan-trip/`。建議喺手機瀏覽器「加至主畫面」。
+### 裝落手機（當 App 用）
+
+呢個工具係 PWA：裝咗之後主畫面有自己嘅圖示，打開係全螢幕，冇網絡都用得（記帳、睇總數、匯出都得；只有「攞最新匯率」要上網）。
+
+- **iPhone**：用 Safari 打開網址 → 撳下面「分享」掣 → 「加至主畫面」。
+- **Android**：用 Chrome 打開，撳頁面頂嘅「安裝」，或者 Chrome 選單 →「安裝應用程式」。
+- iPhone 上，Safari 同主畫面 App 嘅記錄係分開儲。裝好之後就喺 App 入面記帳；之前喺 Safari 記咗嘢，先「備份 JSON」再喺 App「匯入備份」。
+
+網址：`https://mm7-lab.github.io/ClaudeCodeTest/japan-trip/`
+
+App 檔案：`index.html`、`manifest.webmanifest`（名稱同圖示）、`sw.js`（離線快取）、`icon-*.png`。改咗任何檔案之後，要將 `sw.js` 入面嘅 `VERSION` 加一，手機先會攞新版本。
