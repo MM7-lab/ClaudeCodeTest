@@ -95,6 +95,12 @@ App 檔案：`index.html`、`manifest.webmanifest`（名稱同圖示）、`sw.js
 - 瀏覽器一般俾每個網站大約 5 MB 儲存空間（實際上限視乎手機同瀏覽器），「更多」頁會顯示用咗幾多。記得間中「備份 JSON」。
 - 同 GitHub Pages 上同一帳戶嘅其他網頁共用儲存空間，但用唔同嘅 key（`daily-ledger-v1`），唔會同「日本旅程記帳」撞。
 
+### 自動記帳（Android App）
+
+讀八達通、PayMe、信用卡付款通知自動記帳（類似 Ching）要用 Android App，網頁版做唔到。詳情、私隱同安裝方法見 [`android/README.md`](android/README.md)。
+
+APK 下載：`https://github.com/MM7-lab/ClaudeCodeTest/releases/download/android-latest/ledger.apk`
+
 ### 裝落手機
 
 同「日本旅程記帳」一樣：iPhone 用 Safari「分享 → 加至主畫面」；Android 用 Chrome「安裝應用程式」。改咗 `docs/ledger/` 任何檔案之後，要將 `sw.js` 入面嘅 `VERSION` 加一。
