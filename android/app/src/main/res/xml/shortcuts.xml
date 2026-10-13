@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App shortcuts: long-press the icon, or pick them in Samsung Routines ("開啟應用程式或執行應用程式操作"). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutId="new_entry"
+        android:shortcutLongLabel="@string/shortcut_new_long"
+        android:shortcutShortLabel="@string/shortcut_new">
+        <intent
+            android:action="hk.mm7.ledger.NEW_ENTRY"
+            android:targetClass="hk.mm7.ledger.MainActivity"
+            android:targetPackage="hk.mm7.ledger">
+            <extra android:name="open" android:value="new-exp" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_inbox"
+        android:shortcutId="inbox"
+        android:shortcutLongLabel="@string/shortcut_inbox_long"
+        android:shortcutShortLabel="@string/shortcut_inbox">
+        <intent
+            android:action="hk.mm7.ledger.INBOX"
+            android:targetClass="hk.mm7.ledger.MainActivity"
+            android:targetPackage="hk.mm7.ledger">
+            <extra android:name="open" android:value="inbox" />
+        </intent>
+    </shortcut>
+</shortcuts>

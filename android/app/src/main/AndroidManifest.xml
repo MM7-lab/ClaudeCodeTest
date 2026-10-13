@@ -22,6 +22,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <service
@@ -37,5 +40,12 @@
         <receiver
             android:name=".ConfirmReceiver"
             android:exported="false" />
+
+        <!-- Hands the camera app a file to write a receipt photo into (no storage permission needed). -->
+        <provider
+            android:name=".ReceiptProvider"
+            android:authorities="hk.mm7.ledger.receipts"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

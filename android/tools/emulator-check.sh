@@ -29,4 +29,10 @@ if grep -q "500.0" shots/listener.txt; then fail "the OTP notification was read 
 adb shell dumpsys notification --noredact | grep -q "pkg=$PKG" || fail "no confirm notification was shown"
 adb logcat -d -s LedgerWeb | grep -q "\[ledger\] pending 1" || fail "the page did not pick up the pending payment"
 adb exec-out screencap -p > shots/2-pending.png
+# The 記一筆 app shortcut (also offered to Samsung Routines) opens a new entry.
+adb shell am start -n "$PKG/.MainActivity" -a hk.mm7.ledger.NEW_ENTRY --es open new-exp || fail "start shortcut"
+sleep 4
+adb logcat -d -s LedgerWeb | grep -q "\[ledger\] open new-exp" || fail "the 記一筆 shortcut did not open the entry page"
+adb exec-out screencap -p > shots/3-shortcut.png
+adb shell dumpsys shortcut | grep -E "new_entry|inbox" | head -5 || true
 echo "emulator check passed"

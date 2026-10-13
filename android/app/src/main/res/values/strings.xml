@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new">記一筆</string>
+    <string name="shortcut_new_long">記一筆支出／收入</string>
+    <string name="shortcut_inbox">待確認</string>
+    <string name="shortcut_inbox_long">待確認嘅自動記帳</string>
+</resources>

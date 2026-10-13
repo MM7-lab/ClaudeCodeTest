@@ -3,6 +3,7 @@ package hk.mm7.ledger;
 import android.Manifest;
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -49,10 +50,12 @@ public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String HOME = "https://" + HOST + "/www/index.html";
     private static final int REQ_FILE = 1;
+    private static final int REQ_CAMERA = 3;
     private static final int REQ_NOTIFY = 2;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
+    private Uri captureUri;
     private volatile String launchAction = "";
     private final Runnable onStoreChange = () -> runOnUiThread(() -> js("window.__autoSync&&window.__autoSync()"));
 
@@ -60,6 +63,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Notifier.ensureChannel(this);
+        ReceiptProvider.cleanup(this);
         readLaunch(getIntent());
 
         web = new WebView(this);
@@ -93,6 +97,20 @@ public class MainActivity extends Activity {
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = cb;
+                // <input capture> (the 影相 button) goes straight to the camera, writing into ReceiptProvider.
+                if (params.isCaptureEnabled()) {
+                    captureUri = ReceiptProvider.newCaptureUri(MainActivity.this);
+                    Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                            .putExtra(MediaStore.EXTRA_OUTPUT, captureUri)
+                            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    cam.setClipData(ClipData.newRawUri("receipt", captureUri));
+                    try {
+                        startActivityForResult(cam, REQ_CAMERA);
+                        return true;
+                    } catch (Exception e) {
+                        captureUri = null; // no camera app: fall back to picking a file
+                    }
+                }
                 try {
                     startActivityForResult(params.createIntent(), REQ_FILE);
                 } catch (Exception e) {
@@ -132,8 +150,10 @@ public class MainActivity extends Activity {
         if (web != null) web.evaluateJavascript(code, null);
     }
 
+    /** "inbox" from a captured-payment notification; "new-exp" / "inbox" from the app shortcuts. */
     private void readLaunch(Intent i) {
-        if (i != null && "inbox".equals(i.getStringExtra(EXTRA_OPEN))) launchAction = "inbox";
+        String a = i == null ? null : i.getStringExtra(EXTRA_OPEN);
+        if ("inbox".equals(a) || "new-exp".equals(a) || "new-inc".equals(a)) launchAction = a;
     }
 
     @Override
@@ -167,6 +187,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_CAMERA && fileCallback != null) {
+            fileCallback.onReceiveValue(resultCode == RESULT_OK && captureUri != null ? new Uri[]{captureUri} : null);
+            fileCallback = null;
+            captureUri = null;
+            return;
+        }
         if (requestCode == REQ_FILE && fileCallback != null) {
             fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
             fileCallback = null;

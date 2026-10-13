@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="記帳">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; manifest-src 'self'; worker-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="icon-192.png">
 <title>日常記帳</title>
@@ -56,6 +56,10 @@ button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:tran
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 .ico{display:inline-grid;place-items:center;flex:none;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+img.emo{width:1.05em;height:1.05em;display:block;object-fit:contain}
+.bubble img.emo{width:28px;height:28px}
+.cgrid button .ico img.emo{width:38px;height:38px}
+.tabbar button .ico img.emo{width:26px;height:26px}
 svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* App bar */
@@ -205,13 +209,42 @@ input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0
 .page-bar .icon-btn{color:var(--brand)}
 .page-bar .icon-btn:hover{background:var(--brand-soft)}
 .page-bar .icon-btn.danger{color:var(--bad)}
-.page-bar .icon-btn.recur{font-size:20px;filter:grayscale(1);opacity:.6}
-.page-bar .icon-btn.recur[aria-pressed="true"]{background:var(--brand-soft);filter:none;opacity:1}
-.recur-bar{background:var(--brand-soft);border-bottom:1px solid var(--brand-line);padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--ink)}
-.recur-bar .what{flex:1 1 14em;min-width:0}
-.recur-bar label{display:flex;align-items:center;gap:6px;color:var(--muted)}
-.recur-bar select{width:auto;padding:5px 8px;font-size:13px;background:var(--paper)}
-.recur-bar input[type=checkbox]{width:18px;height:18px;accent-color:var(--brand-fill)}
+.tools{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.tool{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;height:36px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:600;padding:0 6px;min-width:0}
+.tool span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool .ico{font-size:16px}
+.tool[aria-pressed="true"]{background:#fff;color:#4b2a91;border-color:#fff}
+.tool:disabled{opacity:.7}
+.tool-detail{grid-column:1 / -1;background:rgba(255,255,255,.14);color:#fff;border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13px}
+.tool-detail .what{flex:1 1 12em;min-width:0}
+.tool-detail label{display:flex;align-items:center;gap:6px}
+.tool-detail select{width:auto;padding:4px 8px;font-size:13px;background:#fff;color:#1E1A2B;border:0}
+.tool-detail input[type=checkbox]{width:18px;height:18px;accent-color:#fff}
+.tool-detail button{border:0;background:#fff;color:#4b2a91;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.thumbs img,.thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--rule);border:0;padding:0;display:block}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.photo-grid button{border:0;padding:0;background:var(--rule);border-radius:12px;aspect-ratio:1;overflow:hidden}
+.photo-grid img{width:100%;height:100%;object-fit:cover;display:block}
+.viewer{background:#000;color:#fff}
+.viewer .page-bar{background:#000;border-color:#222;color:#fff}
+.viewer .page-bar h2{color:#fff}
+.viewer .page-bar .icon-btn{color:#fff}
+.viewer .page-body{display:grid;place-items:center;padding:8px}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.tag{display:inline-block;padding:0 6px;border-radius:99px;background:var(--brand-soft);color:var(--brand);font-size:11px;line-height:1.7;margin-right:4px;font-weight:600}
+.tag.warn{background:rgba(235,104,52,.14);color:#b4481c}
+.claim-line{margin-top:10px;width:100%;border:1px dashed var(--brand-line);background:transparent;border-radius:12px;padding:8px 12px;display:flex;justify-content:space-between;gap:8px;color:var(--brand);font-weight:600;font-size:13px}
+.selrow{display:flex;align-items:center;gap:4px;padding-left:12px;border-bottom:1px solid var(--rule)}
+.selrow:last-child{border-bottom:0}
+.selrow input{width:22px;height:22px;accent-color:var(--brand-fill);flex:none}
+.selrow .row{border-bottom:0;flex:1;min-width:0;padding-left:8px}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:700;font-size:17px;flex:none}
+.prow{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.prow:last-child{border-bottom:0}
+.prow .row{padding:0;border:0}
+.prow .btns{justify-content:flex-end}
+.sticky-actions{position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px;display:flex;flex-direction:column;gap:8px}
 .rrow{display:flex;align-items:center;gap:10px;padding:0 12px 0 0;border-bottom:1px solid var(--rule)}
 .rrow:last-child{border-bottom:0}
 .rrow .row{border-bottom:0;flex:1;min-width:0}
@@ -274,7 +307,10 @@ input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0
 .emoji-row{display:flex;gap:10px;align-items:center}
 .emoji-row input{width:64px;text-align:center;font-size:26px;padding:4px}
 .emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;max-height:132px;overflow:auto;border:1px solid var(--rule);border-radius:12px;padding:6px}
-.emoji-grid button{border:0;background:transparent;border-radius:10px;height:40px;font-size:22px}
+.emoji-grid button{border:0;background:transparent;border-radius:10px;height:40px;font-size:22px;display:grid;place-items:center}
+.emoji-grid button img.emo{width:28px;height:28px}
+.emoji-row .prev{width:44px;height:44px;display:grid;place-items:center;font-size:30px}
+.emoji-row .prev img.emo{width:40px;height:40px}
 .emoji-grid button:hover{background:var(--brand-soft)}
 .check-field{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink)}
 .check-field input{width:20px;height:20px;accent-color:var(--brand-fill)}
@@ -352,6 +388,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         <div><span class="k">收入</span><span class="v inc" id="sumInc">$0</span></div>
         <div><span class="k">結餘</span><span class="v" id="sumNet">$0</span></div>
       </div>
+      <button type="button" class="claim-line" id="claimLine" hidden><span id="claimLineText"></span><span>›</span></button>
       <div class="budget" id="budgetBox" hidden>
         <div class="bar" id="budgetBar"><i style="width:0"></i></div>
         <div class="line"><span id="budgetUsed"></span><span id="budgetLeft"></span></div>
@@ -407,6 +444,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <button type="button" class="row" id="openCats"><span class="bubble">🗂️</span><span class="txt"><span class="t1">分類管理</span><span class="t2">新增、改名、換圖示、合併分類同群組</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openAuto"><span class="bubble">🔔</span><span class="txt"><span class="t1">自動記帳</span><span class="t2" id="autoRowSub">讀取八達通、PayMe、信用卡付款通知，一撳記低</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openRecur"><span class="bubble">🔁</span><span class="txt"><span class="t1">定期記帳</span><span class="t2" id="recurRowSub">每月 Netflix、租金、保險、分期… 到期自動記低</span></span><span class="go">›</span></button>
+      <button type="button" class="row" id="openClaim"><span class="bubble">🧾</span><span class="txt"><span class="t1">公數報銷</span><span class="t2" id="claimRowSub">標咗「報銷」嘅支出，報完標已報銷</span></span><span class="go">›</span></button>
+      <button type="button" class="row" id="openLoan"><span class="bubble">🤝</span><span class="txt"><span class="t1">借出追蹤</span><span class="t2" id="loanRowSub">邊個借咗幾多、還咗幾多</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openAccs"><span class="bubble">👛</span><span class="txt"><span class="t1">帳戶管理</span><span class="t2">現金、八達通、信用卡、銀行…校正餘額</span></span><span class="go">›</span></button>
     </div>
     <div class="card stack">
@@ -468,13 +507,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <button type="button" data-etype="inc" aria-pressed="false"><span class="ico">💰</span>收入</button>
       <button type="button" data-etype="tr" aria-pressed="false"><span class="ico">🔁</span>轉帳</button>
     </div></div>
-    <button type="button" class="icon-btn recur" id="recurBtn" aria-pressed="false" aria-label="每月重複" title="每月重複">🔁</button>
     <button type="button" class="icon-btn danger" id="entryDel" aria-label="刪除呢筆" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
-  </div>
-  <div class="recur-bar" id="recurBar" hidden>
-    <span class="what" id="recurWhat"></span>
-    <label>期數 <select id="recurCount"></select></label>
-    <label id="recurPausedWrap"><input type="checkbox" id="recurPaused">暫停</label>
   </div>
   <div class="gtabs" id="gtabs" role="group" aria-label="分類群組"></div>
   <div class="entry-scroll">
@@ -488,6 +521,19 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   </div>
   <div class="keypad" id="keypad">
     <div class="grip"></div>
+    <div class="tools" role="group" aria-label="更多選項">
+      <button type="button" class="tool" id="recurBtn" aria-pressed="false"><span class="ico">🔁</span><span>每月重複</span></button>
+      <button type="button" class="tool" id="claimBtn" aria-pressed="false"><span class="ico">🧾</span><span id="claimLabel">報銷</span></button>
+      <button type="button" class="tool" id="photoBtn" aria-pressed="false"><span class="ico">📷</span><span id="photoLabel">收據</span></button>
+      <button type="button" class="tool" id="loanBtn" aria-pressed="false"><span class="ico">🤝</span><span id="loanLabel">借出</span></button>
+    </div>
+    <div class="tool-detail" id="recurBar" hidden>
+      <span class="what" id="recurWhat"></span>
+      <label>期數 <select id="recurCount"></select></label>
+      <label id="recurPausedWrap"><input type="checkbox" id="recurPaused">暫停</label>
+    </div>
+    <div class="tool-detail" id="loanBar" hidden><span class="what" id="loanWhat"></span><button type="button" id="loanEdit">改</button></div>
+    <div class="tool-detail" id="photoBar" hidden><div class="thumbs" id="photoThumbs"></div></div>
     <button type="button" class="kk op acc" id="kAcc" aria-label="揀帳戶"><span class="ico" id="kAccIcon"></span><span id="kAccName"></span></button>
     <div class="display" id="display">
       <input type="text" id="note" maxlength="100" placeholder="備註" aria-label="備註" enterkeyhint="done">
@@ -580,6 +626,47 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   </div></div>
 </div>
 
+<!-- 公數報銷 -->
+<div class="layer page" id="claimPage" role="dialog" aria-modal="true" aria-label="公數報銷" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="返回"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2>公數報銷</h2>
+  </div>
+  <div class="page-body"><div class="stack" id="claimBody"></div></div>
+</div>
+
+<!-- 借出追蹤 -->
+<div class="layer page" id="loanPage" role="dialog" aria-modal="true" aria-label="借出追蹤" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="返回"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2>借出追蹤</h2>
+  </div>
+  <div class="page-body"><div class="stack" id="loanBody"></div></div>
+</div>
+
+<!-- 收據相片 -->
+<div class="layer sheet" id="photoSheet" role="dialog" aria-modal="true" aria-labelledby="photoTitle" hidden>
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="panel-head"><h2 id="photoTitle">收據相片</h2><button type="button" class="icon-btn" data-close aria-label="完成"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></button></div>
+    <div class="panel-body">
+      <div class="btns"><button class="btn primary" type="button" id="photoCamBtn">📷 影相</button><button class="btn" type="button" id="photoPickBtn">🖼️ 由相簿揀</button></div>
+      <input type="file" id="photoCam" accept="image/*" capture="environment" hidden>
+      <input type="file" id="photoPick" accept="image/*" multiple hidden>
+      <div class="photo-grid" id="photoGrid"></div>
+      <p class="hint">相片會壓縮（大約 100–300 KB 一張）之後存喺呢部機，唔會上載。每筆最多 5 張。「備份 JSON」會連相一齊備份。</p>
+    </div>
+  </div>
+</div>
+<div class="layer page viewer" id="photoView" role="dialog" aria-modal="true" aria-label="睇收據" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="關閉"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2>收據</h2>
+    <button type="button" class="icon-btn danger" id="photoDelBtn" aria-label="刪除呢張相"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+  </div>
+  <div class="page-body"><img id="photoBig" alt="收據相片"></div>
+</div>
+
 <!-- 定期記帳 -->
 <div class="layer page" id="recurPage" role="dialog" aria-modal="true" aria-label="定期記帳" hidden>
   <div class="page-bar">
@@ -611,6 +698,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="icons.js"></script>
 <script>
 (() => {
   'use strict';
@@ -624,6 +712,24 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const round2 = (v) => Math.round(v * 100) / 100;
   const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Bundled flat illustrations (icons.js) for the emoji the app uses; anything else falls back to the phone's emoji.
+  const ICONS = window.LEDGER_ICONS || {};
+  const iconUrls = new Map();
+  function ic(e) {
+    const k = String(e || '').replace(/\uFE0F/g, '');
+    const svg = Object.prototype.hasOwnProperty.call(ICONS, k) ? ICONS[k] : null;
+    if (!svg) return escHtml(e);
+    if (!iconUrls.has(k)) iconUrls.set(k, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+    return `<img class="emo" src="${iconUrls.get(k)}" alt="${escHtml(e)}">`;
+  }
+  // Swap the emoji written straight into the page (tab bar, menus, buttons) for the same illustrations.
+  function iconify(root) {
+    $$('.ico, .bubble, .pi', root).forEach((el) => {
+      if (el.children.length) return;
+      const t = el.textContent.trim();
+      if (t && ICONS[t.replace(/\uFE0F/g, '')]) el.innerHTML = ic(t);
+    });
+  }
   const seg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('zh-HK', { granularity: 'grapheme' }) : null;
   const firstGrapheme = (s) => (seg ? ((seg.segment(s)[Symbol.iterator]().next().value || {}).segment || '') : [...s].slice(0, 2).join(''));
   const WEEK = '日一二三四五六';
@@ -631,31 +737,57 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   const okPkg = (p) => typeof p === 'string' && /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/.test(p) && p.length <= 120;
   // Present only inside the Android app (see android/), which adds notification-based auto-recording.
   const bridge = window.AndroidBridge || null;
-  const EMOJI = '🍔 🍜 🍣 🍱 🥪 🍞 🍰 ☕ 🧋 🍺 🍷 🛒 🛍️ 📦 👕 👟 💄 📱 💻 🎧 🎮 🎬 📺 🎵 🎱 🎤 ✈️ 🏨 🚇 🚌 🚕 ⛽ 🅿️ 🏠 💡 💧 🔥 📶 🧾 🪴 🧴 🧻 💊 🩺 🦷 🏃 🏋️ ⚽ 📚 ✏️ 🎓 👶 🐶 🐱 🎁 💝 🎉 🧧 💼 💰 🏦 💳 💵 🪙 📈 🤝 🐙 📲 ❤️ 🔧 🧹 💇 ⛪ 🌱 📷'.split(' ');
+  const EMOJI_UI = ['❔', '✨', '🔁', '💸', '📒', '👛', '📊', '🗂', '🔔', '🔋', '🛎', '🖼'];
+  const EMOJI = Object.keys(window.LEDGER_ICONS || {}).filter((e) => !EMOJI_UI.includes(e));
 
   // ---------- data ----------
+  // Default groups and categories. v2 added the ones marked "v2"; older data gets those appended once.
+  const GROUPS_V2 = [
+    ['g_daily', 'exp', 'Daily', '🏪'], ['g_shop', 'exp', '買嘢', '🛒'], ['g_bills', 'exp', '日用雜費', '🧾'],
+    ['g_fun', 'exp', '娛樂', '🎬'], ['g_health', 'exp', '健康', '🩺'], ['g_trans', 'exp', '交通', '🚇'], ['g_home', 'exp', '住屋', '🏠'],
+    ['g_social', 'exp', '人情社交', '🧧'], ['g_personal', 'exp', '個人', '💇'], ['g_fin', 'exp', '保險財務', '🛡'], ['g_edu', 'exp', '進修', '🎓'],
+    ['g_inc', 'inc', '收入', '💼'], ['g_inc2', 'inc', '其他收入', '🎁'],
+  ];
+  const CATS_V2 = [
+    ['c_food', 'g_daily', 'food', '🍔'], ['c_breakfast', 'g_daily', '早餐', '🥐'], ['c_lunch', 'g_daily', '午餐', '🍱'], ['c_dinner', 'g_daily', '晚餐', '🍜'],
+    ['c_drink', 'g_daily', '廢水', '🧋'], ['c_coffee', 'g_daily', '咖啡', '☕'], ['c_snack', 'g_daily', '零食', '🍪'], ['c_alcohol', 'g_daily', '酒', '🍺'],
+    ['c_taobao', 'g_shop', '淘寶', '📦'], ['c_clothes', 'g_shop', '服飾', '👕'], ['c_gadget', 'g_shop', '電子嘢', '💻'], ['c_shop', 'g_shop', '買嘢', '🛍'], ['c_market', 'g_shop', '超市街市', '🧺'],
+    ['c_misc', 'g_bills', '日用雜費', '🧾'], ['c_daily', 'g_bills', '日用', '🪴'], ['c_phone', 'g_bills', '電話費', '📱'], ['c_internet', 'g_bills', '上網寬頻', '🌐'],
+    ['c_fun', 'g_fun', '娛樂', '🎮'], ['c_netflix', 'g_fun', 'Netflix', '📺'], ['c_marksix', 'g_fun', 'mark six', '🎱'], ['c_travel', 'g_fun', '旅行', '✈'],
+    ['c_movie', 'g_fun', '睇戲', '🍿'], ['c_book', 'g_fun', '書', '📚'], ['c_karaoke', 'g_fun', '唱K', '🎤'],
+    ['c_sport', 'g_health', '運動', '🏃'], ['c_medical', 'g_health', '醫療', '💊'], ['c_doctor', 'g_health', '睇醫生', '🩺'], ['c_dental', 'g_health', '牙醫', '🦷'], ['c_gym', 'g_health', '健身', '🏋'],
+    ['c_mtr', 'g_trans', '交通', '🚇'], ['c_taxi', 'g_trans', '的士', '🚕'], ['c_bus', 'g_trans', '巴士', '🚌'], ['c_minibus', 'g_trans', '小巴', '🚐'],
+    ['c_ferry', 'g_trans', '渡輪', '⛴'], ['c_fuel', 'g_trans', '油費', '⛽'], ['c_parking', 'g_trans', '泊車', '🅿'],
+    ['c_rent', 'g_home', '租金／供樓', '🏠'], ['c_utility', 'g_home', '水電煤', '💡'], ['c_mgmt', 'g_home', '管理費', '🏢'], ['c_rates', 'g_home', '差餉地租', '🏛'], ['c_repair', 'g_home', '家居維修', '🔧'],
+    ['c_redpacket', 'g_social', '人情', '🧧'], ['c_gift', 'g_social', '禮物', '🎁'], ['c_party', 'g_social', '聚會', '🥂'], ['c_donate', 'g_social', '捐款', '❤'],
+    ['c_hair', 'g_personal', '理髮', '💇'], ['c_beauty', 'g_personal', '護膚化妝', '💄'], ['c_pet', 'g_personal', '寵物', '🐶'],
+    ['c_insurance', 'g_fin', '保險', '🛡'], ['c_mpf', 'g_fin', '強積金／投資', '📈'], ['c_tax', 'g_fin', '交稅', '🏛'], ['c_fee', 'g_fin', '手續費', '💳'],
+    ['c_course', 'g_edu', '課程', '🎓'], ['c_stationery', 'g_edu', '書本文具', '✏'],
+    ['c_salary', 'g_inc', '人工', '💼'], ['c_bonus', 'g_inc', '獎金', '🎉'], ['c_parttime', 'g_inc', '兼職', '🪙'],
+    ['c_interest', 'g_inc2', '利息', '🏦'], ['c_rebate', 'g_inc2', '回贈', '💳'], ['c_invest', 'g_inc2', '投資收益', '📈'], ['c_lisee', 'g_inc2', '利是', '🧧'], ['c_other_inc', 'g_inc2', '其他收入', '💰'],
+  ];
+  const V1_CATS = ['c_food', 'c_drink', 'c_alcohol', 'c_taobao', 'c_clothes', 'c_gadget', 'c_shop', 'c_misc', 'c_daily', 'c_phone', 'c_fun', 'c_netflix', 'c_marksix', 'c_travel',
+    'c_sport', 'c_medical', 'c_mtr', 'c_taxi', 'c_rent', 'c_utility', 'c_salary', 'c_bonus', 'c_interest', 'c_rebate', 'c_other_inc'];
+  const V1_GROUPS = ['g_daily', 'g_shop', 'g_bills', 'g_fun', 'g_health', 'g_trans', 'g_home', 'g_inc', 'g_inc2'];
+  // Add the categories that are new in v2 to data saved by v1, without bringing back anything the user deleted.
+  function upgradeCats(s) {
+    const gIds = new Set(s.groups.map((g) => g.id));
+    GROUPS_V2.forEach(([id, type, name, icon]) => { if (!V1_GROUPS.includes(id) && !gIds.has(id)) { s.groups.push({ id, type, name, icon }); gIds.add(id); } });
+    const cIds = new Set(s.cats.map((c) => c.id));
+    CATS_V2.forEach(([id, group, name, icon]) => { if (!V1_CATS.includes(id) && !cIds.has(id) && gIds.has(group)) s.cats.push({ id, group, name, icon }); });
+    const phone = s.cats.find((c) => c.id === 'c_phone');
+    if (phone && phone.name === '電話上網' && phone.icon === '📶') { phone.name = '電話費'; phone.icon = '📱'; }
+    const gadget = s.cats.find((c) => c.id === 'c_gadget');
+    if (gadget && gadget.icon === '📱') gadget.icon = '💻';
+  }
   function defaults() {
     const G = (id, type, name, icon) => ({ id, type, name, icon });
     const C = (id, group, name, icon) => ({ id, group, name, icon });
     const A = (id, name, icon) => ({ id, name, icon, init: 0, archived: false });
     return {
       v: 1,
-      groups: [
-        G('g_daily', 'exp', 'Daily', '🏪'), G('g_shop', 'exp', '買嘢', '🛒'), G('g_bills', 'exp', '日用雜費', '🧾'),
-        G('g_fun', 'exp', '娛樂', '🎬'), G('g_health', 'exp', '健康', '🩺'), G('g_trans', 'exp', '交通', '🚇'), G('g_home', 'exp', '住屋', '🏠'),
-        G('g_inc', 'inc', '收入', '💼'), G('g_inc2', 'inc', '其他收入', '🎁'),
-      ],
-      cats: [
-        C('c_food', 'g_daily', 'food', '🍔'), C('c_drink', 'g_daily', '廢水', '🧋'), C('c_alcohol', 'g_daily', '酒', '🍺'),
-        C('c_taobao', 'g_shop', '淘寶', '📦'), C('c_clothes', 'g_shop', '服飾', '👕'), C('c_gadget', 'g_shop', '電子嘢', '📱'), C('c_shop', 'g_shop', '買嘢', '🛍️'),
-        C('c_misc', 'g_bills', '日用雜費', '🧾'), C('c_daily', 'g_bills', '日用', '🪴'), C('c_phone', 'g_bills', '電話上網', '📶'),
-        C('c_fun', 'g_fun', '娛樂', '🎮'), C('c_netflix', 'g_fun', 'Netflix', '📺'), C('c_marksix', 'g_fun', 'mark six', '🎱'), C('c_travel', 'g_fun', '旅行', '✈️'),
-        C('c_sport', 'g_health', '運動', '🏃'), C('c_medical', 'g_health', '醫療', '💊'),
-        C('c_mtr', 'g_trans', '交通', '🚇'), C('c_taxi', 'g_trans', '的士', '🚕'),
-        C('c_rent', 'g_home', '租金／供樓', '🏠'), C('c_utility', 'g_home', '水電煤', '💡'),
-        C('c_salary', 'g_inc', '人工', '💼'), C('c_bonus', 'g_inc', '獎金', '🎉'),
-        C('c_interest', 'g_inc2', '利息', '🏦'), C('c_rebate', 'g_inc2', '回贈', '💳'), C('c_other_inc', 'g_inc2', '其他收入', '💰'),
-      ],
+      groups: GROUPS_V2.map(([id, type, name, icon]) => G(id, type, name, icon)),
+      cats: CATS_V2.map(([id, group, name, icon]) => C(id, group, name, icon)),
       accounts: [
         A('a_cash', '現金', '💵'), A('a_octopus', '八達通', '🐙'), A('a_payme', 'PayMe', '📲'),
         A('a_fps', 'FPS／銀行', '🏦'), A('a_card', '信用卡', '💳'), A('a_lend', '借出', '🤝'),
@@ -664,6 +796,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       auto: { mode: 'confirm', sources: {} },
       // Monthly repeats: {id, type, amt, cat, acc, to, note, start (first date), count (0 = no end), done, last (YYYY-MM), paused}
       recur: [],
+      lendAcc: 'a_lend', claimInStats: false, catVer: 2,
     };
   }
 
@@ -688,6 +821,10 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         cat: t.type !== 'tr' && okId(t.cat) ? t.cat : '', acc: t.acc, to: t.type === 'tr' ? t.to : '',
         note: str(t.note, 100), ts: num(t.ts),
         ...(okId(t.rid) ? { rid: t.rid } : {}),
+        ...(t.type === 'exp' && (t.claim === 'pending' || t.claim === 'done') ? { claim: t.claim, claimed: /^\d{4}-\d{2}-\d{2}$/.test(t.claimed) ? t.claimed : '' } : {}),
+        ...(Array.isArray(t.photos) && t.photos.some(okId) ? { photos: t.photos.filter(okId).slice(0, 5) } : {}),
+        ...(t.type === 'tr' && str(t.person, 30) ? { person: str(t.person, 30) } : {}),
+        ...(t.type === 'inc' && t.reimb === true ? { reimb: true } : {}),
       }));
     const seenR = new Set();
     s.recur = (Array.isArray(d.recur) ? d.recur : []).filter((r) => r && okId(r.id) && !seenR.has(r.id) && seenR.add(r.id) && ['exp', 'inc', 'tr'].includes(r.type)
@@ -696,6 +833,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         id: r.id, type: r.type, amt: round2(r.amt), cat: r.type !== 'tr' && okId(r.cat) ? r.cat : '', acc: r.acc, to: r.type === 'tr' ? r.to : '',
         note: str(r.note, 100), start: r.start, count: Math.max(0, Math.min(600, Math.floor(num(r.count)))), done: Math.max(0, Math.floor(num(r.done))),
         last: /^\d{4}-\d{2}$/.test(r.last) ? r.last : '', paused: r.paused === true,
+        ...(r.type === 'exp' && r.claim === 'pending' ? { claim: 'pending' } : {}),
       }));
     // Every account a record points at must exist, or its money would vanish from the balances.
     const aIds = new Set(s.accounts.map((a) => a.id));
@@ -707,6 +845,10 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     s.theme = ['auto', 'light', 'dark'].includes(d.theme) ? d.theme : 'auto';
     s.lastAcc = aIds.has(d.lastAcc) ? d.lastAcc : s.accounts[0].id;
     s.sample = d.sample === true;
+    s.lendAcc = aIds.has(d.lendAcc) ? d.lendAcc : (aIds.has('a_lend') ? 'a_lend' : '');
+    s.claimInStats = d.claimInStats === true;
+    if (!(d.catVer >= 2) && Array.isArray(d.groups)) upgradeCats(s);
+    s.catVer = 2;
     const au = d.auto && typeof d.auto === 'object' ? d.auto : {};
     s.auto = { mode: au.mode === 'auto' ? 'auto' : 'confirm', sources: {} };
     if (au.sources && typeof au.sources === 'object') {
@@ -859,7 +1001,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   // ---------- 記帳本 ----------
   function matchQ(t, q) {
     const c = catOf(t);
-    const hay = [t.note, t.type === 'tr' ? '轉帳' : c.name, t.type === 'tr' ? '' : (G[c.group] || {}).name, accOf(t.acc).name, t.to ? accOf(t.to).name : '', String(t.amt)].join(' ').toLowerCase();
+    const hay = [t.person || '', t.claim === 'pending' ? '待報銷' : t.claim === 'done' ? '已報銷' : '', t.note, t.type === 'tr' ? '轉帳' : c.name, t.type === 'tr' ? '' : (G[c.group] || {}).name, accOf(t.acc).name, t.to ? accOf(t.to).name : '', String(t.amt)].join(' ').toLowerCase();
     return q.split(/\s+/).every((w) => hay.includes(w));
   }
   function passFilter(t) {
@@ -867,9 +1009,13 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (!f) return true;
     if (f.acc) return t.acc === f.acc || t.to === f.acc;
     if (f.cat) return t.type !== 'tr' && t.cat === f.cat;
+    if (f.person) return t.type === 'tr' && (t.acc === state.lendAcc || t.to === state.lendAcc) && (t.person || '未寫名') === f.person;
     return true;
   }
   const sortTx = (a, b) => b.date.localeCompare(a.date) || b.ts - a.ts;
+  // Work expenses waiting for (or already paid by) reimbursement aren't personal spending, and the
+  // reimbursement coming in isn't income; both stay out of totals and charts unless the user opts in.
+  const countable = (t) => !t.reimb && !(t.claim && !state.claimInStats);
 
   function rowHtml(t) {
     const c = catOf(t);
@@ -882,9 +1028,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       cls = t.type === 'inc' ? 'inc' : ''; amt = t.type === 'inc' ? money(t.amt, true) : money(-t.amt);
     }
     if (t.rid) t2 = '🔁 ' + t2;
+    if (t.photos && t.photos.length) t2 = '📎 ' + t2;
+    const tag = t.claim === 'pending' ? '<span class="tag warn">待報銷</span>' : t.claim === 'done' ? '<span class="tag">已報銷</span>' : t.reimb ? '<span class="tag">報銷入帳</span>' : t.person ? `<span class="tag">🤝 ${escHtml(t.person)}</span>` : '';
     return `<button type="button" class="row" data-tx="${escHtml(t.id)}">
-      <span class="bubble ico">${escHtml(icon)}</span>
-      <span class="txt"><span class="t1">${escHtml(t1)}</span><span class="t2">${escHtml(t2)}</span></span>
+      <span class="bubble ico">${ic(icon)}</span>
+      <span class="txt"><span class="t1">${escHtml(t1)}</span><span class="t2">${tag}${escHtml(t2)}</span></span>
       <span class="amt ${cls}">${amt}</span></button>`;
   }
 
@@ -892,7 +1040,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const q = ui.q.trim().toLowerCase();
     const list = state.tx.filter((t) => (q ? matchQ(t, q) : t.date.startsWith(ui.month)) && passFilter(t)).sort(sortTx);
     let exp = 0, inc = 0;
-    list.forEach((t) => { if (t.type === 'exp') exp += t.amt; else if (t.type === 'inc') inc += t.amt; });
+    list.forEach((t) => { if (!countable(t)) return; if (t.type === 'exp') exp += t.amt; else if (t.type === 'inc') inc += t.amt; });
     $('#sumExp').textContent = money(exp);
     $('#sumInc').textContent = money(inc);
     $('#sumNet').textContent = money(inc - exp);
@@ -911,7 +1059,10 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
     const f = ui.filter;
     $('#filterChip').hidden = !f && !q;
-    $('#filterText').textContent = [q ? `搜尋「${ui.q.trim()}」：${list.length} 筆` : '', f && f.acc ? `帳戶：${accOf(f.acc).name}` : '', f && f.cat ? `分類：${(C[f.cat] || { name: '未分類' }).name}` : ''].filter(Boolean).join('　');
+    $('#filterText').textContent = [q ? `搜尋「${ui.q.trim()}」：${list.length} 筆` : '', f && f.acc ? `帳戶：${accOf(f.acc).name}` : '', f && f.cat ? `分類：${(C[f.cat] || { name: '未分類' }).name}` : '', f && f.person ? `借出：${f.person}` : ''].filter(Boolean).join('　');
+    const pend = state.tx.filter((t) => t.claim === 'pending');
+    $('#claimLine').hidden = !pend.length || !!q || !!f;
+    $('#claimLineText').textContent = `🧾 待報銷 ${money(pend.reduce((a, t) => a + t.amt, 0))}（${pend.length} 筆）`;
     $('#sampleNote').hidden = !state.sample;
 
     if (!list.length) {
@@ -925,7 +1076,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     list.forEach((t) => { const last = days[days.length - 1]; if (last && last.date === t.date) last.items.push(t); else days.push({ date: t.date, items: [t] }); });
     $('#bookList').innerHTML = days.map((d) => {
       let de = 0, di = 0;
-      d.items.forEach((t) => { if (t.type === 'exp') de += t.amt; else if (t.type === 'inc') di += t.amt; });
+      d.items.forEach((t) => { if (!countable(t)) return; if (t.type === 'exp') de += t.amt; else if (t.type === 'inc') di += t.amt; });
       return `<div class="day"><div class="day-head"><b>${escHtml(dayLabel(d.date))}</b><span class="tot">${di ? `<span class="amt inc">收 ${money(di)}</span>` : ''}${de ? `<span>支 ${money(de)}</span>` : ''}</span></div>${d.items.map(rowHtml).join('')}</div>`;
     }).join('');
   }
@@ -939,7 +1090,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   // ---------- 錢包 ----------
   function accRow(a, bal) {
     return `<button type="button" class="row${a.archived ? ' archived' : ''}" data-acc="${escHtml(a.id)}">
-      <span class="bubble ico">${escHtml(a.icon)}</span>
+      <span class="bubble ico">${ic(a.icon)}</span>
       <span class="txt"><span class="t1">${escHtml(a.name)}</span>${ui.walletEdit ? '<span class="t2 edit-mark">撳一下修改</span>' : ''}</span>
       <span class="amt${bal < 0 ? ' neg' : ''}">${money(bal)}</span></button>`;
   }
@@ -1022,7 +1173,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   function renderChart() {
     const type = ui.ctype, word = type === 'exp' ? '支出' : '收入';
     const key = ui.cper === 'm' ? ui.month : ui.month.slice(0, 4);
-    const list = state.tx.filter((t) => t.type === type && t.date.startsWith(key));
+    const list = state.tx.filter((t) => t.type === type && t.date.startsWith(key) && countable(t));
     const total = round2(list.reduce((s, t) => s + t.amt, 0));
     $$('[data-ctype]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ctype === type)));
     $$('[data-cper]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cper === ui.cper)));
@@ -1052,7 +1203,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         if (frac >= 0.05) {
           const ang = (acc + len / 2) / CIRC * 2 * Math.PI - Math.PI / 2;
           const x = 50 + 45 * Math.cos(ang), y = 50 + 45 * Math.sin(ang);
-          labels += `<span class="dlabel" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="ico">${escHtml(s.g.icon)}</span>${Math.round(frac * 100)}%</span>`;
+          labels += `<span class="dlabel" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="ico">${ic(s.g.icon)}</span>${Math.round(frac * 100)}%</span>`;
         }
         acc += len;
       });
@@ -1073,7 +1224,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       $('#catList').innerHTML = rows.map(([cid, v]) => {
         const c = C[cid] || { name: '未分類', icon: '❔', group: '' };
         const col = G[c.group] ? groupColor(c.group, type) : 'var(--s-other)';
-        return `<button type="button" class="catrow" data-ccat="${escHtml(cid)}"><span class="bubble ico">${escHtml(c.icon)}</span>
+        return `<button type="button" class="catrow" data-ccat="${escHtml(cid)}"><span class="bubble ico">${ic(c.icon)}</span>
           <span class="nm">${escHtml(c.name)} <small>${Math.round(v / total * 100)}%</small></span><span class="amt">${money(v)}</span>
           <span class="bar"><i style="width:${(v / max * 100).toFixed(1)}%;background:${col}"></i></span></button>`;
       }).join('');
@@ -1083,7 +1234,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const months = [];
     if (ui.cper === 'm') for (let i = 5; i >= 0; i--) months.push(shiftMonth(ui.month, -i));
     else for (let i = 1; i <= 12; i++) months.push(`${key}-${pad(i)}`);
-    const mt = months.map((m) => round2(state.tx.reduce((s, t) => (t.type === type && t.date.startsWith(m) ? s + t.amt : s), 0)));
+    const mt = months.map((m) => round2(state.tx.reduce((s, t) => (t.type === type && t.date.startsWith(m) && countable(t) ? s + t.amt : s), 0)));
     const mx = Math.max(...mt, 0);
     $('#trendTitle').textContent = ui.cper === 'm' ? `近 6 個月${word}` : `${key}年每月${word}`;
     const selIdx = months.indexOf(ui.trendSel);
@@ -1116,7 +1267,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $$('[data-cper]').forEach((b) => b.addEventListener('click', () => { ui.cper = b.dataset.cper; ui.csel = null; ui.trendSel = null; render(); }));
 
   // ---------- 記一筆 ----------
-  const E = { type: 'exp', cat: '', acc: '', to: '', date: '', expr: '', note: '', editing: null, group: 'rec', fromPending: null, recur: false, recurId: null, recurCount: 0, recurPaused: false };
+  const E = { type: 'exp', cat: '', acc: '', to: '', date: '', expr: '', note: '', editing: null, group: 'rec', fromPending: null, recur: false, recurId: null, recurCount: 0, recurPaused: false, claim: '', photos: [], person: '', loanDir: '', autoNote: false };
   function lastCat(type) {
     const t = state.tx.filter((x) => x.type === type && C[x.cat]).sort(sortTx)[0];
     return t ? t.cat : (catsOf(type)[0] || {}).id || '';
@@ -1133,7 +1284,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   function openEntry(t, fromPending) {
     E.fromPending = fromPending || null;
-    Object.assign(E, { recur: false, recurId: null, recurCount: 0, recurPaused: false });
+    Object.assign(E, { recur: false, recurId: null, recurCount: 0, recurPaused: false, claim: (t && t.claim) || '', photos: t && t.photos ? t.photos.slice() : [], person: (t && t.person) || '', autoNote: false });
+    E.loanDir = E.person ? (t.to === state.lendAcc ? 'out' : 'back') : '';
     if (t) Object.assign(E, { editing: t.id, type: t.type, cat: t.cat, acc: t.acc, to: t.to || otherAcc(t.acc), date: t.date, expr: String(t.amt), note: t.note });
     else {
       const acc = ui.filter && ui.filter.acc && A[ui.filter.acc] && !A[ui.filter.acc].archived ? ui.filter.acc : defaultAcc();
@@ -1151,9 +1303,22 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     $('#entryDel').hidden = !E.editing && !E.recurId;
     $('#entryDel').setAttribute('aria-label', E.recurId ? '刪除呢個定期記帳' : '刪除呢筆');
     $('#recurBtn').setAttribute('aria-pressed', String(E.recur));
-    $('#recurBtn').hidden = !!E.fromPending || !!(E.editing && state.tx.some((t) => t.id === E.editing && t.rid));
-    $('#recurBtn').disabled = !!E.recurId;
+    $('#recurBtn').disabled = !!E.recurId || !!E.fromPending || !!E.person || !!(E.editing && state.tx.some((t) => t.id === E.editing && t.rid));
     $('#recurBar').hidden = !E.recur;
+    $('#claimBtn').disabled = E.type !== 'exp';
+    $('#claimBtn').setAttribute('aria-pressed', String(E.type === 'exp' && !!E.claim));
+    $('#claimLabel').textContent = E.claim === 'done' && E.type === 'exp' ? '已報銷' : '報銷';
+    $('#photoBtn').disabled = !!E.recurId;
+    $('#photoBtn').setAttribute('aria-pressed', String(E.photos.length > 0));
+    $('#photoLabel').textContent = E.photos.length ? `收據 ${E.photos.length}` : '收據';
+    $('#photoBar').hidden = !E.photos.length;
+    $('#photoThumbs').innerHTML = E.photos.map((id) => `<button type="button" class="thumb" data-view="${escHtml(id)}" aria-label="睇收據"><img class="thumb" data-pid="${escHtml(id)}" alt=""></button>`).join('');
+    fillThumbs($('#photoThumbs'));
+    $('#loanBtn').disabled = E.type === 'inc' || E.recur || !!E.recurId;
+    $('#loanBtn').setAttribute('aria-pressed', String(!!E.person));
+    $('#loanLabel').textContent = E.person ? (E.loanDir === 'back' ? `${E.person} 還` : `借俾 ${E.person}`) : '借出';
+    $('#loanBar').hidden = !E.person;
+    if (E.person) $('#loanWhat').textContent = E.loanDir === 'back' ? `🤝 ${E.person} 還錢：由「${accOf(state.lendAcc).name}」轉返入「${accOf(E.to).name}」` : `🤝 借俾 ${E.person}：由「${accOf(E.acc).name}」轉去「${accOf(state.lendAcc).name}」，唔計支出`;
     if (E.recur) {
       const day = +E.date.slice(8);
       $('#recurWhat').textContent = `🔁 每月 ${day} 號${day > 28 ? '（細月就月尾）' : ''}，${E.recurId ? '下次' : '第一次'}：${shortDate(E.date)}` + (E.editing ? '（今筆算第一期）' : '');
@@ -1169,11 +1334,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       const gs = groupsOf(E.type);
       if (E.group !== 'rec' && !gs.some((g) => g.id === E.group)) E.group = 'rec';
       $('#gtabs').innerHTML = `<button type="button" data-eg="rec" aria-pressed="${E.group === 'rec'}"><span class="ico">✨</span>推薦</button>` +
-        gs.map((g) => `<button type="button" data-eg="${escHtml(g.id)}" aria-pressed="${E.group === g.id}"><span class="ico">${escHtml(g.icon)}</span>${escHtml(g.name)}</button>`).join('');
+        gs.map((g) => `<button type="button" data-eg="${escHtml(g.id)}" aria-pressed="${E.group === g.id}"><span class="ico">${ic(g.icon)}</span>${escHtml(g.name)}</button>`).join('');
       renderGrid();
     } else renderTransfer();
     const a = accOf(E.acc);
-    $('#kAccIcon').textContent = a.icon;
+    $('#kAccIcon').innerHTML = ic(a.icon);
     $('#kAccName').textContent = a.name;
     $('#kAcc').setAttribute('aria-label', `${tr ? '轉出' : ''}帳戶：${a.name}，撳一下更改`);
     $('#note').value = E.note;
@@ -1185,12 +1350,12 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   }
   function renderGrid() {
     const cats = E.group === 'rec' ? recommended(E.type) : catsOfGroup(E.group);
-    $('#cgrid').innerHTML = cats.length ? cats.map((c) => `<button type="button" data-ec="${escHtml(c.id)}" aria-pressed="${c.id === E.cat}"><span class="ico">${escHtml(c.icon)}</span><span class="nm">${escHtml(c.name)}</span></button>`).join('')
+    $('#cgrid').innerHTML = cats.length ? cats.map((c) => `<button type="button" data-ec="${escHtml(c.id)}" aria-pressed="${c.id === E.cat}"><span class="ico">${ic(c.icon)}</span><span class="nm">${escHtml(c.name)}</span></button>`).join('')
       : '<div class="empty"><p>呢度未有分類。去「更多 → 分類管理」新增。</p></div>';
   }
   function renderTransfer() {
     const b = balances();
-    const card = (id, k) => { const a = accOf(id); return `<span class="bubble ico">${escHtml(a.icon)}</span><span><span class="k">${k}</span><span class="n">${escHtml(a.name)}</span></span><span class="b">${money(b[id] || 0)}</span>`; };
+    const card = (id, k) => { const a = accOf(id); return `<span class="bubble ico">${ic(a.icon)}</span><span><span class="k">${k}</span><span class="n">${escHtml(a.name)}</span></span><span class="b">${money(b[id] || 0)}</span>`; };
     $('#trFrom').innerHTML = card(E.acc, '轉出');
     $('#trTo').innerHTML = card(E.to, '轉入');
   }
@@ -1201,6 +1366,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (t === E.type) return;
     E.type = t; E.group = 'rec';
     if (t !== 'tr' && !(C[E.cat] && (G[C[E.cat].group] || {}).type === t)) E.cat = lastCat(t);
+    if (t !== 'tr') { E.person = ''; E.loanDir = ''; }
+    if (t !== 'exp' && E.claim === 'pending') E.claim = '';
     if (t === 'tr' && E.to === E.acc) E.to = otherAcc(E.acc);
     renderEntry();
   }));
@@ -1280,6 +1447,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const old = E.editing && state.tx.find((x) => x.id === E.editing);
     const t = { id: old ? old.id : E.fromPending ? 'n_' + E.fromPending : uid(), type: E.type, amt: v, date: E.date || today(), cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '', note: E.note.trim().slice(0, 100), ts: old ? old.ts : Date.now() };
     if (old && old.rid) t.rid = old.rid;
+    if (t.type === 'exp' && E.claim) { t.claim = E.claim; t.claimed = E.claim === 'done' && old ? old.claimed || '' : ''; }
+    if (E.photos.length) t.photos = E.photos.slice(0, 5);
+    if (t.type === 'tr' && E.person) t.person = E.person;
+    if (old && old.reimb) t.reimb = true;
+    if (old && old.photos) photoDel(old.photos.filter((id) => !E.photos.includes(id))).catch(() => {});
     // Turning an existing record into a monthly repeat: this record is the first instalment.
     if (old && E.recur && !old.rid) {
       const r = ruleFrom(v, t.date);
@@ -1305,17 +1477,327 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       save(); closeLayer(); render(); flash('已刪除定期記帳，之前記低嘅記錄會保留');
       return;
     }
+    const gone = state.tx.find((x) => x.id === E.editing);
     state.tx = state.tx.filter((x) => x.id !== E.editing);
+    if (gone && gone.photos) photoDel(gone.photos).catch(() => {});
     save(); closeLayer(); render(); flash('已刪除');
   });
   $('#recurBtn').addEventListener('click', () => {
     if (E.recurId) return;
     E.recur = !E.recur;
     renderEntry();
-    if (E.recur) flash('會每月同一日自動記低，可以喺「更多 → 定期記帳」管理');
+    if (E.recur) flash('每月同一日自動記低；喺「更多 → 定期記帳」管理');
   });
   $('#recurCount').addEventListener('change', () => { E.recurCount = +$('#recurCount').value || 0; });
   $('#recurPaused').addEventListener('change', () => { E.recurPaused = $('#recurPaused').checked; });
+
+  // ---------- 收據相片 (IndexedDB; compressed JPEGs that never leave the phone) ----------
+  let rdbP = null;
+  function rdb() {
+    if (!rdbP) {
+      rdbP = new Promise((res, rej) => {
+        try {
+          const r = indexedDB.open('daily-ledger-receipts', 1);
+          r.onupgradeneeded = () => r.result.createObjectStore('r');
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
+        } catch (e) { rej(e); }
+      });
+    }
+    return rdbP;
+  }
+  function rq(mode, fn) {
+    return rdb().then((db) => new Promise((res, rej) => {
+      const t = db.transaction('r', mode);
+      const req = fn(t.objectStore('r'));
+      t.oncomplete = () => res(req ? req.result : undefined);
+      t.onerror = t.onabort = () => rej(t.error);
+    }));
+  }
+  const photoPut = (id, blob) => rq('readwrite', (st) => st.put(blob, id));
+  const photoGet = (id) => rq('readonly', (st) => st.get(id));
+  const photoDel = (ids) => (ids && ids.length ? rq('readwrite', (st) => { ids.forEach((id) => st.delete(id)); return null; }) : Promise.resolve());
+  const urlCache = new Map();
+  async function photoUrl(id) {
+    if (urlCache.has(id)) return urlCache.get(id);
+    const b = await photoGet(id);
+    if (!b) return '';
+    const u = URL.createObjectURL(b);
+    urlCache.set(id, u);
+    return u;
+  }
+  function fillThumbs(root) {
+    $$('img[data-pid]', root).forEach((img) => { photoUrl(img.dataset.pid).then((u) => { if (u) img.src = u; }).catch(() => {}); });
+  }
+  // Delete stored photos no record points at (unsaved entries, deleted records, cleared data).
+  async function gcPhotos() {
+    try {
+      const keep = new Set(state.tx.flatMap((t) => t.photos || []));
+      const keys = await rq('readonly', (st) => st.getAllKeys());
+      await photoDel(keys.filter((k) => !keep.has(k)));
+    } catch (e) { /* storage unavailable */ }
+  }
+  function blobToDataUrl(b) {
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+  }
+  function dataUrlToBlob(s) {
+    const i = s.indexOf(',');
+    const mime = s.slice(5, s.indexOf(';'));
+    const bin = atob(s.slice(i + 1));
+    const u8 = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    return new Blob([u8], { type: mime });
+  }
+  // Long side 1600px, JPEG quality 0.72: receipts stay legible at roughly 100–300 KB.
+  async function compress(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k);
+      c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.72));
+      if (!blob) throw new Error('encode');
+      return blob;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function addPhotos(files) {
+    for (const f of files) {
+      if (E.photos.length >= 5) { flash('每筆最多 5 張相'); break; }
+      try {
+        const blob = await compress(f);
+        const id = 'p' + uid();
+        await photoPut(id, blob);
+        E.photos.push(id);
+      } catch (e) { flash('讀唔到呢張相，試吓另一張'); }
+    }
+    renderEntry();
+    renderPhotoSheet();
+  }
+  function renderPhotoSheet() {
+    $('#photoGrid').innerHTML = E.photos.map((id) => `<button type="button" data-view="${escHtml(id)}" aria-label="睇收據"><img data-pid="${escHtml(id)}" alt=""></button>`).join('');
+    fillThumbs($('#photoGrid'));
+    $('#photoTitle').textContent = E.photos.length ? `收據相片（${E.photos.length}/5）` : '收據相片';
+  }
+  $('#photoBtn').addEventListener('click', () => { renderPhotoSheet(); openLayer($('#photoSheet')); });
+  $('#photoCamBtn').addEventListener('click', () => $('#photoCam').click());
+  $('#photoPickBtn').addEventListener('click', () => $('#photoPick').click());
+  ['#photoCam', '#photoPick'].forEach((sel) => $(sel).addEventListener('change', (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    if (files.length) addPhotos(files);
+  }));
+  let viewing = null;
+  function openPhoto(id, deletable) {
+    viewing = id;
+    $('#photoBig').removeAttribute('src');
+    photoUrl(id).then((u) => { if (u) $('#photoBig').src = u; }).catch(() => {});
+    $('#photoDelBtn').hidden = !deletable;
+    openLayer($('#photoView'));
+  }
+  document.addEventListener('click', (e) => {
+    const v = e.target.closest('[data-view]');
+    if (!v) return;
+    const inEntry = !!v.closest('#entry, #photoSheet');
+    openPhoto(v.dataset.view, inEntry);
+  });
+  armable($('#photoDelBtn'), '再撳刪除', () => {
+    const id = viewing;
+    E.photos = E.photos.filter((x) => x !== id);
+    // Photos the saved record still uses are removed when the edit is saved; new ones can go now.
+    if (!state.tx.some((t) => (t.photos || []).includes(id))) photoDel([id]).catch(() => {});
+    closeLayer();
+    renderEntry();
+    renderPhotoSheet();
+  });
+
+  // ---------- 公數報銷 ----------
+  $('#claimBtn').addEventListener('click', () => {
+    if (E.type !== 'exp') return;
+    if (E.claim === 'done') { flash('呢筆已經報銷咗；要改返，去「更多 → 公數報銷」'); return; }
+    E.claim = E.claim ? '' : 'pending';
+    renderEntry();
+    if (E.claim) flash(state.claimInStats ? '會出現喺「更多 → 公數報銷」' : '會出現喺「更多 → 公數報銷」，唔計入你嘅個人支出');
+  });
+  let claimSel = new Set();
+  function ensureReimbCat() {
+    if (C.c_reimb) return 'c_reimb';
+    let g = groupsOf('inc')[0];
+    if (!g) { g = { id: 'g_' + uid(), type: 'inc', name: '收入', icon: '💼' }; state.groups.push(g); }
+    state.cats.push({ id: 'c_reimb', group: g.id, name: '報銷入帳', icon: '🧾' });
+    reindex();
+    return 'c_reimb';
+  }
+  function claimRow(t, selectable) {
+    const c = catOf(t);
+    const thumbs = (t.photos || []).length ? ` · 📎${t.photos.length}` : '';
+    const row = `<button type="button" class="row" data-tx="${escHtml(t.id)}"><span class="bubble ico">${ic(c.icon)}</span>
+      <span class="txt"><span class="t1">${escHtml(t.note || c.name)}</span><span class="t2">${escHtml(`${shortDate(t.date)} · ${c.name} · ${accOf(t.acc).name}${thumbs}`)}${t.claim === 'done' && t.claimed ? `<br>${escHtml(`${shortDate(t.claimed)} 報銷`)}` : ''}</span></span>
+      <span class="amt">${money(t.amt)}</span></button>`;
+    return selectable ? `<div class="selrow"><input type="checkbox" data-csel="${escHtml(t.id)}" ${claimSel.has(t.id) ? 'checked' : ''} aria-label="揀選"> ${row}</div>` : `<div class="selrow" style="padding-left:0">${row}</div>`;
+  }
+  function renderClaim() {
+    const pend = state.tx.filter((t) => t.type === 'exp' && t.claim === 'pending').sort(sortTx);
+    const done = state.tx.filter((t) => t.claim === 'done').sort((a, b) => (b.claimed || '').localeCompare(a.claimed || '') || sortTx(a, b)).slice(0, 60);
+    claimSel = new Set([...claimSel].filter((id) => pend.some((t) => t.id === id)));
+    const total = pend.reduce((a, t) => a + t.amt, 0);
+    const sel = pend.filter((t) => claimSel.has(t.id));
+    const selSum = sel.reduce((a, t) => a + t.amt, 0);
+    $('#claimBody').innerHTML = `<div class="card"><div class="sum3">
+        <div><span class="k">待報銷</span><span class="v">${money(total)}</span></div>
+        <div><span class="k">筆數</span><span class="v">${pend.length}</span></div>
+        <div><span class="k">已揀</span><span class="v">${money(selSum)}</span></div></div>
+        <label class="check-field" style="margin-top:12px"><input type="checkbox" id="claimInStats" ${state.claimInStats ? 'checked' : ''}>報銷支出都計入每月支出同圖表</label></div>
+      ${pend.length ? `<div class="list">${pend.map((t) => claimRow(t, true)).join('')}</div>
+        <div class="sticky-actions">
+          <div class="btns"><button class="btn small" type="button" id="claimAll">${sel.length === pend.length ? '取消全選' : '全選'}</button><button class="btn small" type="button" id="claimCsv">匯出${sel.length ? `已揀 ${sel.length} 筆` : '全部'}報銷清單</button></div>
+          <button class="btn primary block" type="button" id="claimDone" ${sel.length ? '' : 'disabled'}>${sel.length ? `標記已報銷（${sel.length} 筆，${money(selSum)}）` : '揀選已經報咗嘅支出'}</button>
+        </div>`
+        : '<div class="empty"><span class="big">🧾</span><p>冇待報銷嘅支出。記一筆嗰陣撳鍵盤上面「🧾 報銷」，嗰筆就會出現喺度。</p></div>'}
+      ${done.length ? `<h2 class="list-label">已報銷（最近 ${done.length} 筆）</h2><div class="list">${done.map((t) => claimRow(t, false)).join('')}</div>` : ''}
+      <p class="hint">「已報銷」之後揀收款帳戶，會加一筆「報銷入帳」，帳戶餘額會啱，但唔會當係收入。撳記錄可以修改、加收據相片，或者喺鍵盤上面撳「🧾」取消報銷。</p>`;
+    fillThumbs($('#claimBody'));
+  }
+  $('#claimBody').addEventListener('change', (e) => {
+    if (e.target.id === 'claimInStats') { state.claimInStats = e.target.checked; save(); render(); return; }
+    const c = e.target.closest('[data-csel]');
+    if (c) { if (c.checked) claimSel.add(c.dataset.csel); else claimSel.delete(c.dataset.csel); renderClaim(); }
+  });
+  $('#claimBody').addEventListener('click', (e) => {
+    const pend = state.tx.filter((t) => t.type === 'exp' && t.claim === 'pending');
+    if (e.target.closest('#claimAll')) { claimSel = claimSel.size === pend.length ? new Set() : new Set(pend.map((t) => t.id)); renderClaim(); }
+    if (e.target.closest('#claimCsv')) exportClaims(claimSel.size ? pend.filter((t) => claimSel.has(t.id)) : pend);
+    if (e.target.closest('#claimDone')) markClaimed(pend.filter((t) => claimSel.has(t.id)));
+  });
+  function exportClaims(list) {
+    const esc = (v) => { let x = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(x)) x = "'" + x; return /[",\n\r]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    const rows = [['日期', '分類', '項目／備註', '金額', '付款帳戶', '收據張數']];
+    list.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach((t) => rows.push([t.date, catOf(t).name, t.note, t.amt, accOf(t.acc).name, (t.photos || []).length]));
+    rows.push([]);
+    rows.push(['合計', '', `${list.length} 筆`, round2(list.reduce((a, t) => a + t.amt, 0)), '', '']);
+    const r = download(`claims_${today()}.csv`, '﻿' + rows.map((x) => x.map(esc).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    flash(r.err ? r.err : `${r.where}已匯出 ${list.length} 筆報銷清單`);
+  }
+  function markClaimed(list) {
+    if (!list.length) return;
+    const sum = round2(list.reduce((a, t) => a + t.amt, 0));
+    openEditor({
+      title: `標記已報銷（${list.length} 筆）`,
+      fields: [
+        { key: 'acc', type: 'select', label: `${money(sum)} 入咗邊個帳戶？`, value: (activeAccs().find((a) => /銀行|fps/i.test(a.name)) || activeAccs()[0] || {}).id || '',
+          options: [['', '唔使記收款（例如機構直接俾咗商戶）']].concat(activeAccs().map((a) => [a.id, `${a.icon} ${a.name}`])) },
+      ],
+      onSave(v) {
+        const d = today();
+        list.forEach((t) => { t.claim = 'done'; t.claimed = d; });
+        if (v.acc && A[v.acc]) state.tx.push({ id: uid(), type: 'inc', amt: sum, date: d, cat: ensureReimbCat(), acc: v.acc, to: '', note: `報銷 ${list.length} 筆`, ts: Date.now(), reimb: true });
+        claimSel = new Set();
+        save();
+        flash(`已標記 ${list.length} 筆已報銷`);
+      },
+    });
+  }
+  $('#openClaim').addEventListener('click', () => { renderClaim(); openLayer($('#claimPage')); });
+  $('#claimLine').addEventListener('click', () => { renderClaim(); openLayer($('#claimPage')); });
+
+  // ---------- 借出追蹤 ----------
+  // Loans are transfers into (lent) or out of (repaid) the lending account, each with a person's name.
+  function ensureLendAcc() {
+    if (A[state.lendAcc]) return state.lendAcc;
+    const found = state.accounts.find((a) => /借出|借錢|loan/i.test(a.name));
+    if (found) { state.lendAcc = found.id; return found.id; }
+    const a = { id: 'a_' + uid(), name: '借出', icon: '🤝', init: 0, archived: false };
+    state.accounts.push(a);
+    state.lendAcc = a.id;
+    reindex();
+    return a.id;
+  }
+  function loanBalances() {
+    const lend = state.lendAcc;
+    const m = new Map();
+    if (!lend) return [];
+    state.tx.forEach((t) => {
+      if (t.type !== 'tr' || (t.to !== lend && t.acc !== lend)) return;
+      const who = t.person || '未寫名';
+      const o = m.get(who) || { who, bal: 0, last: '', n: 0 };
+      o.bal = round2(o.bal + (t.to === lend ? t.amt : -t.amt));
+      o.n++;
+      if (t.date > o.last) o.last = t.date;
+      m.set(who, o);
+    });
+    return [...m.values()];
+  }
+  function personOther(acc) { const o = activeAccs().find((a) => a.id !== state.lendAcc && a.id === acc) || activeAccs().find((a) => a.id !== state.lendAcc); return o ? o.id : acc; }
+  function setLoan(dir, person) {
+    const lend = ensureLendAcc();
+    E.type = 'tr';
+    E.person = person;
+    E.loanDir = dir;
+    if (dir === 'out') { E.acc = personOther(E.acc === lend ? defaultAcc() : E.acc); E.to = lend; }
+    else { E.to = personOther(E.to === lend || !E.to ? defaultAcc() : E.to); E.acc = lend; }
+    if (!E.note.trim() || E.autoNote) { E.note = dir === 'out' ? `借俾 ${person}` : `${person} 還錢`; E.autoNote = true; }
+  }
+  function loanEditor() {
+    const people = [...new Set(state.tx.filter((t) => t.person).sort(sortTx).map((t) => t.person))].slice(0, 20);
+    openEditor({
+      title: '借出／還款',
+      fields: [
+        { key: 'dir', type: 'select', label: '係…', value: E.loanDir || 'out', options: [['out', '借錢俾人／幫人俾錢（佢要還返）'], ['back', '收返人哋還錢']] },
+        { key: 'person', type: 'text', label: '邊個？', value: E.person, max: 30, placeholder: '例如：阿明', list: people },
+      ],
+      onSave(v) {
+        if (!v.person) return '請寫低係邊個';
+        setLoan(v.dir === 'back' ? 'back' : 'out', v.person);
+        renderEntry();
+      },
+      actions: E.person ? [{ label: '唔係借出', run() { E.person = ''; E.loanDir = ''; if (E.autoNote) E.note = ''; closeLayer(); renderEntry(); } }] : [],
+    });
+  }
+  $('#loanBtn').addEventListener('click', loanEditor);
+  $('#loanEdit').addEventListener('click', loanEditor);
+  $('#note').addEventListener('input', () => { E.autoNote = false; });
+  function quickLoan(dir, person, amt) {
+    openEntry(null);
+    E.expr = amt ? String(round2(amt)) : '';
+    if (person) { setLoan(dir, person); renderEntry(); }
+    else { E.loanDir = dir; renderEntry(); loanEditor(); }
+  }
+  function renderLoans() {
+    const all = loanBalances().sort((a, b) => b.bal - a.bal);
+    const owe = all.filter((x) => x.bal > 0.004), neg = all.filter((x) => x.bal < -0.004), clear = all.filter((x) => Math.abs(x.bal) <= 0.004);
+    const total = owe.reduce((a, x) => a + x.bal, 0);
+    const prow = (x) => `<div class="prow"><button type="button" class="row" data-person="${escHtml(x.who)}"><span class="avatar">${escHtml(firstGrapheme(x.who))}</span>
+        <span class="txt"><span class="t1">${escHtml(x.who)}</span><span class="t2">${x.n} 筆 · 最近 ${escHtml(shortDate(x.last))}</span></span>
+        <span class="amt${x.bal < 0 ? ' neg' : ''}">${x.bal < 0 ? `你爭佢 ${money(-x.bal)}` : x.bal > 0 ? `欠 ${money(x.bal)}` : '已還清'}</span></button>
+        ${x.bal > 0.004 ? `<div class="btns"><button class="btn small" type="button" data-lmore="${escHtml(x.who)}">再借</button><button class="btn small primary" type="button" data-lback="${escHtml(x.who)}">收返全部 ${money(x.bal)}</button></div>` : ''}</div>`;
+    $('#loanBody').innerHTML = `<div class="card"><div class="sum3">
+        <div><span class="k">未還總數</span><span class="v">${money(total)}</span></div>
+        <div><span class="k">未還人數</span><span class="v">${owe.length}</span></div>
+        <div><span class="k">記錄帳戶</span><span class="v" style="font-size:15px">${escHtml(state.lendAcc && A[state.lendAcc] ? accOf(state.lendAcc).name : '借出')}</span></div></div></div>
+      <div class="btns"><button class="btn primary" type="button" id="loanOut">＋ 借錢俾人</button><button class="btn" type="button" id="loanBack">＋ 收返錢</button></div>
+      ${owe.length || neg.length ? `<div class="card">${owe.concat(neg).map(prow).join('')}</div>` : '<div class="empty"><span class="big">🤝</span><p>冇人爭你錢。借錢俾人或者幫人俾錢嗰陣，喺鍵盤上面撳「🤝 借出」，寫低係邊個。</p></div>'}
+      ${clear.length ? `<details class="card"><summary>已還清（${clear.length} 人）</summary>${clear.map(prow).join('')}</details>` : ''}
+      <p class="hint">借出同還款係「轉帳」：錢由你嘅帳戶轉去「借出」帳戶（同埋轉返出嚟），所以唔會計入支出或收入，資產淨值亦會包括人哋欠你嘅錢。撳名可以睇佢嘅記錄。</p>`;
+  }
+  $('#loanBody').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.closest('#loanOut')) quickLoan('out', '', 0);
+    else if (t.closest('#loanBack')) quickLoan('back', '', 0);
+    else if (t.closest('[data-lback]')) { const who = t.closest('[data-lback]').dataset.lback; const x = loanBalances().find((y) => y.who === who); quickLoan('back', who === '未寫名' ? '' : who, x ? x.bal : 0); }
+    else if (t.closest('[data-lmore]')) { const who = t.closest('[data-lmore]').dataset.lmore; quickLoan('out', who === '未寫名' ? '' : who, 0); }
+    else if (t.closest('[data-person]')) { ui.filter = { person: t.closest('[data-person]').dataset.person }; closeLayer(layers.length); setTab('book'); }
+  });
+  $('#openLoan').addEventListener('click', () => { renderLoans(); openLayer($('#loanPage')); });
+
+  // Open a fresh entry straight away (home-screen / Samsung Routines shortcuts).
+  function quickEntry(type) {
+    if (ui.tab !== 'book') setTab('book');
+    openEntry(null);
+    if (type === 'inc') { E.type = 'inc'; E.cat = lastCat('inc'); E.group = 'rec'; }
+    renderEntry();
+  }
 
   // ---------- 定期記帳 ----------
   const daysIn = (ym) => new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
@@ -1325,6 +1807,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     return {
       id: 'q' + uid(), type: E.type, amt: v, cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '',
       note: E.note.trim().slice(0, 100), start, count: E.recurCount || 0, done: 0, last: '', paused: false,
+      ...(E.type === 'exp' && E.claim === 'pending' ? { claim: 'pending' } : {}),
     };
   }
   function nextDue(r) {
@@ -1344,7 +1827,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         const m = d.slice(0, 7);
         const id = `r_${r.id}_${m.replace('-', '')}`;
         if (!state.tx.some((t) => t.id === id)) {
-          state.tx.push({ id, type: r.type, amt: r.amt, date: d, cat: r.cat, acc: r.acc, to: r.to, note: r.note, ts: Date.now() + i, rid: r.id });
+          state.tx.push({ id, type: r.type, amt: r.amt, date: d, cat: r.cat, acc: r.acc, to: r.to, note: r.note, ts: Date.now() + i, rid: r.id, ...(r.claim ? { claim: 'pending', claimed: '' } : {}) });
           n++;
         }
         r.done++;
@@ -1359,6 +1842,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       const r = state.recur.find((x) => x.id === E.recurId);
       if (!r) { closeLayer(); return; }
       const prevDue = nextDue(r);
+      if (E.type === 'exp' && E.claim === 'pending') r.claim = 'pending'; else delete r.claim;
       Object.assign(r, { type: E.type, amt: v, cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '', note: E.note.trim().slice(0, 100), count: E.recurCount || 0, paused: E.recurPaused });
       // A new date moves the schedule: the next instalment falls on it.
       if (E.date !== prevDue) r.start = E.date;
@@ -1379,7 +1863,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   }
   function openRule(r) {
     openEntry(null);
-    Object.assign(E, { type: r.type, cat: r.cat, acc: r.acc, to: r.to || otherAcc(r.acc), date: nextDue(r) || r.start, expr: String(r.amt), note: r.note, recur: true, recurId: r.id, recurCount: r.count, recurPaused: r.paused });
+    Object.assign(E, { type: r.type, cat: r.cat, acc: r.acc, to: r.to || otherAcc(r.acc), date: nextDue(r) || r.start, expr: String(r.amt), note: r.note, recur: true, recurId: r.id, recurCount: r.count, recurPaused: r.paused, claim: r.claim || '' });
     renderEntry();
   }
   function renderRecur() {
@@ -1395,7 +1879,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       const day = +r.start.slice(8);
       const t2 = [`每月 ${day} 號`, tr ? `${accOf(r.acc).name} → ${accOf(r.to).name}` : accOf(r.acc).name, when].join(' · ');
       return `<div class="rrow${r.paused || finished ? ' paused' : ''}"><button type="button" class="row" data-rule="${escHtml(r.id)}">
-        <span class="bubble ico">${escHtml(tr ? '⇄' : c.icon)}</span>
+        <span class="bubble ico">${ic(tr ? '⇄' : c.icon)}</span>
         <span class="txt"><span class="t1">${escHtml(r.note || (tr ? '轉帳' : c.name))}</span><span class="t2">${escHtml(t2)}</span></span>
         <span class="amt ${r.type === 'inc' ? 'inc' : tr ? 'tr' : ''}">${r.type === 'inc' ? money(r.amt, true) : tr ? money(r.amt) : money(-r.amt)}</span></button>
         ${finished ? '' : `<label class="switch"><input type="checkbox" data-rpause="${escHtml(r.id)}" ${r.paused ? '' : 'checked'} aria-label="${r.paused ? '恢復' : '暫停'}"><i></i></label>`}</div>`;
@@ -1431,7 +1915,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const b = balances();
     $('#pickTitle').textContent = title;
     $('#pickList').innerHTML = activeAccs().map((a) => `<button type="button" class="row" role="radio" aria-checked="${a.id === cur}" data-pick="${escHtml(a.id)}">
-      <span class="bubble ico">${escHtml(a.icon)}</span><span class="txt"><span class="t1">${escHtml(a.name)}</span></span>
+      <span class="bubble ico">${ic(a.icon)}</span><span class="txt"><span class="t1">${escHtml(a.name)}</span></span>
       <span class="amt${(b[a.id] || 0) < 0 ? ' neg' : ''}">${money(b[a.id] || 0)}</span><span class="check">${a.id === cur ? '✓' : ''}</span></button>`).join('');
     openLayer($('#picker'));
   }
@@ -1448,11 +1932,12 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const f = $('#edForm');
     f.innerHTML = cfg.fields.map((x) => {
       const id = 'ed_' + x.key;
-      if (x.type === 'emoji') return `<div class="field"><span>${x.label}</span><div class="emoji-row"><input type="text" id="${id}" value="${escHtml(x.value)}" aria-label="${x.label}（可以自己打 emoji）"><span class="hint">揀一個，或者自己打 emoji</span></div>
-        <div class="emoji-grid" data-emoji-for="${id}">${EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div></div>`;
+      if (x.type === 'emoji') return `<div class="field"><span>${x.label}</span><div class="emoji-row"><span class="prev" id="${id}_prev">${ic(x.value)}</span><input type="text" id="${id}" value="${escHtml(x.value)}" aria-label="${x.label}（可以自己打 emoji）"><span class="hint">揀一個，或者自己打 emoji</span></div>
+        <div class="emoji-grid" data-emoji-for="${id}">${EMOJI.map((e) => `<button type="button" data-emoji="${e}" aria-label="${e}">${ic(e)}</button>`).join('')}</div></div>`;
       if (x.type === 'check') return `<label class="check-field"><input type="checkbox" id="${id}" ${x.value ? 'checked' : ''}>${x.label}</label>`;
       if (x.type === 'select') return `<label class="field"><span>${x.label}</span><select id="${id}">${x.options.map(([v, l]) => `<option value="${escHtml(v)}" ${v === x.value ? 'selected' : ''}>${escHtml(l)}</option>`).join('')}</select>${x.hint ? `<span class="hint">${x.hint}</span>` : ''}</label>`;
-      return `<label class="field"><span>${x.label}</span><input type="${x.type === 'number' ? 'number' : 'text'}" id="${id}" ${x.type === 'number' ? 'inputmode="decimal" step="any"' : `maxlength="${x.max || 30}"`} value="${escHtml(x.value)}" placeholder="${escHtml(x.placeholder || '')}">${x.hint ? `<span class="hint">${x.hint}</span>` : ''}</label>`;
+      const dl = x.list && x.list.length ? `<datalist id="${id}_list">${x.list.map((v) => `<option value="${escHtml(v)}"></option>`).join('')}</datalist>` : '';
+      return `<label class="field"><span>${x.label}</span><input type="${x.type === 'number' ? 'number' : 'text'}" id="${id}" ${x.type === 'number' ? 'inputmode="decimal" step="any"' : `maxlength="${x.max || 30}"`} ${dl ? `list="${id}_list"` : ''} value="${escHtml(x.value)}" placeholder="${escHtml(x.placeholder || '')}">${dl}${x.hint ? `<span class="hint">${x.hint}</span>` : ''}</label>`;
     }).join('') + `<div class="msg err" id="edMsg"></div>
       <button class="btn primary block" type="submit">儲存</button>
       ${cfg.actions && cfg.actions.length ? `<div class="btns">${cfg.actions.map((a, i) => `<button class="btn small${a.danger ? ' danger' : ''}" type="button" data-act="${i}">${a.label}</button>`).join('')}</div>` : ''}`;
@@ -1476,6 +1961,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('#edForm').addEventListener('click', (e) => {
     const b = e.target.closest('[data-emoji]'); if (!b) return;
     const inp = $('#' + b.parentElement.dataset.emojiFor); inp.value = b.dataset.emoji;
+    $('#' + inp.id + '_prev').innerHTML = ic(b.dataset.emoji);
+  });
+  $('#edForm').addEventListener('input', (e) => {
+    const prev = $('#' + e.target.id + '_prev');
+    if (prev) prev.innerHTML = ic(firstGrapheme(e.target.value.trim()));
   });
   $('#edForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1491,8 +1981,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const used = {};
     state.tx.forEach((t) => { used[t.cat] = (used[t.cat] || 0) + 1; });
     $('#catmanBody').innerHTML = groupsOf(type).map((g) => `<div class="gblock card">
-      <div class="ghead"><span class="ico">${escHtml(g.icon)}</span>${escHtml(g.name)}<button class="btn small" type="button" data-edg="${escHtml(g.id)}">修改群組</button></div>
-      <div class="cman">${catsOfGroup(g.id).map((c) => `<button type="button" data-edc="${escHtml(c.id)}"><span class="ico">${escHtml(c.icon)}</span><span>${escHtml(c.name)}</span></button>`).join('')}
+      <div class="ghead"><span class="ico">${ic(g.icon)}</span>${escHtml(g.name)}<button class="btn small" type="button" data-edg="${escHtml(g.id)}">修改群組</button></div>
+      <div class="cman">${catsOfGroup(g.id).map((c) => `<button type="button" data-edc="${escHtml(c.id)}"><span class="ico">${ic(c.icon)}</span><span>${escHtml(c.name)}</span></button>`).join('')}
         <button type="button" class="add" data-addc="${escHtml(g.id)}"><span class="ico">＋</span><span>新增分類</span></button></div></div>`).join('') +
       '<button class="btn block" type="button" id="addGroup">＋ 新增群組</button><p class="hint">群組係記一筆畫面頂嗰排 tab，亦係圖表甜甜圈嘅分組。撳分類可以改名、換圖示、搬去其他群組，或者刪除（舊記錄可以併入其他分類）。</p>';
   }
@@ -1589,10 +2079,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     // Prefix text that Excel would run as a formula (=, +, -, @).
     const esc = (v) => { let s = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const TYPE = { exp: '支出', inc: '收入', tr: '轉帳' };
-    const rows = [['日期', '類型', '群組', '分類', '金額', '帳戶', '轉入帳戶', '備註']];
+    const rows = [['日期', '類型', '群組', '分類', '金額', '帳戶', '轉入帳戶', '備註', '報銷', '借出對象', '收據張數']];
     list.forEach((t) => {
       const c = catOf(t);
-      rows.push([t.date, TYPE[t.type], t.type === 'tr' ? '' : (G[c.group] || { name: '' }).name, t.type === 'tr' ? '' : c.name, t.type === 'exp' ? -t.amt : t.amt, accOf(t.acc).name, t.to ? accOf(t.to).name : '', t.note]);
+      rows.push([t.date, TYPE[t.type], t.type === 'tr' ? '' : (G[c.group] || { name: '' }).name, t.type === 'tr' ? '' : c.name, t.type === 'exp' ? -t.amt : t.amt, accOf(t.acc).name, t.to ? accOf(t.to).name : '', t.note,
+        t.claim === 'pending' ? '待報銷' : t.claim === 'done' ? `已報銷 ${t.claimed || ''}`.trim() : t.reimb ? '報銷入帳' : '', t.person || '', (t.photos || []).length || '']);
     });
     const r = download(`ledger_${prefix || 'all'}_${today()}.csv`, '\uFEFF' + rows.map((x) => x.map(esc).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
     if (r.err) { setMsg(r.err, 'err'); return; }
@@ -1600,19 +2091,31 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   }
   $('#csvMonth').addEventListener('click', () => exportCsv(thisMonth(), '今個月'));
   $('#csvAll').addEventListener('click', () => exportCsv('', ''));
-  $('#exportJson').addEventListener('click', () => {
-    const r = download(`ledger_backup_${today()}.json`, JSON.stringify(state), 'application/json');
+  $('#exportJson').addEventListener('click', async () => {
+    setMsg('準備緊備份…');
+    const receipts = {};
+    for (const id of new Set(state.tx.flatMap((t) => t.photos || []))) {
+      try { const b = await photoGet(id); if (b) receipts[id] = await blobToDataUrl(b); } catch (e) { /* missing photo */ }
+    }
+    const n = Object.keys(receipts).length;
+    const r = download(`ledger_backup_${today()}.json`, JSON.stringify(Object.assign({}, state, { receipts })), 'application/json');
     if (r.err) { setMsg(r.err, 'err'); return; }
-    setMsg(`${r.where || '已下載備份。'}換手機或者清咗瀏覽器之後，可以用「匯入備份」攞返`, 'ok');
+    setMsg(`${r.where || '已下載備份。'}${n ? `包括 ${n} 張收據相片。` : ''}換手機或者清咗瀏覽器之後，可以用「匯入備份」攞返`, 'ok');
   });
-  let pendingImport = null;
+  let pendingImport = null, pendingReceipts = {};
   $('#importBtn').addEventListener('click', () => $('#importFile').click());
   $('#importFile').addEventListener('change', async (e) => {
     const file = e.target.files[0]; e.target.value = '';
     if (!file) return;
     try {
-      if (file.size > 20e6) throw new Error('big');
-      pendingImport = clean(JSON.parse(await file.text()));
+      if (file.size > 300e6) throw new Error('big');
+      const raw = JSON.parse(await file.text());
+      pendingImport = clean(raw);
+      pendingReceipts = {};
+      if (raw.receipts && typeof raw.receipts === 'object') {
+        const want = new Set(pendingImport.tx.flatMap((t) => t.photos || []));
+        Object.keys(raw.receipts).forEach((id) => { const v = raw.receipts[id]; if (want.has(id) && typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(v) && v.length < 15e6) pendingReceipts[id] = v; });
+      }
       $('#importText').textContent = `備份有 ${pendingImport.tx.length} 筆記錄、${pendingImport.accounts.length} 個帳戶。匯入會取代而家嘅 ${state.tx.length} 筆記錄。`;
       $('#importConfirm').hidden = false; setMsg('');
     } catch (err) { pendingImport = null; $('#importConfirm').hidden = true; setMsg('呢個檔案唔係本 App 嘅備份 JSON，請揀「備份 JSON」下載嘅檔案', 'err'); }
@@ -1620,11 +2123,18 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('#importGo').addEventListener('click', () => {
     if (!pendingImport) return;
     state = Object.assign(pendingImport, { sample: false }); pendingImport = null;
+    const rec = pendingReceipts; pendingReceipts = {};
     $('#importConfirm').hidden = true; save(); render(); setMsg(`已匯入 ${state.tx.length} 筆記錄`, 'ok');
+    (async () => {
+      let n = 0;
+      for (const id of Object.keys(rec)) { try { await photoPut(id, dataUrlToBlob(rec[id])); n++; } catch (e) { /* skip a bad photo */ } }
+      await gcPhotos();
+      if (n) setMsg(`已匯入 ${state.tx.length} 筆記錄同 ${n} 張收據相片`, 'ok');
+    })();
   });
   $('#importCancel').addEventListener('click', () => { pendingImport = null; $('#importConfirm').hidden = true; });
   armable($('#clearAll'), '再撳一次：真係全部清除', () => {
-    state = defaults(); save(); ui.filter = null; render(); flash('已清除全部資料');
+    state = defaults(); save(); ui.filter = null; render(); gcPhotos(); flash('已清除全部資料');
   });
   $('#loadSample').addEventListener('click', () => {
     if (state.tx.length && !state.sample) { flash('你已經有自己嘅記錄，唔會載入示範資料'); return; }
@@ -1654,6 +2164,13 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       if (d.getDate() === 1) { add(iso, 'inc', 'c_salary', 20000, acc('a_fps'), '示範人工'); add(iso, 'tr', '', 500, acc('a_fps'), '八達通增值', acc('a_octopus')); }
       if (d.getDate() === 5) { add(iso, 'exp', 'c_netflix', 78, acc('a_card'), ''); add(iso, 'exp', 'c_phone', 168, acc('a_card'), ''); }
       if (d.getDate() === 20) add(iso, 'tr', '', 1500, acc('a_fps'), '還卡數', acc('a_card'));
+      if (d.getDate() === 9 && rnd() < .7) { add(iso, 'exp', 'c_taxi', 60 + Math.round(rnd() * 80), acc('a_payme'), '外展的士（示範）'); tx[tx.length - 1].claim = 'pending'; }
+    }
+    if (A.a_lend && tx.length > 40) {
+      const d1 = tx[tx.length - 30].date, d2 = tx[tx.length - 10].date;
+      add(d1, 'tr', '', 500, acc('a_fps'), '借俾 阿明（示範）', 'a_lend'); tx[tx.length - 1].person = '阿明';
+      add(d2, 'tr', '', 200, 'a_lend', '阿明 還錢（示範）', acc('a_fps')); tx[tx.length - 1].person = '阿明';
+      add(d2, 'tr', '', 120, acc('a_cash'), '幫 Mandy 俾飯錢（示範）', 'a_lend'); tx[tx.length - 1].person = 'Mandy';
     }
     state.tx = tx; state.sample = true;
   }
@@ -1713,6 +2230,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   window.__autoOpen = () => {
     let a = '';
     try { a = bridge ? bridge.takeLaunchAction() : ''; } catch (e) { /* older app */ }
+    if (a) console.info(`[ledger] open ${a}`);
+    if (a === 'new-exp' || a === 'new-inc') { quickEntry(a === 'new-inc' ? 'inc' : 'exp'); return; }
     if (a !== 'inbox') return;
     syncAuto();
     if (inbox.length && !isOpen('inbox')) { setTab('book'); renderInbox(); openLayer($('#inbox')); }
@@ -1724,7 +2243,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     $('#inboxBody').innerHTML = inbox.map((p) => {
       const t = autoTx(p, '');
       const c = catOf(t);
-      return `<div class="card pend"><div class="row"><span class="bubble ico">${escHtml(c.icon)}</span>
+      return `<div class="card pend"><div class="row"><span class="bubble ico">${ic(c.icon)}</span>
         <span class="txt"><span class="t1">${escHtml(t.note || p.app || '付款')}</span><span class="t2">${escHtml(p.app || '')} · ${escHtml(dayLabel(t.date))}</span><span class="t2">記入 ${escHtml(accOf(t.acc).name)}／${escHtml(c.name)}</span></span>
         <span class="amt ${t.type === 'inc' ? 'inc' : ''}">${t.type === 'inc' ? money(t.amt, true) : money(-t.amt)}</span></div>
         <div class="btns"><button class="btn small" type="button" data-pskip="${escHtml(p.id)}">略過</button><button class="btn small" type="button" data-pedit="${escHtml(p.id)}">修改</button><button class="btn small primary" type="button" data-pok="${escHtml(p.id)}">記低</button></div></div>`;
@@ -1818,7 +2337,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     $('#budget').value = state.budget || '';
     let kb = 0;
     try { kb = ((localStorage.getItem(KEY) || '').length * 2) / 1024; } catch (e) { /* storage blocked */ }
-    $('#storageInfo').textContent = `而家有 ${state.tx.length} 筆記錄，大約用咗 ${kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB'} 儲存空間（瀏覽器一般俾大約 5 MB，實際上限視乎手機同瀏覽器）。`;
+    const nPhotos = state.tx.reduce((a, t) => a + (t.photos ? t.photos.length : 0), 0);
+    $('#storageInfo').textContent = `${nPhotos ? `收據相片 ${nPhotos} 張另外儲存。` : ''}而家有 ${state.tx.length} 筆記錄，大約用咗 ${kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB'} 儲存空間（瀏覽器一般俾大約 5 MB，實際上限視乎手機同瀏覽器）。`;
   }
   function render() {
     reindex();
@@ -1831,6 +2351,12 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (isOpen('catman')) renderCatman();
     if (isOpen('autoPage')) renderAuto();
     if (isOpen('recurPage')) renderRecur();
+    if (isOpen('claimPage')) renderClaim();
+    if (isOpen('loanPage')) renderLoans();
+    const pc = state.tx.filter((t) => t.claim === 'pending');
+    $('#claimRowSub').textContent = pc.length ? `待報銷 ${money(pc.reduce((a, t) => a + t.amt, 0))}（${pc.length} 筆）` : '標咗「報銷」嘅支出，報完標已報銷';
+    const owed = loanBalances().filter((x) => x.bal > 0.004);
+    $('#loanRowSub').textContent = owed.length ? `${owed.length} 個人未還，共 ${money(owed.reduce((a, x) => a + x.bal, 0))}` : '邊個借咗幾多、還咗幾多';
     $('#recurRowSub').textContent = state.recur.length ? `${state.recur.length} 項・每月 Netflix、租金、保險、分期… 到期自動記低` : '每月 Netflix、租金、保險、分期… 到期自動記低';
     if (isOpen('inbox')) renderInbox();
     $('#inboxBar').hidden = ui.tab !== 'book' || !inbox.length;
@@ -1871,11 +2397,16 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   // A reload while a page was open leaves a stale history entry; start clean.
   if (history.state && history.state.ledgerLayer) history.replaceState(null, '');
+  iconify(document);
   reindex();
-  runRecurring();
+  if (!runRecurring() && state.tx.length) save(); // also stores upgrades made while loading (e.g. new default categories)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runRecurring()) render(); });
   render();
   if (bridge) { pushConfig(); syncAuto(); window.__autoOpen(); }
+  gcPhotos();
+  // Home-screen shortcuts of the installed web app open ./?new=exp or ./?new=inc.
+  const launchNew = new URLSearchParams(location.search).get('new');
+  if (launchNew === 'exp' || launchNew === 'inc') { history.replaceState(history.state, '', location.pathname); quickEntry(launchNew); }
 })();
 </script>
 </body>
