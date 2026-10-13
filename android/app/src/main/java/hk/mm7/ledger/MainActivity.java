@@ -64,6 +64,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         Notifier.ensureChannel(this);
         ReceiptProvider.cleanup(this);
+        ChallengeReminder.schedule(this);
         readLaunch(getIntent());
 
         web = new WebView(this);
@@ -153,7 +154,7 @@ public class MainActivity extends Activity {
     /** "inbox" from a captured-payment notification; "new-exp" / "inbox" from the app shortcuts. */
     private void readLaunch(Intent i) {
         String a = i == null ? null : i.getStringExtra(EXTRA_OPEN);
-        if ("inbox".equals(a) || "new-exp".equals(a) || "new-inc".equals(a)) launchAction = a;
+        if ("inbox".equals(a) || "new-exp".equals(a) || "new-inc".equals(a) || "challenge".equals(a)) launchAction = a;
     }
 
     @Override
@@ -341,6 +342,19 @@ public class MainActivity extends Activity {
             } catch (JSONException ignored) {
                 // cannot happen with literal values
             }
+        }
+
+        @JavascriptInterface
+        public void setChallenge(String json) {
+            Store.get(MainActivity.this).setChallenge(json);
+            ChallengeReminder.schedule(MainActivity.this);
+        }
+
+        /** Shows this month's challenge reminder now, so the user can see what it looks like. */
+        @JavascriptInterface
+        public boolean testChallengeReminder() {
+            Challenge ch = Store.get(MainActivity.this).challenge();
+            return ch != null && ch.on && ChallengeReminder.notifyMonth(MainActivity.this, ch, java.time.YearMonth.now());
         }
 
         @JavascriptInterface

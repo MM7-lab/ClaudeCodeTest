@@ -244,6 +244,21 @@ input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0
 .prow:last-child{border-bottom:0}
 .prow .row{padding:0;border:0}
 .prow .btns{justify-content:flex-end}
+.ch-hero{display:flex;gap:14px;align-items:center}
+.ch-big{font-size:44px;width:56px;height:56px;display:grid;place-items:center;flex:none}
+.ch-big img.emo{width:52px;height:52px}
+.ch-day{font-size:22px;font-weight:700}
+.ch-day b{font:700 30px/1.1 var(--f-num);color:var(--brand)}
+.ch-table{display:flex;flex-direction:column}
+.ch-row{display:grid;grid-template-columns:minmax(0,1.3fr) 1fr 1fr minmax(0,.9fr);gap:8px;padding:8px 4px;border-bottom:1px solid var(--rule);font-size:14px;align-items:center}
+.ch-row:last-child{border-bottom:0}
+.ch-row small{display:block;color:var(--muted);font-size:11px}
+.ch-row .num{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.ch-row span:last-child{text-align:right;font-size:13px}
+.ch-row .ok{color:var(--good);font-weight:700}
+.ch-row .bad{color:var(--bad)}
+.ch-row.ch-head{font-size:12px;color:var(--muted);padding-top:0}
+.ch-row.cur{background:var(--brand-soft);border-radius:10px}
 .sticky-actions{position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px;display:flex;flex-direction:column;gap:8px}
 .rrow{display:flex;align-items:center;gap:10px;padding:0 12px 0 0;border-bottom:1px solid var(--rule)}
 .rrow:last-child{border-bottom:0}
@@ -380,6 +395,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <div class="txt"><img src="icon-192.png" alt=""><p><b>裝落手機，當 App 咁用</b><span id="installHow">有自己嘅圖示，冇網絡都用得。</span></p></div>
       <div class="btns"><button class="btn small primary" type="button" id="installBtn" hidden>安裝</button><button class="btn small" type="button" id="installLater">遲啲先</button></div>
     </div>
+    <button type="button" class="note-bar inbox-bar" id="chalBar" hidden><span>🐷 <span id="chalBarText"></span></span><span>存錢 ›</span></button>
     <button type="button" class="note-bar inbox-bar" id="inboxBar" hidden><span>🔔 <span id="inboxText"></span></span><span>查看 ›</span></button>
     <div class="note-bar" id="sampleNote" hidden><span>而家顯示緊示範資料，唔係你嘅真實記錄。記第一筆嗰陣會自動清走。</span><button class="btn small" type="button" id="clearSample">清除示範資料</button></div>
     <div class="card">
@@ -443,6 +459,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     <div class="menu">
       <button type="button" class="row" id="openCats"><span class="bubble">🗂️</span><span class="txt"><span class="t1">分類管理</span><span class="t2">新增、改名、換圖示、合併分類同群組</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openAuto"><span class="bubble">🔔</span><span class="txt"><span class="t1">自動記帳</span><span class="t2" id="autoRowSub">讀取八達通、PayMe、信用卡付款通知，一撳記低</span></span><span class="go">›</span></button>
+      <button type="button" class="row" id="openChal"><span class="bubble">🐷</span><span class="txt"><span class="t1">365 日儲錢挑戰</span><span class="t2" id="chalRowSub">第 1 日存 $730，每日少 $2，一年存 $133,590</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openRecur"><span class="bubble">🔁</span><span class="txt"><span class="t1">定期記帳</span><span class="t2" id="recurRowSub">每月 Netflix、租金、保險、分期… 到期自動記低</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openClaim"><span class="bubble">🧾</span><span class="txt"><span class="t1">公數報銷</span><span class="t2" id="claimRowSub">標咗「報銷」嘅支出，報完標已報銷</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openLoan"><span class="bubble">🤝</span><span class="txt"><span class="t1">借出追蹤</span><span class="t2" id="loanRowSub">邊個借咗幾多、還咗幾多</span></span><span class="go">›</span></button>
@@ -532,6 +549,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <label>期數 <select id="recurCount"></select></label>
       <label id="recurPausedWrap"><input type="checkbox" id="recurPaused">暫停</label>
     </div>
+    <div class="tool-detail" id="chalNote" hidden><span class="what">🐷 計入 365 日儲錢挑戰</span></div>
     <div class="tool-detail" id="loanBar" hidden><span class="what" id="loanWhat"></span><button type="button" id="loanEdit">改</button></div>
     <div class="tool-detail" id="photoBar" hidden><div class="thumbs" id="photoThumbs"></div></div>
     <button type="button" class="kk op acc" id="kAcc" aria-label="揀帳戶"><span class="ico" id="kAccIcon"></span><span id="kAccName"></span></button>
@@ -667,6 +685,15 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   <div class="page-body"><img id="photoBig" alt="收據相片"></div>
 </div>
 
+<!-- 365 日儲錢挑戰 -->
+<div class="layer page" id="chalPage" role="dialog" aria-modal="true" aria-label="365 日儲錢挑戰" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="返回"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2>365 日儲錢挑戰</h2>
+  </div>
+  <div class="page-body"><div class="stack" id="chalBody"></div></div>
+</div>
+
 <!-- 定期記帳 -->
 <div class="layer page" id="recurPage" role="dialog" aria-modal="true" aria-label="定期記帳" hidden>
   <div class="page-bar">
@@ -797,6 +824,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       // Monthly repeats: {id, type, amt, cat, acc, to, note, start (first date), count (0 = no end), done, last (YYYY-MM), paused}
       recur: [],
       lendAcc: 'a_lend', claimInStats: false, catVer: 2,
+      chal: { on: false, dir: 'down', start: `${new Date().getFullYear()}-01-01`, unit: 2, days: 365, acc: '', from: '', before: 0, remindDay: 1 },
     };
   }
 
@@ -825,6 +853,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         ...(Array.isArray(t.photos) && t.photos.some(okId) ? { photos: t.photos.filter(okId).slice(0, 5) } : {}),
         ...(t.type === 'tr' && str(t.person, 30) ? { person: str(t.person, 30) } : {}),
         ...(t.type === 'inc' && t.reimb === true ? { reimb: true } : {}),
+        ...(t.type === 'tr' && t.chal === true ? { chal: true } : {}),
       }));
     const seenR = new Set();
     s.recur = (Array.isArray(d.recur) ? d.recur : []).filter((r) => r && okId(r.id) && !seenR.has(r.id) && seenR.add(r.id) && ['exp', 'inc', 'tr'].includes(r.type)
@@ -849,6 +878,15 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     s.claimInStats = d.claimInStats === true;
     if (!(d.catVer >= 2) && Array.isArray(d.groups)) upgradeCats(s);
     s.catVer = 2;
+    const ch = d.chal && typeof d.chal === 'object' ? d.chal : {};
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ch.start)) s.chal.start = ch.start;
+    s.chal.on = ch.on === true;
+    s.chal.dir = ch.dir === 'up' ? 'up' : 'down';
+    if (num(ch.unit) > 0 && num(ch.unit) <= 1000) s.chal.unit = round2(ch.unit);
+    s.chal.acc = aIds.has(ch.acc) ? ch.acc : '';
+    s.chal.from = aIds.has(ch.from) ? ch.from : '';
+    s.chal.before = Math.max(0, round2(num(ch.before)));
+    s.chal.remindDay = Math.min(28, Math.max(1, Math.round(num(ch.remindDay) || 1)));
     const au = d.auto && typeof d.auto === 'object' ? d.auto : {};
     s.auto = { mode: au.mode === 'auto' ? 'auto' : 'confirm', sources: {} };
     if (au.sources && typeof au.sources === 'object') {
@@ -1028,6 +1066,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       cls = t.type === 'inc' ? 'inc' : ''; amt = t.type === 'inc' ? money(t.amt, true) : money(-t.amt);
     }
     if (t.rid) t2 = '🔁 ' + t2;
+    if (t.chal) t2 = '🐷 ' + t2;
     if (t.photos && t.photos.length) t2 = '📎 ' + t2;
     const tag = t.claim === 'pending' ? '<span class="tag warn">待報銷</span>' : t.claim === 'done' ? '<span class="tag">已報銷</span>' : t.reimb ? '<span class="tag">報銷入帳</span>' : t.person ? `<span class="tag">🤝 ${escHtml(t.person)}</span>` : '';
     return `<button type="button" class="row" data-tx="${escHtml(t.id)}">
@@ -1284,7 +1323,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   function openEntry(t, fromPending) {
     E.fromPending = fromPending || null;
-    Object.assign(E, { recur: false, recurId: null, recurCount: 0, recurPaused: false, claim: (t && t.claim) || '', photos: t && t.photos ? t.photos.slice() : [], person: (t && t.person) || '', autoNote: false });
+    Object.assign(E, { recur: false, recurId: null, recurCount: 0, recurPaused: false, chal: !!(t && t.chal), claim: (t && t.claim) || '', photos: t && t.photos ? t.photos.slice() : [], person: (t && t.person) || '', autoNote: false });
     E.loanDir = E.person ? (t.to === state.lendAcc ? 'out' : 'back') : '';
     if (t) Object.assign(E, { editing: t.id, type: t.type, cat: t.cat, acc: t.acc, to: t.to || otherAcc(t.acc), date: t.date, expr: String(t.amt), note: t.note });
     else {
@@ -1318,6 +1357,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     $('#loanBtn').setAttribute('aria-pressed', String(!!E.person));
     $('#loanLabel').textContent = E.person ? (E.loanDir === 'back' ? `${E.person} 還` : `借俾 ${E.person}`) : '借出';
     $('#loanBar').hidden = !E.person;
+    $('#chalNote').hidden = !(E.type === 'tr' && (E.chal || (chOn() && E.to === state.chal.acc)));
     if (E.person) $('#loanWhat').textContent = E.loanDir === 'back' ? `🤝 ${E.person} 還錢：由「${accOf(state.lendAcc).name}」轉返入「${accOf(E.to).name}」` : `🤝 借俾 ${E.person}：由「${accOf(E.acc).name}」轉去「${accOf(state.lendAcc).name}」，唔計支出`;
     if (E.recur) {
       const day = +E.date.slice(8);
@@ -1450,6 +1490,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (t.type === 'exp' && E.claim) { t.claim = E.claim; t.claimed = E.claim === 'done' && old ? old.claimed || '' : ''; }
     if (E.photos.length) t.photos = E.photos.slice(0, 5);
     if (t.type === 'tr' && E.person) t.person = E.person;
+    // Any transfer into the challenge's savings account counts towards it.
+    if (t.type === 'tr' && (E.chal || (chOn() && t.to === state.chal.acc))) t.chal = true;
     if (old && old.reimb) t.reimb = true;
     if (old && old.photos) photoDel(old.photos.filter((id) => !E.photos.includes(id))).catch(() => {});
     // Turning an existing record into a monthly repeat: this record is the first instalment.
@@ -2180,6 +2222,184 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   // (id "n_" + capture id, so nothing is imported twice) and lists unconfirmed ones in 待確認.
   let inbox = [];
   const validPending = (p) => p && typeof p === 'object' && /^[A-Za-z0-9_-]{1,36}$/.test(p.id) && +p.amt > 0 && +p.amt < 1e9 && typeof p.pkg === 'string';
+  // ---------- 365 日儲錢挑戰 ----------
+  // Counting down (default): day 1 saves 365 × unit, day 2 saves 364 × unit … day 365 saves 1 × unit.
+  // Counting up: day n saves n × unit. Money goes in as transfers flagged `chal`
+  // into the savings account, plus whatever was saved before the app was used (`before`).
+  const CH_DAY = 864e5;
+  const chOn = () => !!(state.chal && state.chal.on);
+  function chDay(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const [sy, sm, sd] = state.chal.start.split('-').map(Number);
+    return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(sy, sm - 1, sd)) / CH_DAY) + 1;
+  }
+  const chClamp = (n) => Math.max(0, Math.min(state.chal.days, n));
+  // How many units day d saves.
+  const chUnits = (d) => (state.chal.dir === 'up' ? d : state.chal.days + 1 - d);
+  // Needed from day a to day b inclusive (an arithmetic series).
+  function chNeed(a, b) {
+    a = Math.max(1, a); b = chClamp(b);
+    return b < a ? 0 : state.chal.unit * (chUnits(a) + chUnits(b)) * (b - a + 1) / 2;
+  }
+  const lastOfMonth = (ym) => `${ym}-${pad(daysIn(ym))}`;
+  function chMonths() {
+    const out = [];
+    let ym = state.chal.start.slice(0, 7);
+    for (let i = 0; i < 40; i++) {
+      const a = Math.max(1, chDay(`${ym}-01`)), b = chClamp(chDay(lastOfMonth(ym)));
+      if (a > state.chal.days) break;
+      out.push({ ym, a, b, need: chNeed(a, b) });
+      ym = shiftMonth(ym, 1);
+    }
+    return out;
+  }
+  // Saved per month: flagged transfers in that month, then the pre-app amount fills the earliest months first.
+  function chSaved() {
+    const c = state.chal;
+    const tx = state.tx.filter((t) => t.chal && t.type === 'tr' && t.date >= c.start);
+    const byMonth = {};
+    tx.forEach((t) => { const k = t.date.slice(0, 7); byMonth[k] = (byMonth[k] || 0) + (t.to === c.acc ? t.amt : -t.amt); });
+    let pool = c.before || 0;
+    const months = chMonths().map((m) => {
+      let saved = byMonth[m.ym] || 0;
+      if (pool > 0 && saved < m.need) { const add = Math.min(pool, m.need - saved); saved += add; pool -= add; }
+      return Object.assign(m, { saved: round2(saved) });
+    });
+    const total = round2((c.before || 0) + tx.reduce((a, t) => a + (t.to === c.acc ? t.amt : -t.amt), 0));
+    return { months, total };
+  }
+  function chStatus() {
+    const n = chDay(today());
+    const day = chClamp(n);
+    const { months, total } = chSaved();
+    const cur = months.find((m) => m.ym === thisMonth()) || null;
+    return { n, day, todayAmt: n >= 1 && n <= state.chal.days ? chUnits(n) * state.chal.unit : 0, needToday: chNeed(1, day), goal: chNeed(1, state.chal.days), total, months, cur };
+  }
+  function ensureSavingsAcc() {
+    if (A[state.chal.acc]) return state.chal.acc;
+    const a = { id: 'a_' + uid(), name: '365 儲錢戶口', icon: '🐷', init: 0, archived: false };
+    state.accounts.push(a);
+    state.chal.acc = a.id;
+    reindex();
+    return a.id;
+  }
+  function chSettings() {
+    const c = state.chal;
+    const accOpts = activeAccs().map((a) => [a.id, `${a.icon} ${a.name}`]);
+    const lastMonthEnd = isoDate(new Date(new Date().getFullYear(), new Date().getMonth(), 0));
+    openEditor({
+      title: '365 日儲錢挑戰設定',
+      fields: [
+        { key: 'start', type: 'text', label: '開始日期（YYYY-MM-DD）', value: c.start, max: 10, placeholder: '2026-01-01' },
+        { key: 'dir', type: 'select', label: '每日金額', value: c.dir === 'up' ? 'up' : 'down', options: [['down', '由大到細：第 1 日存 365 份，第 365 日存 1 份'], ['up', '由細到大：第 1 日存 1 份，第 365 日存 365 份']] },
+        { key: 'unit', type: 'number', label: '每份幾多錢（預設 $2）', value: c.unit },
+        { key: 'acc', type: 'select', label: '存入邊個戶口', value: A[c.acc] ? c.acc : '_new', options: [['_new', '🐷 開一個「365 儲錢戶口」']].concat(accOpts) },
+        { key: 'from', type: 'select', label: '通常由邊個戶口轉出', value: A[c.from] ? c.from : (activeAccs().find((a) => /銀行|fps/i.test(a.name)) || activeAccs()[0] || {}).id, options: accOpts },
+        { key: 'before', type: 'number', label: '用 App 之前已經存咗（App 冇記錄嘅部分）', value: c.before || 0, hint: `如果由開始到上個月底都存夠，撳下面「填之前月份已存夠」（${monthLabel(lastMonthEnd.slice(0, 7))}底前應存 ${money(chNeed(1, chDay(lastMonthEnd)))}）。` },
+        { key: 'remindDay', type: 'number', label: '每月幾號提醒（1–28，Android App 會彈通知）', value: c.remindDay || 1 },
+      ],
+      onSave(v) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v.start) || isNaN(new Date(v.start + 'T00:00:00'))) return '開始日期格式要係 YYYY-MM-DD';
+        const unit = round2(Number(v.unit));
+        if (!(unit > 0) || unit > 1000) return '每日倍數要大過 0';
+        Object.assign(c, { on: true, dir: v.dir === 'up' ? 'up' : 'down', start: v.start, unit, before: Math.max(0, round2(Number(v.before) || 0)), from: v.from, remindDay: Math.min(28, Math.max(1, Math.round(Number(v.remindDay) || 1))) });
+        if (v.acc === '_new' || !A[v.acc]) { c.acc = ''; ensureSavingsAcc(); } else c.acc = v.acc;
+        save(); pushChallenge();
+        flash('已儲存挑戰設定');
+      },
+      actions: [
+        { label: `填「之前月份已存夠」`, run() {
+          const start = $('#ed_start').value.trim();
+          const unit = Number($('#ed_unit').value) || c.unit;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return '先填好開始日期';
+          const keep = { start: c.start, unit: c.unit, dir: c.dir };
+          Object.assign(c, { start, unit, dir: $('#ed_dir').value === 'up' ? 'up' : 'down' });
+          const flagged = state.tx.filter((t) => t.chal && t.type === 'tr' && t.date >= start && t.date <= lastMonthEnd).reduce((a, t) => a + (t.to === c.acc ? t.amt : -t.amt), 0);
+          const need = chNeed(1, chDay(lastMonthEnd));
+          Object.assign(c, keep);
+          $('#ed_before').value = String(Math.max(0, round2(need - flagged)));
+          return '';
+        } },
+        ...(c.on ? [{ label: '停止挑戰', danger: true, confirm: '再撳一次停止', run() { c.on = false; save(); pushChallenge(); closeLayer(); render(); flash('已停止挑戰，記錄會保留'); } }] : []),
+      ],
+    });
+  }
+  function chDeposit(amount, label) {
+    const c = state.chal;
+    const acc = ensureSavingsAcc();
+    openEntry(null);
+    const from = A[c.from] && c.from !== acc ? c.from : (activeAccs().find((a) => a.id !== acc) || {}).id;
+    Object.assign(E, { type: 'tr', acc: from, to: acc, expr: amount > 0 ? String(round2(amount)) : '', note: `365 日挑戰：${label}`, chal: true });
+    renderEntry();
+  }
+  function renderChal() {
+    const body = $('#chalBody');
+    if (!chOn()) {
+      body.innerHTML = `<div class="card stack"><div class="ch-hero"><span class="ch-big">🐷</span><div><h3 style="margin:0">365 日儲錢挑戰</h3><p class="hint">第 1 日存 $730、第 2 日存 $728……第 365 日存 $2，一年存夠 ${money(365 * 366)}。可以改做由細到大，或者改每份金額。</p></div></div>
+        <button class="btn primary block" type="button" id="chalStart">開始／設定挑戰</button></div>`;
+      iconify(body);
+      return;
+    }
+    const st = chStatus();
+    const c = state.chal;
+    const diff = round2(st.total - st.needToday);
+    const pct = st.goal ? Math.min(100, st.total / st.goal * 100) : 0;
+    const chip = diff > 0.004 ? `<span class="tag">超前 ${money(diff)}</span>` : diff < -0.004 ? `<span class="tag warn">落後 ${money(-diff)}</span>` : '<span class="tag">啱啱好</span>';
+    const cur = st.cur;
+    const curLeft = cur ? round2(Math.max(0, cur.need - cur.saved)) : 0;
+    const dayText = st.n < 1 ? `${shortDate(c.start)} 開始` : st.n > c.days ? '挑戰已完成日數' : `第 <b>${st.n}</b> / ${c.days} 日`;
+    body.innerHTML = `<div class="card stack">
+        <div class="ch-hero"><span class="ch-big">🐷</span><div style="min-width:0"><div class="ch-day">${dayText}</div>
+          <div class="hint">${st.todayAmt ? `今日要存 ${money(st.todayAmt)}` : ''}</div></div></div>
+        <div class="sum3"><div><span class="k">已存</span><span class="v">${money(st.total)}</span></div>
+          <div><span class="k">到今日應存</span><span class="v">${money(st.needToday)}</span></div>
+          <div><span class="k">狀態</span><span class="v" style="font-size:14px">${chip}</span></div></div>
+        <div class="budget"><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+          <div class="line"><span>全年目標 ${money(st.goal)}</span><span>完成 ${pct.toFixed(1)}%</span></div></div>
+      </div>
+      ${cur ? `<div class="card stack"><h2>${monthLabel(cur.ym)}（第 ${cur.a}–${cur.b} 日）</h2>
+        <div class="sum3"><div><span class="k">今個月要存</span><span class="v">${money(cur.need)}</span></div>
+          <div><span class="k">已存</span><span class="v">${money(cur.saved)}</span></div>
+          <div><span class="k">仲差</span><span class="v${curLeft ? ' amt neg' : ''}">${money(curLeft)}</span></div></div>
+        <div class="btns">${curLeft ? `<button class="btn primary" type="button" id="chalMonth">存入仲差嘅 ${money(curLeft)}</button>` : '<span class="tag">✓ 今個月已存夠</span>'}${st.todayAmt ? `<button class="btn" type="button" id="chalToday">只存今日 ${money(st.todayAmt)}</button>` : ''}</div></div>` : ''}
+      <div class="card"><h2>逐月</h2><div class="ch-table"><div class="ch-row ch-head"><span>月份</span><span class="num">要存</span><span class="num">已存</span><span></span></div>${st.months.map((m) => {
+        const done = m.saved >= m.need - 0.004;
+        const mark = done ? '✓' : m.ym < thisMonth() ? `差 ${money(m.need - m.saved)}` : m.ym === thisMonth() ? '進行中' : '';
+        return `<div class="ch-row${m.ym === thisMonth() ? ' cur' : ''}"><span>${+m.ym.slice(5)}月<small>第 ${m.a}–${m.b} 日</small></span><span class="num">${money(m.need)}</span><span class="num">${money(m.saved)}</span><span class="${done ? 'ok' : m.ym < thisMonth() ? 'bad' : ''}">${mark}</span></div>`;
+      }).join('')}</div></div>
+      <div class="btns"><button class="btn" type="button" id="chalSet">設定</button>${bridge && bridge.testChallengeReminder ? '<button class="btn" type="button" id="chalTest">試吓每月提醒</button>' : ''}</div>
+      <p class="hint">存入係由「${escHtml(accOf(c.from).name)}」轉去「${escHtml(accOf(c.acc).name)}」嘅轉帳，唔計支出。${bridge ? `每月 ${c.remindDay || 1} 號朝早 9 點會彈通知提你今個月要存幾多。` : '網頁版冇背景通知；記帳本頂會顯示今個月仲差幾多，直至存夠。用 Android App 先有每月通知。'}</p>`;
+    iconify(body);
+  }
+  $('#chalBody').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.closest('#chalStart') || t.closest('#chalSet')) { chSettings(); return; }
+    if (t.closest('#chalTest')) { flash(bridge.testChallengeReminder() ? '已彈今個月嘅提醒，睇吓通知欄' : '彈唔到通知：請喺「更多 → 自動記帳」開啟通知'); return; }
+    const st = chOn() ? chStatus() : null;
+    if (!st) return;
+    if (t.closest('#chalMonth') && st.cur) chDeposit(st.cur.need - st.cur.saved, monthLabel(st.cur.ym));
+    if (t.closest('#chalToday')) chDeposit(st.todayAmt, `第 ${st.n} 日`);
+  });
+  $('#openChal').addEventListener('click', () => { renderChal(); openLayer($('#chalPage')); });
+  $('#chalBar').addEventListener('click', () => { renderChal(); openLayer($('#chalPage')); });
+  function renderChalBar() {
+    let show = false;
+    if (chOn() && ui.tab === 'book') {
+      const st = chStatus();
+      if (st.cur && st.cur.saved < st.cur.need - 0.004) {
+        show = true;
+        $('#chalBarText').textContent = `365 日挑戰第 ${st.n} 日：${monthLabel(st.cur.ym)}仲差 ${money(st.cur.need - st.cur.saved)}`;
+      }
+    }
+    $('#chalBar').hidden = !show;
+  }
+  // The Android app schedules the monthly reminder itself; it only needs the settings.
+  function pushChallenge() {
+    if (!bridge || !bridge.setChallenge) return;
+    const c = state.chal;
+    try { bridge.setChallenge(JSON.stringify({ on: !!c.on, dir: c.dir, start: c.start, unit: c.unit, days: c.days, remindDay: c.remindDay || 1 })); } catch (e) { /* older app */ }
+  }
+
   function pushConfig() {
     if (!bridge) return;
     const sources = {};
@@ -2232,6 +2452,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     try { a = bridge ? bridge.takeLaunchAction() : ''; } catch (e) { /* older app */ }
     if (a) console.info(`[ledger] open ${a}`);
     if (a === 'new-exp' || a === 'new-inc') { quickEntry(a === 'new-inc' ? 'inc' : 'exp'); return; }
+    if (a === 'challenge') { if (!isOpen('chalPage')) { renderChal(); openLayer($('#chalPage')); } return; }
     if (a !== 'inbox') return;
     syncAuto();
     if (inbox.length && !isOpen('inbox')) { setTab('book'); renderInbox(); openLayer($('#inbox')); }
@@ -2353,6 +2574,9 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (isOpen('recurPage')) renderRecur();
     if (isOpen('claimPage')) renderClaim();
     if (isOpen('loanPage')) renderLoans();
+    if (isOpen('chalPage')) renderChal();
+    renderChalBar();
+    if (chOn()) { const st = chStatus(); $('#chalRowSub').textContent = st.n >= 1 && st.n <= state.chal.days ? `第 ${st.n} 日 · 已存 ${money(st.total)} / 應存 ${money(st.needToday)}` : `已存 ${money(st.total)}`; }
     const pc = state.tx.filter((t) => t.claim === 'pending');
     $('#claimRowSub').textContent = pc.length ? `待報銷 ${money(pc.reduce((a, t) => a + t.amt, 0))}（${pc.length} 筆）` : '標咗「報銷」嘅支出，報完標已報銷';
     const owed = loanBalances().filter((x) => x.bal > 0.004);
@@ -2402,7 +2626,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   if (!runRecurring() && state.tx.length) save(); // also stores upgrades made while loading (e.g. new default categories)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runRecurring()) render(); });
   render();
-  if (bridge) { pushConfig(); syncAuto(); window.__autoOpen(); }
+  if (bridge) { pushConfig(); pushChallenge(); syncAuto(); window.__autoOpen(); }
   gcPhotos();
   // Home-screen shortcuts of the installed web app open ./?new=exp or ./?new=inc.
   const launchNew = new URLSearchParams(location.search).get('new');

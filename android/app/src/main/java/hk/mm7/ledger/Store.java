@@ -171,6 +171,27 @@ final class Store {
         return s == null || s.optBoolean("on", true);
     }
 
+    // ---- 365-day challenge settings pushed from the ledger: {on, dir, start, unit, days, remindDay} ----
+
+    synchronized void setChallenge(String json) {
+        try {
+            prefs.edit().putString("challenge", new JSONObject(json).toString()).apply();
+        } catch (JSONException ignored) {
+            // keep the previous settings
+        }
+    }
+
+    synchronized Challenge challenge() {
+        JSONObject o = readObject("challenge");
+        try {
+            return new Challenge(o.optBoolean("on"), !"up".equals(o.optString("dir")),
+                    java.time.LocalDate.parse(o.optString("start", "2026-01-01")),
+                    o.optDouble("unit", 2), o.optInt("days", 365), o.optInt("remindDay", 1));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     // ---- apps that have sent a payment-looking notification (no message text is kept) ----
 
     synchronized void noteSource(String pkg, String label, long ts) {

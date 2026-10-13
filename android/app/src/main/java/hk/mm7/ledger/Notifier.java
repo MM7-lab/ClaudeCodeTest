@@ -15,15 +15,23 @@ import java.text.DecimalFormat;
 /** The one-tap confirm notification shown when a payment is captured. */
 final class Notifier {
     static final String CHANNEL = "auto";
+    static final String REMINDER_CHANNEL = "reminder";
 
     private Notifier() {}
 
     static void ensureChannel(Context c) {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
-        if (nm == null || nm.getNotificationChannel(CHANNEL) != null) return;
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "自動記帳", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("偵測到付款時，一撳就記低");
-        nm.createNotificationChannel(ch);
+        if (nm == null) return;
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "自動記帳", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("偵測到付款時，一撳就記低");
+            nm.createNotificationChannel(ch);
+        }
+        if (nm.getNotificationChannel(REMINDER_CHANNEL) == null) {
+            NotificationChannel r = new NotificationChannel(REMINDER_CHANNEL, "儲錢提醒", NotificationManager.IMPORTANCE_DEFAULT);
+            r.setDescription("365 日儲錢挑戰：每月提你要存幾多");
+            nm.createNotificationChannel(r);
+        }
     }
 
     static int notifId(String id) {
