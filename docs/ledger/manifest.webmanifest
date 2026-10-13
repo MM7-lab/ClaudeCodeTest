@@ -1,0 +1,19 @@
+{
+  "name": "日常記帳",
+  "short_name": "記帳",
+  "description": "日常收支、帳戶餘額同圖表分析。所有資料只儲喺你部手機。",
+  "lang": "zh-HK",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F2F8",
+  "theme_color": "#6339B5",
+  "categories": ["finance"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

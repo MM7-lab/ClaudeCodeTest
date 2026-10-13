@@ -1,0 +1,1423 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6339B5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="記帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="icon-192.png">
+<title>日常記帳</title>
+<style>
+/* Layout: a phone ledger. Purple app bar, one view at a time, bottom tab bar, a floating "+" that opens a full-screen entry page with a calculator keypad. */
+:root{
+  --bg:#F4F2F8; --paper:#FFFFFF; --ink:#1E1A2B; --muted:#6B6580; --rule:#E6E2EE;
+  --bar:#6339B5; --bar-ink:#FFFFFF; --brand:#6339B5; --brand-fill:#6339B5; --brand-soft:rgba(99,57,181,.10); --brand-line:rgba(99,57,181,.35);
+  --keypad:#6339B5; --key:#FFFFFF; --key-op:#DCD1F2; --key-ink:#1E1A2B;
+  --good:#1D7F45; --bad:#C0392B; --bad-soft:rgba(192,57,43,.10);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948; --s-other:#9a98a0;
+  --shadow:0 1px 2px rgba(30,26,43,.05),0 6px 20px rgba(30,26,43,.06);
+  --f-ui:"PingFang HK","Noto Sans HK","Noto Sans CJK TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-num:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --tabbar-h:64px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14111C; --paper:#1D1928; --ink:#ECE8F5; --muted:#A39DB5; --rule:#2E2940;
+  --bar:#2A1F46; --bar-ink:#F1ECFF; --brand:#B79FF2; --brand-fill:#7451D0; --brand-soft:rgba(183,159,242,.14); --brand-line:rgba(183,159,242,.45);
+  --keypad:#2A1F46; --key:#2B2540; --key-op:#3D3358; --key-ink:#ECE8F5;
+  --good:#5FD08F; --bad:#FF8A7A; --bad-soft:rgba(255,138,122,.14);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --s-other:#7d7a85;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14111C; --paper:#1D1928; --ink:#ECE8F5; --muted:#A39DB5; --rule:#2E2940;
+  --bar:#2A1F46; --bar-ink:#F1ECFF; --brand:#B79FF2; --brand-fill:#7451D0; --brand-soft:rgba(183,159,242,.14); --brand-line:rgba(183,159,242,.45);
+  --keypad:#2A1F46; --key:#2B2540; --key-op:#3D3358; --key-ink:#ECE8F5;
+  --good:#5FD08F; --bad:#FF8A7A; --bad-soft:rgba(255,138,122,.14);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --s-other:#7d7a85;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;background:var(--bar)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-ui);min-height:100vh;min-height:100dvh}
+body.locked{overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.ico{display:inline-grid;place-items:center;flex:none;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* App bar */
+.appbar{position:sticky;top:0;z-index:5;background:var(--bar);color:var(--bar-ink);padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;display:flex;align-items:center;gap:8px;min-height:56px}
+.appbar h1{margin:0;font-size:20px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+.monthnav{display:flex;align-items:center;gap:0}
+.monthnav button,.icon-btn{border:0;background:transparent;color:inherit;border-radius:999px;min-width:40px;height:40px;display:grid;place-items:center;padding:0 6px}
+.monthnav .mlabel{font-size:16px;font-weight:600;padding:0 8px;white-space:nowrap}
+.monthnav button:hover,.icon-btn:hover{background:rgba(255,255,255,.14)}
+.icon-btn[aria-pressed="true"]{background:rgba(255,255,255,.22)}
+.searchbar{position:sticky;top:56px;z-index:4;background:var(--bar);padding:0 12px 10px;display:flex;gap:8px}
+.searchbar input{flex:1;min-width:0;border:0;border-radius:999px;padding:9px 14px;background:var(--paper);color:var(--ink)}
+.searchbar button{border:0;background:transparent;color:var(--bar-ink);font-weight:600}
+
+main{max-width:640px;margin-inline:auto;padding:12px 16px calc(var(--tabbar-h) + 96px + env(safe-area-inset-bottom,0px))}
+.view{display:flex;flex-direction:column;gap:12px}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:16px;box-shadow:var(--shadow);padding:14px 16px;min-width:0}
+.card h2{margin:0 0 8px;font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.btn{border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:12px;padding:10px 14px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--brand-line)}
+.btn.primary{background:var(--brand-fill);border-color:var(--brand-fill);color:#fff}
+.btn.block{width:100%}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--rule);background:var(--paper);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--brand-fill);color:#fff}
+
+/* Ledger */
+.sum3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sum3 div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sum3 .k{font-size:12px;color:var(--muted)}
+.sum3 .v{font:600 19px/1.25 var(--f-num);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.v.inc{color:var(--good)}
+.budget{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.bar{height:8px;border-radius:99px;background:var(--brand-soft);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--brand-fill);border-radius:99px}
+.bar.over > i{background:var(--bad)}
+.budget .line{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;border:1px solid var(--brand-line);background:var(--brand-soft);color:var(--brand);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:600}
+.chip button{border:0;background:transparent;color:inherit;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;padding:0}
+.day{background:var(--paper);border:1px solid var(--rule);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.day-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 16px 6px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--rule)}
+.day-head b{color:var(--ink);font-size:14px}
+.day-head .tot{display:flex;gap:10px;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;text-align:left;padding:10px 16px;border-bottom:1px solid var(--rule);color:var(--ink)}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--brand-soft)}
+.bubble{width:42px;height:42px;border-radius:14px;background:var(--brand-soft);display:grid;place-items:center;font-size:24px;flex:none}
+.row .txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.row .t1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .amt{font:600 16px/1.2 var(--f-num);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.amt.inc{color:var(--good)}
+.amt.tr{color:var(--muted)}
+.amt.neg{color:var(--bad)}
+.empty{padding:32px 12px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:12px;align-items:center}
+.empty .big{font-size:40px}
+.empty p{margin:0;max-width:30em}
+.note-bar{font-size:13px;color:var(--ink);border:1px dashed var(--brand-line);background:var(--brand-soft);border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+/* Wallet */
+.networth .big{font:700 30px/1.15 var(--f-num);font-variant-numeric:tabular-nums}
+.networth .sub{font-size:13px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+.list{background:var(--paper);border:1px solid var(--rule);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.list .row .amt{color:var(--muted);font-weight:500}
+.list .row.archived{opacity:.55}
+.list-label{font-size:13px;color:var(--muted);padding:4px 4px 0}
+.edit-mark{color:var(--brand);font-size:13px;font-weight:600}
+
+/* Charts */
+.controls{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.donut-wrap{position:relative;width:min(300px,calc(100% - 64px));aspect-ratio:1;margin:18px auto 14px}
+.donut-wrap svg{width:100%;height:100%;display:block;overflow:visible}
+.donut-wrap circle.seg-arc{cursor:pointer;transition:opacity .15s}
+.donut-wrap circle.seg-arc.dim{opacity:.25}
+.donut-center{position:absolute;inset:28%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;gap:2px}
+.donut-center .k{font-size:13px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.donut-center .v{font:700 20px/1.2 var(--f-num);font-variant-numeric:tabular-nums}
+.donut-center .p{font-size:12px;color:var(--muted)}
+.dlabel{position:absolute;transform:translate(-50%,-50%);background:var(--paper);border:1px solid var(--rule);box-shadow:var(--shadow);border-radius:999px;padding:2px 8px 2px 4px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:none}
+.dlabel .ico{font-size:16px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.legend button{border:1px solid var(--rule);background:var(--paper);border-radius:999px;padding:4px 10px;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--ink)}
+.legend button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft)}
+.dot{width:10px;height:10px;border-radius:3px;flex:none}
+.catrow{display:grid;grid-template-columns:42px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:12px;row-gap:4px;align-items:center;width:100%;border:0;background:transparent;text-align:left;padding:8px 0;border-bottom:1px solid var(--rule);color:var(--ink)}
+.catrow:last-child{border-bottom:0}
+.catrow .bubble{grid-row:1 / span 2}
+.catrow .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:8px;align-items:baseline}
+.catrow .nm small{color:var(--muted);font-weight:400;font-family:var(--f-num)}
+.catrow .amt{font:600 15px/1.2 var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
+.catrow .bar{grid-column:2 / span 2;height:6px;background:var(--rule)}
+.catrow:hover{background:var(--brand-soft)}
+.trend{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:22px;border-bottom:1px solid var(--rule)}
+.trend button{flex:1;min-width:0;height:100%;border:0;background:transparent;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
+.trend button i{display:block;width:min(28px,80%);background:var(--brand-line);border-radius:4px 4px 0 0;min-height:2px}
+.trend button.cur i{background:var(--brand-fill)}
+.trend button:hover i{background:var(--brand)}
+.trend button .lab{position:absolute;bottom:calc(var(--h) + 4px);font:600 11px/1 var(--f-num);color:var(--ink);white-space:nowrap}
+.trend-x{display:flex;gap:6px;margin-top:4px}
+.trend-x span{flex:1;min-width:0;text-align:center;font-size:11px;color:var(--muted)}
+.trend-x span.cur{color:var(--ink);font-weight:700}
+.caption{font-size:13px;color:var(--muted);margin-top:8px;min-height:1.5em}
+
+/* More */
+.menu{background:var(--paper);border:1px solid var(--rule);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.menu .row .go{color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);min-width:0}
+.field > span{font-weight:600}
+input[type=text],input[type=number],input[type=search],select{width:100%;border:1px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;color:var(--ink);min-width:0}
+input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+.msg{font-size:13px;color:var(--muted)}
+.msg:empty{display:none}
+.msg.ok{color:var(--good)}
+.msg.err{color:var(--bad)}
+.stack{display:flex;flex-direction:column;gap:10px}
+.install{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.install img{width:40px;height:40px;border-radius:10px;flex:none}
+.install .txt{display:flex;gap:12px;align-items:center;min-width:0;flex:1 1 14em}
+.install p{margin:0;font-size:13px}
+.install b{display:block;font-size:14px}
+
+/* FAB + tab bar */
+.fab{position:fixed;right:max(16px,calc(50% - 304px));bottom:calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:20px;border:0;background:var(--brand-fill);color:#fff;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(99,57,181,.4);z-index:6;display:grid;place-items:center}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--paper);border-top:1px solid var(--rule);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabbar button{border:0;background:transparent;height:var(--tabbar-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:12px}
+.tabbar button .ico{font-size:24px;filter:grayscale(.6);opacity:.8}
+.tabbar button[aria-current="page"]{color:var(--brand);font-weight:700}
+.tabbar button[aria-current="page"] .ico{filter:none;opacity:1}
+
+/* Layers: full pages and bottom sheets */
+.layer{position:fixed;inset:0;z-index:20}
+.layer.page{background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .22s ease}
+.layer.page.open{transform:none}
+.layer.sheet{display:flex;flex-direction:column;justify-content:flex-end}
+.layer.sheet .backdrop{position:absolute;inset:0;background:rgba(10,6,20,.45);opacity:0;transition:opacity .2s}
+.layer.sheet .panel{position:relative;background:var(--paper);border-radius:20px 20px 0 0;max-height:92vh;max-height:92dvh;overflow:auto;transform:translateY(100%);transition:transform .22s ease;padding-bottom:env(safe-area-inset-bottom,0px);width:100%;max-width:640px;margin-inline:auto}
+.layer.sheet.open .backdrop{opacity:1}
+.layer.sheet.open .panel{transform:none}
+.page-bar{background:var(--paper);display:flex;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 8px;border-bottom:1px solid var(--rule)}
+.page-bar h2{margin:0;font-size:18px;flex:1;padding-left:4px}
+.page-bar .icon-btn{color:var(--brand)}
+.page-bar .icon-btn:hover{background:var(--brand-soft)}
+.page-bar .icon-btn.danger{color:var(--bad)}
+.page-bar .icon-btn.danger.armed{background:var(--bad);color:#fff;width:auto;padding:0 12px;font-size:13px;font-weight:700}
+.page-body{flex:1;overflow:auto;padding:12px 16px}
+.panel-head{position:sticky;top:0;background:var(--paper);display:flex;align-items:center;gap:8px;padding:14px 16px 8px;z-index:1}
+.panel-head h2{margin:0;font-size:17px;flex:1}
+.panel-head .icon-btn{color:var(--brand)}
+.panel-body{padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px}
+
+/* Entry page */
+.typeseg{flex:1;display:flex;justify-content:center}
+.typeseg .seg button{display:flex;gap:4px;align-items:center;padding:6px 12px}
+.gtabs{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;scrollbar-width:none;background:var(--paper);border-bottom:1px solid var(--rule)}
+.gtabs::-webkit-scrollbar{display:none}
+.gtabs button{flex:none;border:0;background:transparent;border-radius:999px;padding:7px 14px;font-weight:600;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}
+.gtabs button[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand)}
+.cgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px;align-content:start}
+.cgrid button{border:1px solid transparent;background:transparent;border-radius:18px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--ink);min-width:0}
+.cgrid button .ico{font-size:32px;height:38px}
+.cgrid button .nm{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cgrid button[aria-pressed="true"]{background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand);font-weight:700}
+.cgrid .empty{grid-column:1 / -1}
+.entry-scroll{flex:1;overflow:auto;min-height:0}
+.transfer{padding:16px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.tr-acc{display:flex;align-items:center;gap:12px;border:1px solid var(--rule);background:var(--paper);border-radius:16px;padding:12px 14px;text-align:left;color:var(--ink);box-shadow:var(--shadow)}
+.tr-acc .k{font-size:12px;color:var(--muted);display:block}
+.tr-acc .n{font-weight:700;font-size:16px}
+.tr-acc .b{margin-left:auto;font-family:var(--f-num);color:var(--muted);font-size:13px}
+.swap{align-self:center;border:1px solid var(--rule);background:var(--paper);border-radius:999px;width:40px;height:40px;color:var(--brand);font-size:18px}
+.keypad{background:var(--keypad);border-radius:22px 22px 0 0;padding:10px 10px calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.keypad .grip{grid-column:1 / -1;height:4px;width:36px;border-radius:9px;background:rgba(255,255,255,.35);justify-self:center;margin-bottom:2px}
+.kk{border:0;border-radius:16px;height:50px;background:var(--key);color:var(--key-ink);font:600 22px/1 var(--f-num);display:flex;align-items:center;justify-content:center;gap:6px;position:relative;min-width:0;overflow:hidden}
+.kk:active{filter:brightness(.92)}
+.kk.op{background:var(--key-op);font-size:20px}
+.kk.ok{background:#2BB673;color:#fff;font-size:26px}
+.kk.ok.small-txt{font-size:15px}
+.kk.acc{font-size:13px;flex-direction:column;gap:1px;padding:0 4px}
+.kk.acc .ico{font-size:20px}
+.kk.acc span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kk.date{font-size:14px;letter-spacing:.02em}
+.kk.date input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;padding:0;cursor:pointer}
+.kk.again{font-size:14px}
+.display{grid-column:span 3;background:var(--key);border-radius:16px;display:flex;align-items:center;gap:8px;padding:0 12px;min-width:0;height:50px;color:var(--key-ink)}
+.display input{flex:1;min-width:0;border:0;background:transparent;padding:6px 0;font-size:15px;color:var(--key-ink);box-shadow:none}
+.display input:focus{box-shadow:none}
+.display .amtbox{display:flex;flex-direction:column;align-items:flex-end;min-width:0;max-width:62%}
+.display .expr{font:12px/1.2 var(--f-num);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.display .val{font:700 24px/1.15 var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.display .val.neg{color:var(--bad)}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* Pickers & editors */
+.pick .row .amt{color:var(--muted);font-weight:500}
+.pick .row[aria-checked="true"] .t1{color:var(--brand)}
+.check{color:var(--brand);font-weight:700;width:20px;text-align:center}
+.emoji-row{display:flex;gap:10px;align-items:center}
+.emoji-row input{width:64px;text-align:center;font-size:26px;padding:4px}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;max-height:132px;overflow:auto;border:1px solid var(--rule);border-radius:12px;padding:6px}
+.emoji-grid button{border:0;background:transparent;border-radius:10px;height:40px;font-size:22px}
+.emoji-grid button:hover{background:var(--brand-soft)}
+.check-field{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink)}
+.check-field input{width:20px;height:20px;accent-color:var(--brand-fill)}
+.gblock{display:flex;flex-direction:column;gap:6px}
+.ghead{display:flex;align-items:center;gap:8px;font-weight:700}
+.ghead .ico{font-size:20px}
+.ghead button{margin-left:auto}
+.cman{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.cman button{border:1px solid var(--rule);background:var(--paper);border-radius:14px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink);min-width:0;font-size:12px}
+.cman button .ico{font-size:24px}
+.cman button span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cman button.add{border-style:dashed;color:var(--brand)}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--tabbar-h) + 88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);z-index:40;max-width:calc(100% - 32px);text-align:center}
+body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="appbar">
+  <h1 id="title">記帳本</h1>
+  <div class="monthnav" id="monthNav">
+    <button type="button" id="mPrev" aria-label="上一個">‹</button>
+    <button type="button" class="mlabel" id="mLabel" title="返去今個月">2026年10月</button>
+    <button type="button" id="mNext" aria-label="下一個">›</button>
+  </div>
+  <button type="button" class="icon-btn" id="searchBtn" aria-label="搜尋" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+  <button type="button" class="icon-btn" id="editAccBtn" aria-label="修改帳戶" aria-pressed="false" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>
+</header>
+<div class="searchbar" id="searchBar" hidden>
+  <input type="search" id="q" placeholder="搜尋備註、分類、帳戶、金額" aria-label="搜尋" enterkeyhint="search">
+  <button type="button" id="qClose">取消</button>
+</div>
+
+<main>
+  <!-- 記帳本 -->
+  <section class="view" id="v-book" aria-label="記帳本">
+    <div class="card install" id="installBox" hidden>
+      <div class="txt"><img src="icon-192.png" alt=""><p><b>裝落手機，當 App 咁用</b><span id="installHow">有自己嘅圖示，冇網絡都用得。</span></p></div>
+      <div class="btns"><button class="btn small primary" type="button" id="installBtn" hidden>安裝</button><button class="btn small" type="button" id="installLater">遲啲先</button></div>
+    </div>
+    <div class="note-bar" id="sampleNote" hidden><span>而家顯示緊示範資料，唔係你嘅真實記錄。記第一筆嗰陣會自動清走。</span><button class="btn small" type="button" id="clearSample">清除示範資料</button></div>
+    <div class="card">
+      <div class="sum3">
+        <div><span class="k">支出</span><span class="v" id="sumExp">$0</span></div>
+        <div><span class="k">收入</span><span class="v inc" id="sumInc">$0</span></div>
+        <div><span class="k">結餘</span><span class="v" id="sumNet">$0</span></div>
+      </div>
+      <div class="budget" id="budgetBox" hidden>
+        <div class="bar" id="budgetBar"><i style="width:0"></i></div>
+        <div class="line"><span id="budgetUsed"></span><span id="budgetLeft"></span></div>
+      </div>
+    </div>
+    <div class="chip" id="filterChip" hidden><span id="filterText"></span><button type="button" id="filterClear" aria-label="取消篩選">✕</button></div>
+    <div class="view" id="bookList"></div>
+  </section>
+
+  <!-- 錢包 -->
+  <section class="view" id="v-wallet" aria-label="錢包" hidden>
+    <div class="card networth">
+      <h2>資產淨值（全部帳戶）</h2>
+      <div class="big" id="netWorth">$0</div>
+      <div class="sub"><span id="assetSum"></span><span id="debtSum"></span></div>
+    </div>
+    <div class="list" id="accList"></div>
+    <div class="list-label" id="archLabel" hidden>已封存</div>
+    <div class="list" id="accArch" hidden></div>
+    <button class="btn block" type="button" id="addAcc">＋ 新增帳戶</button>
+    <p class="hint" id="walletHint">撳帳戶睇佢嘅記錄。撳右上角筆仔，可以改名、換圖示同校正餘額。</p>
+  </section>
+
+  <!-- 圖表分析 -->
+  <section class="view" id="v-chart" aria-label="圖表分析" hidden>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="支出或收入">
+        <button type="button" data-ctype="exp" aria-pressed="true">支出分析</button>
+        <button type="button" data-ctype="inc" aria-pressed="false">收入分析</button>
+      </div>
+      <div class="seg" role="group" aria-label="時段">
+        <button type="button" data-cper="m" aria-pressed="true">月</button>
+        <button type="button" data-cper="y" aria-pressed="false">年</button>
+      </div>
+    </div>
+    <div class="card" id="donutCard">
+      <h2 id="donutTitle">分類支出</h2>
+      <div id="donutBody"></div>
+    </div>
+    <div class="card" id="catCard">
+      <h2 id="catTitle">各分類</h2>
+      <div id="catList"></div>
+    </div>
+    <div class="card">
+      <h2 id="trendTitle">近 6 個月支出</h2>
+      <div id="trendBody"></div>
+    </div>
+  </section>
+
+  <!-- 更多 -->
+  <section class="view" id="v-more" aria-label="更多" hidden>
+    <div class="menu">
+      <button type="button" class="row" id="openCats"><span class="bubble">🗂️</span><span class="txt"><span class="t1">分類管理</span><span class="t2">新增、改名、換圖示、合併分類同群組</span></span><span class="go">›</span></button>
+      <button type="button" class="row" id="openAccs"><span class="bubble">👛</span><span class="txt"><span class="t1">帳戶管理</span><span class="t2">現金、八達通、信用卡、銀行…校正餘額</span></span><span class="go">›</span></button>
+    </div>
+    <div class="card stack">
+      <label class="field"><span>每月支出預算（留空就唔顯示）</span>
+        <input type="number" id="budget" inputmode="decimal" min="0" step="any" placeholder="例如 8000">
+      </label>
+      <div class="field"><span>外觀</span>
+        <div class="seg" role="group" aria-label="外觀">
+          <button type="button" data-theme-set="auto" aria-pressed="true">跟系統</button>
+          <button type="button" data-theme-set="light" aria-pressed="false">淺色</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false">深色</button>
+        </div>
+      </div>
+    </div>
+    <div class="card stack">
+      <h2>匯出同備份</h2>
+      <div class="btns">
+        <button class="btn" type="button" id="csvMonth">匯出今個月 CSV</button>
+        <button class="btn" type="button" id="csvAll">匯出全部 CSV</button>
+      </div>
+      <div class="btns">
+        <button class="btn" type="button" id="exportJson">備份 JSON</button>
+        <button class="btn" type="button" id="importBtn">匯入備份</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <div class="note-bar" id="importConfirm" hidden><span id="importText"></span><span class="btns"><button class="btn small primary" type="button" id="importGo">確認匯入</button><button class="btn small" type="button" id="importCancel">取消</button></span></div>
+      <div class="msg" id="ioMsg"></div>
+      <p class="hint" id="storageInfo"></p>
+    </div>
+    <div class="card stack">
+      <h2>私隱</h2>
+      <p class="hint">所有記錄只儲喺呢部機嘅瀏覽器，唔會上載去任何伺服器，冇追蹤、冇分析，亦唔會連去其他網站。網頁設定咗 Content Security Policy，就算有問題都傳唔到資料出去。清除瀏覽器資料或者換手機會冇咗記錄，所以記得間中撳「備份 JSON」。匯出嘅 CSV／JSON 有齊你嘅收支，分享之前諗清楚。</p>
+    </div>
+    <div class="card stack">
+      <h2>其他</h2>
+      <div class="btns">
+        <button class="btn" type="button" id="loadSample">載入示範資料</button>
+        <button class="btn danger" type="button" id="clearAll">清除全部資料</button>
+      </div>
+      <p class="hint">「清除全部資料」會刪走所有記錄，帳戶同分類亦會變返預設。</p>
+    </div>
+  </section>
+</main>
+
+<button class="fab" type="button" id="fab" aria-label="記一筆">＋</button>
+<nav class="tabbar" aria-label="主選單">
+  <button type="button" data-tab="book" aria-current="page"><span class="ico">📒</span>記帳本</button>
+  <button type="button" data-tab="wallet"><span class="ico">👛</span>錢包</button>
+  <button type="button" data-tab="chart"><span class="ico">📊</span>圖表分析</button>
+  <button type="button" data-tab="more"><span class="ico">⋯</span>更多</button>
+</nav>
+
+<!-- 記一筆 -->
+<div class="layer page" id="entry" role="dialog" aria-modal="true" aria-label="記一筆" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="關閉"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="typeseg"><div class="seg" role="group" aria-label="類型">
+      <button type="button" data-etype="exp" aria-pressed="true"><span class="ico">💸</span>支出</button>
+      <button type="button" data-etype="inc" aria-pressed="false"><span class="ico">💰</span>收入</button>
+      <button type="button" data-etype="tr" aria-pressed="false"><span class="ico">🔁</span>轉帳</button>
+    </div></div>
+    <button type="button" class="icon-btn danger" id="entryDel" aria-label="刪除呢筆" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+  </div>
+  <div class="gtabs" id="gtabs" role="group" aria-label="分類群組"></div>
+  <div class="entry-scroll">
+    <div class="cgrid" id="cgrid" role="group" aria-label="分類"></div>
+    <div class="transfer" id="trPanel" hidden>
+      <button type="button" class="tr-acc" id="trFrom"></button>
+      <button type="button" class="swap" id="trSwap" aria-label="對調">⇅</button>
+      <button type="button" class="tr-acc" id="trTo"></button>
+      <p class="hint">例如：用銀行還信用卡、八達通增值、提款。轉帳只會郁兩個帳戶嘅餘額，唔會計入支出或收入。</p>
+    </div>
+  </div>
+  <div class="keypad" id="keypad">
+    <div class="grip"></div>
+    <button type="button" class="kk op acc" id="kAcc" aria-label="揀帳戶"><span class="ico" id="kAccIcon"></span><span id="kAccName"></span></button>
+    <div class="display" id="display">
+      <input type="text" id="note" maxlength="100" placeholder="備註" aria-label="備註" enterkeyhint="done">
+      <div class="amtbox"><span class="expr" id="kExpr"></span><span class="val" id="kVal">$0</span></div>
+    </div>
+    <button type="button" class="kk op" data-k="clear" aria-label="清除金額">C</button>
+    <label class="kk op date"><span id="kDate">TODAY</span><input type="date" id="entryDate" aria-label="日期"></label>
+    <button type="button" class="kk op again" id="kAgain" aria-label="記低，再記多筆">＋再記</button>
+    <button type="button" class="kk ok" id="kOk" aria-label="完成">✓</button>
+    <button type="button" class="kk op" data-k="×">×</button>
+    <button type="button" class="kk" data-k="1">1</button><button type="button" class="kk" data-k="2">2</button><button type="button" class="kk" data-k="3">3</button>
+    <button type="button" class="kk op" data-k="÷">÷</button>
+    <button type="button" class="kk" data-k="4">4</button><button type="button" class="kk" data-k="5">5</button><button type="button" class="kk" data-k="6">6</button>
+    <button type="button" class="kk op" data-k="-">−</button>
+    <button type="button" class="kk" data-k="7">7</button><button type="button" class="kk" data-k="8">8</button><button type="button" class="kk" data-k="9">9</button>
+    <button type="button" class="kk op" data-k="+">+</button>
+    <button type="button" class="kk" data-k=".">.</button><button type="button" class="kk" data-k="0">0</button>
+    <button type="button" class="kk op" data-k="back" aria-label="刪除一位">⌫</button>
+  </div>
+</div>
+
+<!-- 帳戶選擇 -->
+<div class="layer sheet" id="picker" role="dialog" aria-modal="true" aria-labelledby="pickTitle" hidden>
+  <div class="backdrop" data-close></div>
+  <div class="panel pick">
+    <div class="panel-head"><h2 id="pickTitle">帳戶選擇</h2><button type="button" class="icon-btn" data-close aria-label="關閉"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div id="pickList" role="radiogroup"></div>
+  </div>
+</div>
+
+<!-- 分類管理 -->
+<div class="layer page" id="catman" role="dialog" aria-modal="true" aria-label="分類管理" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="返回"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2>分類管理</h2>
+    <div class="seg" role="group" aria-label="類型">
+      <button type="button" data-mtype="exp" aria-pressed="true">支出</button>
+      <button type="button" data-mtype="inc" aria-pressed="false">收入</button>
+    </div>
+  </div>
+  <div class="page-body"><div class="stack" id="catmanBody"></div></div>
+</div>
+
+<!-- 通用編輯 -->
+<div class="layer sheet" id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden>
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="panel-head"><h2 id="edTitle">修改</h2><button type="button" class="icon-btn" data-close aria-label="取消"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <form class="panel-body" id="edForm" autocomplete="off"></form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+  const KEY = 'daily-ledger-v1';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const pad = (n) => String(n).padStart(2, '0');
+  const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = () => isoDate(new Date());
+  const thisMonth = () => today().slice(0, 7);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const round2 = (v) => Math.round(v * 100) / 100;
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const seg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('zh-HK', { granularity: 'grapheme' }) : null;
+  const firstGrapheme = (s) => (seg ? ((seg.segment(s)[Symbol.iterator]().next().value || {}).segment || '') : [...s].slice(0, 2).join(''));
+  const WEEK = '日一二三四五六';
+  const EMOJI = '🍔 🍜 🍣 🍱 🥪 🍞 🍰 ☕ 🧋 🍺 🍷 🛒 🛍️ 📦 👕 👟 💄 📱 💻 🎧 🎮 🎬 📺 🎵 🎱 🎤 ✈️ 🏨 🚇 🚌 🚕 ⛽ 🅿️ 🏠 💡 💧 🔥 📶 🧾 🪴 🧴 🧻 💊 🩺 🦷 🏃 🏋️ ⚽ 📚 ✏️ 🎓 👶 🐶 🐱 🎁 💝 🎉 🧧 💼 💰 🏦 💳 💵 🪙 📈 🤝 🐙 📲 ❤️ 🔧 🧹 💇 ⛪ 🌱 📷'.split(' ');
+
+  // ---------- data ----------
+  function defaults() {
+    const G = (id, type, name, icon) => ({ id, type, name, icon });
+    const C = (id, group, name, icon) => ({ id, group, name, icon });
+    const A = (id, name, icon) => ({ id, name, icon, init: 0, archived: false });
+    return {
+      v: 1,
+      groups: [
+        G('g_daily', 'exp', 'Daily', '🏪'), G('g_shop', 'exp', '買嘢', '🛒'), G('g_bills', 'exp', '日用雜費', '🧾'),
+        G('g_fun', 'exp', '娛樂', '🎬'), G('g_health', 'exp', '健康', '🩺'), G('g_trans', 'exp', '交通', '🚇'), G('g_home', 'exp', '住屋', '🏠'),
+        G('g_inc', 'inc', '收入', '💼'), G('g_inc2', 'inc', '其他收入', '🎁'),
+      ],
+      cats: [
+        C('c_food', 'g_daily', 'food', '🍔'), C('c_drink', 'g_daily', '廢水', '🧋'), C('c_alcohol', 'g_daily', '酒', '🍺'),
+        C('c_taobao', 'g_shop', '淘寶', '📦'), C('c_clothes', 'g_shop', '服飾', '👕'), C('c_gadget', 'g_shop', '電子嘢', '📱'), C('c_shop', 'g_shop', '買嘢', '🛍️'),
+        C('c_misc', 'g_bills', '日用雜費', '🧾'), C('c_daily', 'g_bills', '日用', '🪴'), C('c_phone', 'g_bills', '電話上網', '📶'),
+        C('c_fun', 'g_fun', '娛樂', '🎮'), C('c_netflix', 'g_fun', 'Netflix', '📺'), C('c_marksix', 'g_fun', 'mark six', '🎱'), C('c_travel', 'g_fun', '旅行', '✈️'),
+        C('c_sport', 'g_health', '運動', '🏃'), C('c_medical', 'g_health', '醫療', '💊'),
+        C('c_mtr', 'g_trans', '交通', '🚇'), C('c_taxi', 'g_trans', '的士', '🚕'),
+        C('c_rent', 'g_home', '租金／供樓', '🏠'), C('c_utility', 'g_home', '水電煤', '💡'),
+        C('c_salary', 'g_inc', '人工', '💼'), C('c_bonus', 'g_inc', '獎金', '🎉'),
+        C('c_interest', 'g_inc2', '利息', '🏦'), C('c_rebate', 'g_inc2', '回贈', '💳'), C('c_other_inc', 'g_inc2', '其他收入', '💰'),
+      ],
+      accounts: [
+        A('a_cash', '現金', '💵'), A('a_octopus', '八達通', '🐙'), A('a_payme', 'PayMe', '📲'),
+        A('a_fps', 'FPS／銀行', '🏦'), A('a_card', '信用卡', '💳'), A('a_lend', '借出', '🤝'),
+      ],
+      tx: [], budget: null, theme: 'auto', lastAcc: 'a_cash', sample: false,
+    };
+  }
+
+  // Rebuild state from untrusted JSON (localStorage or an imported file), keeping only known fields of the right shape.
+  function clean(d) {
+    if (!d || typeof d !== 'object' || !Array.isArray(d.tx)) throw new Error('bad');
+    const s = defaults();
+    const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+    const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v);
+    const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
+    const icon = (v) => firstGrapheme(str(v, 32)) || '❔';
+    const uniq = (list, map) => { const seen = new Set(); return list.filter((x) => x && okId(x.id) && !seen.has(x.id) && seen.add(x.id)).map(map); };
+    if (Array.isArray(d.groups)) s.groups = uniq(d.groups.filter((g) => g && (g.type === 'exp' || g.type === 'inc')), (g) => ({ id: g.id, type: g.type, name: str(g.name, 24) || '未命名', icon: icon(g.icon) }));
+    const gIds = new Set(s.groups.map((g) => g.id));
+    if (Array.isArray(d.cats)) s.cats = uniq(d.cats.filter((c) => c && gIds.has(c.group)), (c) => ({ id: c.id, group: c.group, name: str(c.name, 24) || '未命名', icon: icon(c.icon) }));
+    if (Array.isArray(d.accounts)) s.accounts = uniq(d.accounts, (a) => ({ id: a.id, name: str(a.name, 30) || '未命名', icon: icon(a.icon), init: round2(num(a.init)), archived: a.archived === true }));
+    const seen = new Set();
+    s.tx = d.tx.filter((t) => t && okId(t.id) && !seen.has(t.id) && seen.add(t.id) && ['exp', 'inc', 'tr'].includes(t.type)
+      && num(t.amt) > 0 && num(t.amt) < 1e12 && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && okId(t.acc) && (t.type !== 'tr' || okId(t.to)))
+      .map((t) => ({
+        id: t.id, type: t.type, amt: round2(t.amt), date: t.date,
+        cat: t.type !== 'tr' && okId(t.cat) ? t.cat : '', acc: t.acc, to: t.type === 'tr' ? t.to : '',
+        note: str(t.note, 100), ts: num(t.ts),
+      }));
+    // Every account a record points at must exist, or its money would vanish from the balances.
+    const aIds = new Set(s.accounts.map((a) => a.id));
+    s.tx.forEach((t) => [t.acc, t.to].forEach((id) => {
+      if (id && !aIds.has(id)) { aIds.add(id); s.accounts.push({ id, name: '未命名帳戶', icon: '❔', init: 0, archived: false }); }
+    }));
+    if (!s.accounts.length) s.accounts = defaults().accounts;
+    s.budget = num(d.budget) > 0 ? round2(d.budget) : null;
+    s.theme = ['auto', 'light', 'dark'].includes(d.theme) ? d.theme : 'auto';
+    s.lastAcc = aIds.has(d.lastAcc) ? d.lastAcc : s.accounts[0].id;
+    s.sample = d.sample === true;
+    return s;
+  }
+  function load() {
+    try { const raw = localStorage.getItem(KEY); if (raw) return clean(JSON.parse(raw)); }
+    catch (e) { /* storage blocked or corrupt; start fresh */ }
+    return null;
+  }
+  let saveWarned = false;
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); saveWarned = false; }
+    catch (e) { if (!saveWarned) { saveWarned = true; flash('儲唔到資料：瀏覽器封鎖咗或者空間滿咗，請即刻「備份 JSON」'); } }
+  }
+
+  let state = load() || defaults();
+
+  // ---------- lookups ----------
+  let G = {}, C = {}, A = {};
+  function reindex() {
+    G = Object.fromEntries(state.groups.map((g) => [g.id, g]));
+    C = Object.fromEntries(state.cats.map((c) => [c.id, c]));
+    A = Object.fromEntries(state.accounts.map((a) => [a.id, a]));
+  }
+  const groupsOf = (type) => state.groups.filter((g) => g.type === type);
+  const catsOfGroup = (gid) => state.cats.filter((c) => c.group === gid);
+  const catsOf = (type) => groupsOf(type).flatMap((g) => catsOfGroup(g.id));
+  const catOf = (t) => C[t.cat] || { id: '', name: '未分類', icon: '❔', group: '' };
+  const accOf = (id) => A[id] || { id, name: '未知帳戶', icon: '❔' };
+  const activeAccs = () => state.accounts.filter((a) => !a.archived);
+
+  function balances() {
+    const m = {};
+    state.accounts.forEach((a) => { m[a.id] = a.init; });
+    state.tx.forEach((t) => {
+      if (t.type === 'exp') m[t.acc] = (m[t.acc] || 0) - t.amt;
+      else if (t.type === 'inc') m[t.acc] = (m[t.acc] || 0) + t.amt;
+      else { m[t.acc] = (m[t.acc] || 0) - t.amt; m[t.to] = (m[t.to] || 0) + t.amt; }
+    });
+    Object.keys(m).forEach((k) => { m[k] = round2(m[k]); });
+    return m;
+  }
+
+  // ---------- formatting ----------
+  function money(v, sign) {
+    const r = round2(v), a = Math.abs(r);
+    const s = a.toLocaleString('en-US', { minimumFractionDigits: a % 1 ? 2 : 0, maximumFractionDigits: 2 });
+    return (r < 0 ? '-' : sign && r > 0 ? '+' : '') + '$' + s;
+  }
+  const monthLabel = (ym) => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
+  function shiftMonth(ym, n) { const d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; }
+  function dayLabel(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return iso;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const rel = iso === today() ? '今日　' : iso === isoDate(y) ? '昨日　' : '';
+    return `${rel}${d.getMonth() + 1}月${d.getDate()}日 星期${WEEK[d.getDay()]}`;
+  }
+  const shortDate = (iso) => { const d = new Date(iso + 'T00:00:00'); return `${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）`; };
+
+  // ---------- UI state ----------
+  const ui = { tab: 'book', month: thisMonth(), filter: null, q: '', walletEdit: false, ctype: 'exp', cper: 'm', csel: null, trendSel: null, mtype: 'exp' };
+
+  // ---------- layers (pages & sheets), wired to the back button ----------
+  const layers = [];
+  function openLayer(el) {
+    if (layers.includes(el)) return;
+    el.hidden = false;
+    void el.offsetHeight;
+    el.classList.add('open');
+    layers.push(el);
+    document.body.classList.add('locked');
+    history.pushState({ ledgerLayer: layers.length }, '');
+  }
+  function hideLayer(el) {
+    el.classList.remove('open');
+    setTimeout(() => { if (!el.classList.contains('open')) el.hidden = true; }, 230);
+    if (!layers.length) document.body.classList.remove('locked');
+    if (el.id === 'entry') disarm($('#entryDel'));
+  }
+  function closeLayer(n = 1) { n = Math.min(n, layers.length); if (n) history.go(-n); }
+  window.addEventListener('popstate', () => {
+    const depth = (history.state && history.state.ledgerLayer) || 0;
+    while (layers.length > depth) hideLayer(layers.pop());
+  });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeLayer(); });
+  const isOpen = (id) => layers.some((l) => l.id === id);
+
+  // Two-tap confirm, since dialogs aren't reliable in installed web apps.
+  function armable(btn, armedLabel, action) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (btn.classList.contains('armed')) { disarm(btn); action(); return; }
+      btn.dataset.label = btn.innerHTML;
+      btn.classList.add('armed'); btn.textContent = armedLabel;
+      clearTimeout(btn._t); btn._t = setTimeout(() => disarm(btn), 4000);
+    });
+  }
+  function disarm(btn) {
+    if (!btn.classList.contains('armed')) return;
+    btn.classList.remove('armed'); btn.innerHTML = btn.dataset.label; clearTimeout(btn._t);
+  }
+
+  // ---------- tabs & app bar ----------
+  const TITLES = { book: '記帳本', wallet: '錢包', chart: '圖表分析', more: '更多' };
+  function setTab(tab) {
+    ui.tab = tab;
+    $$('.tabbar button').forEach((b) => (b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+    ['book', 'wallet', 'chart', 'more'].forEach((t) => { $('#v-' + t).hidden = t !== tab; });
+    if (tab !== 'book') closeSearch();
+    window.scrollTo(0, 0);
+    render();
+  }
+  $$('.tabbar button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+  function renderBar() {
+    const t = ui.tab;
+    $('#title').textContent = TITLES[t];
+    const showMonth = (t === 'book' && !ui.q) || t === 'chart';
+    $('#monthNav').hidden = !showMonth;
+    $('#mLabel').textContent = t === 'chart' && ui.cper === 'y' ? `${ui.month.slice(0, 4)}年` : monthLabel(ui.month);
+    $('#mPrev').setAttribute('aria-label', t === 'chart' && ui.cper === 'y' ? '上一年' : '上個月');
+    $('#mNext').setAttribute('aria-label', t === 'chart' && ui.cper === 'y' ? '下一年' : '下個月');
+    $('#searchBtn').hidden = t !== 'book';
+    $('#editAccBtn').hidden = t !== 'wallet';
+    $('#editAccBtn').setAttribute('aria-pressed', String(ui.walletEdit));
+    $('#fab').hidden = t === 'more';
+  }
+  const step = () => (ui.tab === 'chart' && ui.cper === 'y' ? 12 : 1);
+  $('#mPrev').addEventListener('click', () => { ui.month = shiftMonth(ui.month, -step()); ui.csel = null; ui.trendSel = null; render(); });
+  $('#mNext').addEventListener('click', () => { ui.month = shiftMonth(ui.month, step()); ui.csel = null; ui.trendSel = null; render(); });
+  $('#mLabel').addEventListener('click', () => { ui.month = thisMonth(); ui.csel = null; ui.trendSel = null; render(); });
+
+  // Search
+  $('#searchBtn').addEventListener('click', () => {
+    if (!$('#searchBar').hidden) { closeSearch(); render(); return; }
+    $('#searchBar').hidden = false; $('#searchBtn').setAttribute('aria-pressed', 'true'); $('#q').focus();
+  });
+  $('#q').addEventListener('input', () => { ui.q = $('#q').value; render(); });
+  $('#qClose').addEventListener('click', () => { closeSearch(); render(); });
+  function closeSearch() { ui.q = ''; $('#q').value = ''; $('#searchBar').hidden = true; $('#searchBtn').setAttribute('aria-pressed', 'false'); }
+
+  // ---------- 記帳本 ----------
+  function matchQ(t, q) {
+    const c = catOf(t);
+    const hay = [t.note, t.type === 'tr' ? '轉帳' : c.name, t.type === 'tr' ? '' : (G[c.group] || {}).name, accOf(t.acc).name, t.to ? accOf(t.to).name : '', String(t.amt)].join(' ').toLowerCase();
+    return q.split(/\s+/).every((w) => hay.includes(w));
+  }
+  function passFilter(t) {
+    const f = ui.filter;
+    if (!f) return true;
+    if (f.acc) return t.acc === f.acc || t.to === f.acc;
+    if (f.cat) return t.type !== 'tr' && t.cat === f.cat;
+    return true;
+  }
+  const sortTx = (a, b) => b.date.localeCompare(a.date) || b.ts - a.ts;
+
+  function rowHtml(t) {
+    const c = catOf(t);
+    let icon, t1, t2, cls, amt;
+    if (t.type === 'tr') {
+      icon = '🔁'; t1 = t.note || '轉帳'; t2 = `${accOf(t.acc).name} → ${accOf(t.to).name}`; cls = 'tr'; amt = money(t.amt);
+      if (ui.filter && ui.filter.acc) { amt = money(t.acc === ui.filter.acc ? -t.amt : t.amt, true); cls = t.acc === ui.filter.acc ? '' : 'inc'; }
+    } else {
+      icon = c.icon; t1 = c.name; t2 = [t.note, accOf(t.acc).name].filter(Boolean).join(' · ');
+      cls = t.type === 'inc' ? 'inc' : ''; amt = t.type === 'inc' ? money(t.amt, true) : money(-t.amt);
+    }
+    return `<button type="button" class="row" data-tx="${escHtml(t.id)}">
+      <span class="bubble ico">${escHtml(icon)}</span>
+      <span class="txt"><span class="t1">${escHtml(t1)}</span><span class="t2">${escHtml(t2)}</span></span>
+      <span class="amt ${cls}">${amt}</span></button>`;
+  }
+
+  function renderBook() {
+    const q = ui.q.trim().toLowerCase();
+    const list = state.tx.filter((t) => (q ? matchQ(t, q) : t.date.startsWith(ui.month)) && passFilter(t)).sort(sortTx);
+    let exp = 0, inc = 0;
+    list.forEach((t) => { if (t.type === 'exp') exp += t.amt; else if (t.type === 'inc') inc += t.amt; });
+    $('#sumExp').textContent = money(exp);
+    $('#sumInc').textContent = money(inc);
+    $('#sumNet').textContent = money(inc - exp);
+    $('#sumNet').className = 'v' + (inc - exp < 0 ? ' amt neg' : '');
+
+    const box = $('#budgetBox');
+    if (state.budget && !q && !ui.filter) {
+      box.hidden = false;
+      const pct = exp / state.budget * 100;
+      $('#budgetBar').classList.toggle('over', pct > 100);
+      $('#budgetBar').firstElementChild.style.width = Math.min(pct, 100) + '%';
+      $('#budgetUsed').textContent = `預算 ${money(state.budget)}，用咗 ${Math.round(pct)}%`;
+      const left = state.budget - exp;
+      $('#budgetLeft').textContent = left >= 0 ? `仲有 ${money(left)}` : `超支 ${money(-left)}`;
+    } else box.hidden = true;
+
+    const f = ui.filter;
+    $('#filterChip').hidden = !f && !q;
+    $('#filterText').textContent = [q ? `搜尋「${ui.q.trim()}」：${list.length} 筆` : '', f && f.acc ? `帳戶：${accOf(f.acc).name}` : '', f && f.cat ? `分類：${(C[f.cat] || { name: '未分類' }).name}` : ''].filter(Boolean).join('　');
+    $('#sampleNote').hidden = !state.sample;
+
+    if (!list.length) {
+      const none = !state.tx.length;
+      $('#bookList').innerHTML = `<div class="empty"><span class="big">📒</span>
+        <p>${q ? '搵唔到符合嘅記錄。' : none ? '未有記錄。撳右下角「＋」記第一筆：揀分類、輸入金額、撳 ✓ 就得。' : `${monthLabel(ui.month)}未有${f ? '符合篩選嘅' : ''}記錄。`}</p>
+        ${none ? '<button class="btn small" type="button" data-sample>睇吓示範資料</button>' : ''}</div>`;
+      return;
+    }
+    const days = [];
+    list.forEach((t) => { const last = days[days.length - 1]; if (last && last.date === t.date) last.items.push(t); else days.push({ date: t.date, items: [t] }); });
+    $('#bookList').innerHTML = days.map((d) => {
+      let de = 0, di = 0;
+      d.items.forEach((t) => { if (t.type === 'exp') de += t.amt; else if (t.type === 'inc') di += t.amt; });
+      return `<div class="day"><div class="day-head"><b>${escHtml(dayLabel(d.date))}</b><span class="tot">${di ? `<span class="amt inc">收 ${money(di)}</span>` : ''}${de ? `<span>支 ${money(de)}</span>` : ''}</span></div>${d.items.map(rowHtml).join('')}</div>`;
+    }).join('');
+  }
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-tx]');
+    if (r) { const t = state.tx.find((x) => x.id === r.dataset.tx); if (t) openEntry(t); }
+    if (e.target.closest('[data-sample]')) { loadSample(); save(); render(); }
+  });
+  $('#filterClear').addEventListener('click', () => { ui.filter = null; closeSearch(); render(); });
+
+  // ---------- 錢包 ----------
+  function accRow(a, bal) {
+    return `<button type="button" class="row${a.archived ? ' archived' : ''}" data-acc="${escHtml(a.id)}">
+      <span class="bubble ico">${escHtml(a.icon)}</span>
+      <span class="txt"><span class="t1">${escHtml(a.name)}</span>${ui.walletEdit ? '<span class="t2 edit-mark">撳一下修改</span>' : ''}</span>
+      <span class="amt${bal < 0 ? ' neg' : ''}">${money(bal)}</span></button>`;
+  }
+  function renderWallet() {
+    const b = balances();
+    let assets = 0, debts = 0;
+    state.accounts.forEach((a) => { const v = b[a.id] || 0; if (v >= 0) assets += v; else debts += v; });
+    $('#netWorth').textContent = money(assets + debts);
+    $('#assetSum').textContent = `資產 ${money(assets)}`;
+    $('#debtSum').textContent = `負債 ${money(debts)}`;
+    const act = activeAccs(), arch = state.accounts.filter((a) => a.archived);
+    $('#accList').innerHTML = act.map((a) => accRow(a, b[a.id] || 0)).join('') || '<div class="empty"><p>未有帳戶</p></div>';
+    $('#accArch').innerHTML = arch.map((a) => accRow(a, b[a.id] || 0)).join('');
+    $('#accArch').hidden = $('#archLabel').hidden = !arch.length;
+    $('#walletHint').textContent = ui.walletEdit ? '修改模式：撳帳戶改名、換圖示、校正餘額、排位或者封存。再撳右上角筆仔完成。' : '撳帳戶睇佢嘅記錄。撳右上角筆仔，可以改名、換圖示同校正餘額。';
+  }
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-acc]');
+    if (!r || !r.closest('#v-wallet')) return;
+    if (ui.walletEdit) { editAccount(A[r.dataset.acc]); return; }
+    ui.filter = { acc: r.dataset.acc }; setTab('book');
+  });
+  $('#editAccBtn').addEventListener('click', () => { ui.walletEdit = !ui.walletEdit; render(); });
+  $('#addAcc').addEventListener('click', () => editAccount(null));
+  $('#openAccs').addEventListener('click', () => { ui.walletEdit = true; setTab('wallet'); });
+
+  function moveIn(arr, item, dir, same) {
+    const i = arr.indexOf(item);
+    for (let j = i + dir; j >= 0 && j < arr.length; j += dir) {
+      if (!same || same(arr[j])) { arr.splice(i, 1); arr.splice(j, 0, item); return true; }
+    }
+    return false;
+  }
+
+  function editAccount(a) {
+    const bal = a ? balances()[a.id] || 0 : 0;
+    const used = a ? state.tx.filter((t) => t.acc === a.id || t.to === a.id).length : 0;
+    openEditor({
+      title: a ? '修改帳戶' : '新增帳戶',
+      fields: [
+        { key: 'icon', type: 'emoji', label: '圖示', value: a ? a.icon : '💳' },
+        { key: 'name', type: 'text', label: '名稱', value: a ? a.name : '', max: 30, placeholder: '例如：mox credit' },
+        { key: 'bal', type: 'number', label: a ? '目前餘額（改呢度會校正，唔會新增記錄）' : '開始餘額', value: bal, hint: '信用卡欠款用負數，例如 -1200' },
+        ...(a ? [{ key: 'archived', type: 'check', label: '封存（唔再喺揀帳戶度出現，記錄保留）', value: a.archived }] : []),
+      ],
+      onSave(v) {
+        if (!v.name) return '請輸入名稱';
+        const target = round2(Number(v.bal) || 0);
+        if (!a) {
+          const n = { id: 'a_' + uid(), name: v.name, icon: v.icon || '💳', init: target, archived: false };
+          state.accounts.push(n);
+        } else {
+          a.name = v.name; a.icon = v.icon || a.icon; a.archived = !!v.archived;
+          a.init = round2(a.init + target - bal);
+          if (a.archived && state.lastAcc === a.id) state.lastAcc = (activeAccs()[0] || a).id;
+        }
+        save();
+      },
+      actions: a ? [
+        { label: '上移', run() { moveIn(state.accounts, a, -1); save(); render(); } },
+        { label: '下移', run() { moveIn(state.accounts, a, 1); save(); render(); } },
+        { label: '刪除帳戶', danger: true, confirm: used ? null : '再撳一次確認刪除',
+          run() {
+            if (used) return `有 ${used} 筆記錄用緊呢個帳戶，唔可以刪除。可以剔「封存」收埋佢。`;
+            if (state.accounts.length <= 1) return '最少要留一個帳戶';
+            state.accounts = state.accounts.filter((x) => x !== a);
+            if (state.lastAcc === a.id) state.lastAcc = state.accounts[0].id;
+            save(); closeLayer(); render(); flash('已刪除帳戶');
+          } },
+      ] : [],
+    });
+  }
+
+  // ---------- 圖表分析 ----------
+  const SLOTS = 8;
+  function groupColor(gid, type) {
+    const i = groupsOf(type).findIndex((g) => g.id === gid);
+    return i >= 0 && i < SLOTS ? `var(--s${i + 1})` : 'var(--s-other)';
+  }
+  function renderChart() {
+    const type = ui.ctype, word = type === 'exp' ? '支出' : '收入';
+    const key = ui.cper === 'm' ? ui.month : ui.month.slice(0, 4);
+    const list = state.tx.filter((t) => t.type === type && t.date.startsWith(key));
+    const total = round2(list.reduce((s, t) => s + t.amt, 0));
+    $$('[data-ctype]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ctype === type)));
+    $$('[data-cper]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cper === ui.cper)));
+    $('#donutTitle').textContent = `分類${word}（按群組）`;
+
+    // Group totals. A donut only reads well up to ~6 slices, so the smallest groups fold into "其他".
+    const gm = {};
+    list.forEach((t) => { const g = catOf(t).group; const k = G[g] ? g : '_none'; gm[k] = (gm[k] || 0) + t.amt; });
+    let slices = Object.entries(gm).map(([gid, v]) => ({ gid, v, g: G[gid] || { name: '未分類', icon: '❔' }, color: G[gid] ? groupColor(gid, type) : 'var(--s-other)' })).sort((a, b) => b.v - a.v);
+    if (slices.length > 6) {
+      const rest = slices.slice(5);
+      slices = slices.slice(0, 5).concat([{ gid: '_other', v: rest.reduce((s, x) => s + x.v, 0), g: { name: '其他', icon: '⋯' }, color: 'var(--s-other)', members: rest.map((x) => x.gid) }]);
+    }
+    if (ui.csel && !slices.some((s) => s.gid === ui.csel)) ui.csel = null;
+
+    if (!total) {
+      $('#donutBody').innerHTML = `<div class="empty"><span class="big">📊</span><p>${ui.cper === 'm' ? monthLabel(ui.month) : key + '年'}未有${word}記錄。</p></div>`;
+      $('#catCard').hidden = true;
+    } else {
+      $('#catCard').hidden = false;
+      const R = 31, CIRC = 2 * Math.PI * R, GAP = slices.length > 1 ? 0.8 : 0;
+      let acc = 0, arcs = '', labels = '';
+      slices.forEach((s) => {
+        const frac = s.v / total, len = frac * CIRC;
+        arcs += `<circle class="seg-arc${ui.csel && ui.csel !== s.gid ? ' dim' : ''}" data-g="${escHtml(s.gid)}" cx="50" cy="50" r="${R}" fill="none" stroke="${s.color}" stroke-width="12"
+          stroke-dasharray="${Math.max(len - GAP, 0.01)} ${CIRC}" stroke-dashoffset="${-acc}" transform="rotate(-90 50 50)"><title>${escHtml(s.g.name)} ${money(s.v)}</title></circle>`;
+        if (frac >= 0.05) {
+          const ang = (acc + len / 2) / CIRC * 2 * Math.PI - Math.PI / 2;
+          const x = 50 + 45 * Math.cos(ang), y = 50 + 45 * Math.sin(ang);
+          labels += `<span class="dlabel" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="ico">${escHtml(s.g.icon)}</span>${Math.round(frac * 100)}%</span>`;
+        }
+        acc += len;
+      });
+      const sel = slices.find((s) => s.gid === ui.csel);
+      const center = sel ? `<span class="k">${escHtml(sel.g.name)}</span><span class="v">${money(sel.v)}</span><span class="p">${Math.round(sel.v / total * 100)}%・撳多次取消</span>`
+        : `<span class="k">總${word}</span><span class="v">${money(total)}</span><span class="p">${list.length} 筆</span>`;
+      $('#donutBody').innerHTML = `<div class="donut-wrap"><svg viewBox="0 0 100 100" role="img" aria-label="${word}按群組分佈">${arcs}</svg><div class="donut-center">${center}</div>${labels}</div>
+        <div class="legend">${slices.map((s) => `<button type="button" data-g="${escHtml(s.gid)}" aria-pressed="${ui.csel === s.gid}"><span class="dot" style="background:${s.color}"></span>${escHtml(s.g.name)} <span class="num">${Math.round(s.v / total * 100)}%</span></button>`).join('')}</div>`;
+
+      // Category table (the chart's table view), optionally narrowed to the selected group.
+      const selSlice = slices.find((s) => s.gid === ui.csel);
+      const inSel = (gid) => !selSlice || (selSlice.members ? selSlice.members.includes(gid) : selSlice.gid === (G[gid] ? gid : '_none'));
+      const cm = {};
+      list.forEach((t) => { if (inSel(catOf(t).group)) cm[t.cat] = (cm[t.cat] || 0) + t.amt; });
+      const rows = Object.entries(cm).sort((a, b) => b[1] - a[1]);
+      const max = rows.length ? rows[0][1] : 0;
+      $('#catTitle').textContent = selSlice ? `${selSlice.g.name}：各分類` : `各分類${word}`;
+      $('#catList').innerHTML = rows.map(([cid, v]) => {
+        const c = C[cid] || { name: '未分類', icon: '❔', group: '' };
+        const col = G[c.group] ? groupColor(c.group, type) : 'var(--s-other)';
+        return `<button type="button" class="catrow" data-ccat="${escHtml(cid)}"><span class="bubble ico">${escHtml(c.icon)}</span>
+          <span class="nm">${escHtml(c.name)} <small>${Math.round(v / total * 100)}%</small></span><span class="amt">${money(v)}</span>
+          <span class="bar"><i style="width:${(v / max * 100).toFixed(1)}%;background:${col}"></i></span></button>`;
+      }).join('');
+    }
+
+    // Trend: one series, so one hue; the month in view is the highlighted bar.
+    const months = [];
+    if (ui.cper === 'm') for (let i = 5; i >= 0; i--) months.push(shiftMonth(ui.month, -i));
+    else for (let i = 1; i <= 12; i++) months.push(`${key}-${pad(i)}`);
+    const mt = months.map((m) => round2(state.tx.reduce((s, t) => (t.type === type && t.date.startsWith(m) ? s + t.amt : s), 0)));
+    const mx = Math.max(...mt, 0);
+    $('#trendTitle').textContent = ui.cper === 'm' ? `近 6 個月${word}` : `${key}年每月${word}`;
+    const selIdx = months.indexOf(ui.trendSel);
+    const showIdx = selIdx >= 0 ? selIdx : months.indexOf(ui.month);
+    $('#trendBody').innerHTML = `<div class="trend">${months.map((m, i) => {
+      const h = mx ? Math.max(mt[i] / mx * 100, mt[i] ? 2 : 0) : 0;
+      return `<button type="button" data-tm="${m}" class="${m === ui.month ? 'cur' : ''}" style="--h:${h}%" aria-label="${monthLabel(m)} ${money(mt[i])}"><i style="height:${h}%"></i>${i === showIdx && mt[i] ? `<span class="lab">${money(mt[i])}</span>` : ''}</button>`;
+    }).join('')}</div>
+      <div class="trend-x">${months.map((m) => `<span class="${m === ui.month ? 'cur' : ''}">${+m.slice(5)}月</span>`).join('')}</div>
+      <div class="caption">${(() => {
+        const used = mt.filter((v) => v > 0);
+        const avg = used.length ? used.reduce((a, b) => a + b, 0) / used.length : 0;
+        const s = showIdx >= 0 ? `${monthLabel(months[showIdx])}：${money(mt[showIdx])}　` : '';
+        return `${s}有記錄月份平均 ${money(avg)}。撳棒睇數字，撳多次跳去嗰個月。`;
+      })()}</div>`;
+  }
+  document.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-g]');
+    if (g && g.closest('#v-chart')) { ui.csel = ui.csel === g.dataset.g ? null : g.dataset.g; renderChart(); return; }
+    const c = e.target.closest('[data-ccat]');
+    if (c) { ui.filter = { cat: c.dataset.ccat }; setTab('book'); return; }
+    const tm = e.target.closest('[data-tm]');
+    if (tm) {
+      if (ui.trendSel === tm.dataset.tm || ui.month === tm.dataset.tm) { ui.month = tm.dataset.tm; ui.trendSel = null; ui.csel = null; if (ui.cper === 'y') ui.cper = 'm'; }
+      else ui.trendSel = tm.dataset.tm;
+      render();
+    }
+  });
+  $$('[data-ctype]').forEach((b) => b.addEventListener('click', () => { ui.ctype = b.dataset.ctype; ui.csel = null; render(); }));
+  $$('[data-cper]').forEach((b) => b.addEventListener('click', () => { ui.cper = b.dataset.cper; ui.csel = null; ui.trendSel = null; render(); }));
+
+  // ---------- 記一筆 ----------
+  const E = { type: 'exp', cat: '', acc: '', to: '', date: '', expr: '', note: '', editing: null, group: 'rec' };
+  function lastCat(type) {
+    const t = state.tx.filter((x) => x.type === type && C[x.cat]).sort(sortTx)[0];
+    return t ? t.cat : (catsOf(type)[0] || {}).id || '';
+  }
+  function defaultAcc() { return A[state.lastAcc] && !A[state.lastAcc].archived ? state.lastAcc : (activeAccs()[0] || state.accounts[0]).id; }
+  function otherAcc(id) { const o = activeAccs().find((a) => a.id !== id); return o ? o.id : id; }
+  function recommended(type) {
+    const since = isoDate(new Date(Date.now() - 90 * 864e5));
+    const cnt = {};
+    state.tx.forEach((t) => { if (t.type === type && t.date >= since) cnt[t.cat] = (cnt[t.cat] || 0) + 1; });
+    const all = catsOf(type);
+    return all.map((c, i) => [c, cnt[c.id] || 0, i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).slice(0, 12).map((x) => x[0]);
+  }
+
+  function openEntry(t) {
+    if (t) Object.assign(E, { editing: t.id, type: t.type, cat: t.cat, acc: t.acc, to: t.to || otherAcc(t.acc), date: t.date, expr: String(t.amt), note: t.note });
+    else {
+      const acc = ui.filter && ui.filter.acc && A[ui.filter.acc] && !A[ui.filter.acc].archived ? ui.filter.acc : defaultAcc();
+      const cat = ui.filter && ui.filter.cat && C[ui.filter.cat] ? ui.filter.cat : lastCat('exp');
+      Object.assign(E, { editing: null, type: (G[(C[cat] || {}).group] || {}).type || 'exp', cat, acc, to: otherAcc(acc), date: today(), expr: '', note: '' });
+    }
+    E.group = 'rec';
+    renderEntry();
+    openLayer($('#entry'));
+  }
+  $('#fab').addEventListener('click', () => openEntry(null));
+
+  function renderEntry() {
+    $$('[data-etype]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.etype === E.type)));
+    $('#entryDel').hidden = !E.editing;
+    const tr = E.type === 'tr';
+    $('#gtabs').hidden = $('#cgrid').hidden = tr;
+    $('#trPanel').hidden = !tr;
+    if (!tr) {
+      const gs = groupsOf(E.type);
+      if (E.group !== 'rec' && !gs.some((g) => g.id === E.group)) E.group = 'rec';
+      $('#gtabs').innerHTML = `<button type="button" data-eg="rec" aria-pressed="${E.group === 'rec'}"><span class="ico">✨</span>推薦</button>` +
+        gs.map((g) => `<button type="button" data-eg="${escHtml(g.id)}" aria-pressed="${E.group === g.id}"><span class="ico">${escHtml(g.icon)}</span>${escHtml(g.name)}</button>`).join('');
+      renderGrid();
+    } else renderTransfer();
+    const a = accOf(E.acc);
+    $('#kAccIcon').textContent = a.icon;
+    $('#kAccName').textContent = a.name;
+    $('#kAcc').setAttribute('aria-label', `${tr ? '轉出' : ''}帳戶：${a.name}，撳一下更改`);
+    $('#note').value = E.note;
+    $('#note').placeholder = tr ? '備註（例如：還卡數）' : '備註';
+    $('#entryDate').value = E.date;
+    $('#kDate').textContent = E.date === today() ? 'TODAY' : shortDate(E.date);
+    $('#kAgain').hidden = !!E.editing;
+    renderDisplay();
+  }
+  function renderGrid() {
+    const cats = E.group === 'rec' ? recommended(E.type) : catsOfGroup(E.group);
+    $('#cgrid').innerHTML = cats.length ? cats.map((c) => `<button type="button" data-ec="${escHtml(c.id)}" aria-pressed="${c.id === E.cat}"><span class="ico">${escHtml(c.icon)}</span><span class="nm">${escHtml(c.name)}</span></button>`).join('')
+      : '<div class="empty"><p>呢度未有分類。去「更多 → 分類管理」新增。</p></div>';
+  }
+  function renderTransfer() {
+    const b = balances();
+    const card = (id, k) => { const a = accOf(id); return `<span class="bubble ico">${escHtml(a.icon)}</span><span><span class="k">${k}</span><span class="n">${escHtml(a.name)}</span></span><span class="b">${money(b[id] || 0)}</span>`; };
+    $('#trFrom').innerHTML = card(E.acc, '轉出');
+    $('#trTo').innerHTML = card(E.to, '轉入');
+  }
+  $('#gtabs').addEventListener('click', (e) => { const b = e.target.closest('[data-eg]'); if (!b) return; E.group = b.dataset.eg; renderEntry(); });
+  $('#cgrid').addEventListener('click', (e) => { const b = e.target.closest('[data-ec]'); if (!b) return; E.cat = b.dataset.ec; renderGrid(); });
+  $$('[data-etype]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.dataset.etype;
+    if (t === E.type) return;
+    E.type = t; E.group = 'rec';
+    if (t !== 'tr' && !(C[E.cat] && (G[C[E.cat].group] || {}).type === t)) E.cat = lastCat(t);
+    if (t === 'tr' && E.to === E.acc) E.to = otherAcc(E.acc);
+    renderEntry();
+  }));
+  $('#note').addEventListener('input', () => { E.note = $('#note').value; });
+  $('#note').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#note').blur(); } });
+  $('#entryDate').addEventListener('change', () => { E.date = $('#entryDate').value || today(); renderEntry(); });
+  $('#entryDate').addEventListener('click', () => { try { $('#entryDate').showPicker(); } catch (e) { /* opens natively on phones */ } });
+  $('#kAcc').addEventListener('click', () => pickAccount(E.acc, E.type === 'tr' ? '轉出帳戶' : '帳戶選擇', (id) => { E.acc = id; if (E.to === id) E.to = otherAcc(id); renderEntry(); }));
+  $('#trFrom').addEventListener('click', () => pickAccount(E.acc, '轉出帳戶', (id) => { E.acc = id; if (E.to === id) E.to = otherAcc(id); renderEntry(); }));
+  $('#trTo').addEventListener('click', () => pickAccount(E.to, '轉入帳戶', (id) => { E.to = id; if (E.acc === id) E.acc = otherAcc(id); renderEntry(); }));
+  $('#trSwap').addEventListener('click', () => { [E.acc, E.to] = [E.to, E.acc]; renderEntry(); });
+
+  // Calculator: the amount is a little expression (+ − × ÷), evaluated without eval().
+  const OPS = '+-×÷';
+  const isOp = (c) => c !== '' && OPS.includes(c);
+  function evalExpr(s) {
+    const parts = s.replace(/[+\-×÷.]+$/, '').split(/([+\-×÷])/).filter((p) => p !== '');
+    if (!parts.length) return 0;
+    const terms = [], ops = [];
+    let cur = parseFloat(parts[0]);
+    for (let i = 1; i < parts.length; i += 2) {
+      const op = parts[i], n = parseFloat(parts[i + 1]);
+      if (isNaN(n)) break;
+      if (op === '×') cur *= n;
+      else if (op === '÷') cur = n === 0 ? NaN : cur / n;
+      else { terms.push(cur); ops.push(op); cur = n; }
+    }
+    terms.push(cur);
+    return ops.reduce((r, op, i) => (op === '+' ? r + terms[i + 1] : r - terms[i + 1]), terms[0]);
+  }
+  function key(k) {
+    let s = E.expr;
+    const last = s.slice(-1);
+    const curNum = s.split(/[+\-×÷]/).pop();
+    if (/^\d$/.test(k)) {
+      if (curNum.includes('.') && curNum.split('.')[1].length >= 2) return bump();
+      if (curNum.replace('.', '').length >= 10) return bump();
+      if (curNum === '0') s = s.slice(0, -1);
+      s += k;
+    } else if (k === '.') {
+      if (curNum.includes('.')) return bump();
+      s += curNum === '' ? '0.' : '.';
+    } else if (isOp(k)) {
+      if (s === '') return bump();
+      if (isOp(last) || last === '.') s = s.slice(0, -1);
+      s += k;
+    } else if (k === 'back') s = s.slice(0, -1);
+    else if (k === 'clear') s = '';
+    if (s.length > 40) return bump();
+    E.expr = s; renderDisplay();
+  }
+  function bump() { const d = $('#display'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); }
+  function renderDisplay() {
+    const hasOp = /[+\-×÷]/.test(E.expr.slice(1));
+    const v = evalExpr(E.expr);
+    $('#kExpr').textContent = hasOp ? (E.expr.length > 22 ? '…' + E.expr.slice(-21) : E.expr) : '';
+    $('#kVal').textContent = isFinite(v) ? money(v) : '—';
+    $('#kVal').classList.toggle('neg', isFinite(v) && v < 0);
+  }
+  $('#keypad').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) key(b.dataset.k); });
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen('entry') || layers[layers.length - 1].id !== 'entry' || e.target === $('#note') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const map = { '*': '×', x: '×', '/': '÷', Backspace: 'back', Delete: 'clear', Escape: null };
+    if (/^[\d.+-]$/.test(e.key)) { key(e.key); e.preventDefault(); }
+    else if (e.key in map && map[e.key]) { key(map[e.key]); e.preventDefault(); }
+    else if (e.key === 'Enter') { saveEntry(false); e.preventDefault(); }
+  });
+
+  function saveEntry(again) {
+    const v = round2(evalExpr(E.expr));
+    if (!isFinite(v) || v <= 0) { bump(); flash(isFinite(v) && v < 0 ? '計出嚟係負數，請檢查算式' : '請輸入金額'); return; }
+    if (E.type !== 'tr' && !C[E.cat]) { flash('請揀分類'); return; }
+    if (E.type === 'tr' && E.acc === E.to) { flash('轉出同轉入唔可以係同一個帳戶'); return; }
+    if (!A[E.acc] || (E.type === 'tr' && !A[E.to])) { flash('請揀帳戶'); return; }
+    if (state.sample && !E.editing) { state.tx = []; state.sample = false; }
+    const old = E.editing && state.tx.find((x) => x.id === E.editing);
+    const t = { id: old ? old.id : uid(), type: E.type, amt: v, date: E.date || today(), cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '', note: E.note.trim().slice(0, 100), ts: old ? old.ts : Date.now() };
+    if (old) state.tx[state.tx.indexOf(old)] = t; else state.tx.push(t);
+    state.lastAcc = E.acc;
+    save();
+    if (ui.tab === 'book' && !ui.q) ui.month = t.date.slice(0, 7);
+    const what = t.type === 'tr' ? '轉帳' : catOf(t).name;
+    if (again) { E.expr = ''; E.note = ''; renderEntry(); flash(`已記低 ${what} ${money(v)}，可以繼續記`); }
+    else { closeLayer(); flash(old ? '已更新' : `已記低 ${what} ${money(v)}`); }
+    render();
+  }
+  $('#kOk').addEventListener('click', () => saveEntry(false));
+  $('#kAgain').addEventListener('click', () => saveEntry(true));
+  armable($('#entryDel'), '再撳刪除', () => {
+    state.tx = state.tx.filter((x) => x.id !== E.editing);
+    save(); closeLayer(); render(); flash('已刪除');
+  });
+
+  // ---------- 帳戶選擇 ----------
+  let pickCb = null;
+  function pickAccount(cur, title, cb) {
+    pickCb = cb;
+    const b = balances();
+    $('#pickTitle').textContent = title;
+    $('#pickList').innerHTML = activeAccs().map((a) => `<button type="button" class="row" role="radio" aria-checked="${a.id === cur}" data-pick="${escHtml(a.id)}">
+      <span class="bubble ico">${escHtml(a.icon)}</span><span class="txt"><span class="t1">${escHtml(a.name)}</span></span>
+      <span class="amt${(b[a.id] || 0) < 0 ? ' neg' : ''}">${money(b[a.id] || 0)}</span><span class="check">${a.id === cur ? '✓' : ''}</span></button>`).join('');
+    openLayer($('#picker'));
+  }
+  $('#pickList').addEventListener('click', (e) => {
+    const r = e.target.closest('[data-pick]'); if (!r) return;
+    const cb = pickCb; pickCb = null; closeLayer(); if (cb) cb(r.dataset.pick);
+  });
+
+  // ---------- generic editor sheet ----------
+  let edCfg = null;
+  function openEditor(cfg) {
+    edCfg = cfg;
+    $('#edTitle').textContent = cfg.title;
+    const f = $('#edForm');
+    f.innerHTML = cfg.fields.map((x) => {
+      const id = 'ed_' + x.key;
+      if (x.type === 'emoji') return `<div class="field"><span>${x.label}</span><div class="emoji-row"><input type="text" id="${id}" value="${escHtml(x.value)}" aria-label="${x.label}（可以自己打 emoji）"><span class="hint">揀一個，或者自己打 emoji</span></div>
+        <div class="emoji-grid" data-emoji-for="${id}">${EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div></div>`;
+      if (x.type === 'check') return `<label class="check-field"><input type="checkbox" id="${id}" ${x.value ? 'checked' : ''}>${x.label}</label>`;
+      if (x.type === 'select') return `<label class="field"><span>${x.label}</span><select id="${id}">${x.options.map(([v, l]) => `<option value="${escHtml(v)}" ${v === x.value ? 'selected' : ''}>${escHtml(l)}</option>`).join('')}</select>${x.hint ? `<span class="hint">${x.hint}</span>` : ''}</label>`;
+      return `<label class="field"><span>${x.label}</span><input type="${x.type === 'number' ? 'number' : 'text'}" id="${id}" ${x.type === 'number' ? 'inputmode="decimal" step="any"' : `maxlength="${x.max || 30}"`} value="${escHtml(x.value)}" placeholder="${escHtml(x.placeholder || '')}">${x.hint ? `<span class="hint">${x.hint}</span>` : ''}</label>`;
+    }).join('') + `<div class="msg err" id="edMsg"></div>
+      <button class="btn primary block" type="submit">儲存</button>
+      ${cfg.actions && cfg.actions.length ? `<div class="btns">${cfg.actions.map((a, i) => `<button class="btn small${a.danger ? ' danger' : ''}" type="button" data-act="${i}">${a.label}</button>`).join('')}</div>` : ''}`;
+    (cfg.actions || []).forEach((a, i) => {
+      const btn = f.querySelector(`[data-act="${i}"]`);
+      const run = () => { const err = a.run(collect()); if (err) $('#edMsg').textContent = err; };
+      if (a.confirm) armable(btn, a.confirm, run); else btn.addEventListener('click', run);
+    });
+    openLayer($('#editor'));
+  }
+  function collect() {
+    const v = {};
+    edCfg.fields.forEach((x) => {
+      const el = $('#ed_' + x.key);
+      if (x.type === 'check') v[x.key] = el.checked;
+      else if (x.type === 'emoji') v[x.key] = firstGrapheme(el.value.trim());
+      else v[x.key] = el.value.trim();
+    });
+    return v;
+  }
+  $('#edForm').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-emoji]'); if (!b) return;
+    const inp = $('#' + b.parentElement.dataset.emojiFor); inp.value = b.dataset.emoji;
+  });
+  $('#edForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const err = edCfg.onSave(collect());
+    if (err) { $('#edMsg').textContent = err; return; }
+    closeLayer(); render();
+  });
+
+  // ---------- 分類管理 ----------
+  function renderCatman() {
+    const type = ui.mtype;
+    $$('[data-mtype]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mtype === type)));
+    const used = {};
+    state.tx.forEach((t) => { used[t.cat] = (used[t.cat] || 0) + 1; });
+    $('#catmanBody').innerHTML = groupsOf(type).map((g) => `<div class="gblock card">
+      <div class="ghead"><span class="ico">${escHtml(g.icon)}</span>${escHtml(g.name)}<button class="btn small" type="button" data-edg="${escHtml(g.id)}">修改群組</button></div>
+      <div class="cman">${catsOfGroup(g.id).map((c) => `<button type="button" data-edc="${escHtml(c.id)}"><span class="ico">${escHtml(c.icon)}</span><span>${escHtml(c.name)}</span></button>`).join('')}
+        <button type="button" class="add" data-addc="${escHtml(g.id)}"><span class="ico">＋</span><span>新增分類</span></button></div></div>`).join('') +
+      '<button class="btn block" type="button" id="addGroup">＋ 新增群組</button><p class="hint">群組係記一筆畫面頂嗰排 tab，亦係圖表甜甜圈嘅分組。撳分類可以改名、換圖示、搬去其他群組，或者刪除（舊記錄可以併入其他分類）。</p>';
+  }
+  $$('[data-mtype]').forEach((b) => b.addEventListener('click', () => { ui.mtype = b.dataset.mtype; renderCatman(); }));
+  $('#openCats').addEventListener('click', () => { ui.mtype = 'exp'; renderCatman(); openLayer($('#catman')); });
+  $('#catmanBody').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.closest('#addGroup')) editGroup(null);
+    else if (t.closest('[data-edg]')) editGroup(G[t.closest('[data-edg]').dataset.edg]);
+    else if (t.closest('[data-edc]')) editCat(C[t.closest('[data-edc]').dataset.edc], null);
+    else if (t.closest('[data-addc]')) editCat(null, t.closest('[data-addc]').dataset.addc);
+  });
+
+  function editGroup(g) {
+    const type = g ? g.type : ui.mtype;
+    const n = g ? catsOfGroup(g.id).length : 0;
+    openEditor({
+      title: g ? '修改群組' : `新增${type === 'exp' ? '支出' : '收入'}群組`,
+      fields: [
+        { key: 'icon', type: 'emoji', label: '圖示', value: g ? g.icon : '📁' },
+        { key: 'name', type: 'text', label: '名稱', value: g ? g.name : '', max: 24, placeholder: '例如：社交' },
+      ],
+      onSave(v) {
+        if (!v.name) return '請輸入名稱';
+        if (g) { g.name = v.name; g.icon = v.icon || g.icon; }
+        else state.groups.push({ id: 'g_' + uid(), type, name: v.name, icon: v.icon || '📁' });
+        save();
+      },
+      actions: g ? [
+        { label: '上移', run() { moveIn(state.groups, g, -1, (x) => x.type === g.type); save(); render(); } },
+        { label: '下移', run() { moveIn(state.groups, g, 1, (x) => x.type === g.type); save(); render(); } },
+        { label: '刪除群組', danger: true, confirm: n ? null : '再撳一次確認刪除', run() {
+          if (n) return `群組入面仲有 ${n} 個分類，請先刪除或者搬去其他群組。`;
+          state.groups = state.groups.filter((x) => x !== g); save(); closeLayer(); render(); flash('已刪除群組');
+        } },
+      ] : [],
+    });
+  }
+
+  function editCat(c, gid) {
+    const type = c ? (G[c.group] || {}).type : (G[gid] || {}).type;
+    const groups = groupsOf(type).map((g) => [g.id, `${g.icon} ${g.name}`]);
+    const used = c ? state.tx.filter((t) => t.cat === c.id).length : 0;
+    const others = catsOf(type).filter((x) => !c || x.id !== c.id).map((x) => [x.id, `${x.icon} ${x.name}`]);
+    openEditor({
+      title: c ? '修改分類' : '新增分類',
+      fields: [
+        { key: 'icon', type: 'emoji', label: '圖示', value: c ? c.icon : '🏷️' },
+        { key: 'name', type: 'text', label: '名稱', value: c ? c.name : '', max: 24, placeholder: '例如：早餐' },
+        { key: 'group', type: 'select', label: '群組', value: c ? c.group : gid, options: groups },
+        ...(c && used && others.length ? [{ key: 'merge', type: 'select', label: `刪除時，${used} 筆舊記錄併入`, value: others[0][0], options: others, hint: '只有撳「刪除分類」先會用到' }] : []),
+      ],
+      onSave(v) {
+        if (!v.name) return '請輸入名稱';
+        if (c) { c.name = v.name; c.icon = v.icon || c.icon; if (G[v.group]) c.group = v.group; }
+        else state.cats.push({ id: 'c_' + uid(), group: G[v.group] ? v.group : gid, name: v.name, icon: v.icon || '🏷️' });
+        save();
+      },
+      actions: c ? [
+        { label: '上移', run() { moveIn(state.cats, c, -1, (x) => x.group === c.group); save(); render(); } },
+        { label: '下移', run() { moveIn(state.cats, c, 1, (x) => x.group === c.group); save(); render(); } },
+        { label: '刪除分類', danger: true, confirm: used && !others.length ? null : '再撳一次確認刪除', run(v) {
+          if (used && !others.length) return '呢個係最後一個分類，有記錄用緊，唔可以刪除。';
+          if (used) state.tx.forEach((t) => { if (t.cat === c.id) t.cat = v.merge; });
+          state.cats = state.cats.filter((x) => x !== c);
+          save(); closeLayer(); render(); flash(used ? `已刪除，${used} 筆記錄已併入「${C[v.merge] ? C[v.merge].name : ''}」` : '已刪除分類');
+        } },
+      ] : [],
+    });
+  }
+
+  // ---------- 更多 ----------
+  $('#budget').addEventListener('change', (e) => { const v = parseFloat(e.target.value); state.budget = v > 0 ? round2(v) : null; save(); render(); flash(state.budget ? `每月預算 ${money(state.budget)}` : '已取消預算'); });
+  $$('[data-theme-set]').forEach((b) => b.addEventListener('click', () => { state.theme = b.dataset.themeSet; save(); render(); }));
+  function setMsg(text, kind) { const el = $('#ioMsg'); el.textContent = text; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function exportCsv(prefix, label) {
+    const list = state.tx.filter((t) => t.date.startsWith(prefix)).sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts);
+    if (!list.length) { setMsg(`${label}未有記錄可以匯出`, 'err'); return; }
+    // Prefix text that Excel would run as a formula (=, +, -, @).
+    const esc = (v) => { let s = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const TYPE = { exp: '支出', inc: '收入', tr: '轉帳' };
+    const rows = [['日期', '類型', '群組', '分類', '金額', '帳戶', '轉入帳戶', '備註']];
+    list.forEach((t) => {
+      const c = catOf(t);
+      rows.push([t.date, TYPE[t.type], t.type === 'tr' ? '' : (G[c.group] || { name: '' }).name, t.type === 'tr' ? '' : c.name, t.type === 'exp' ? -t.amt : t.amt, accOf(t.acc).name, t.to ? accOf(t.to).name : '', t.note]);
+    });
+    download(`ledger_${prefix || 'all'}_${today()}.csv`, '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    setMsg(`已匯出 ${list.length} 筆，可以用 Excel 或 Google Sheets 打開（支出係負數）`, 'ok');
+  }
+  $('#csvMonth').addEventListener('click', () => exportCsv(thisMonth(), '今個月'));
+  $('#csvAll').addEventListener('click', () => exportCsv('', ''));
+  $('#exportJson').addEventListener('click', () => {
+    download(`ledger_backup_${today()}.json`, JSON.stringify(state), 'application/json');
+    setMsg('已下載備份。換手機或者清咗瀏覽器之後，可以用「匯入備份」攞返', 'ok');
+  });
+  let pendingImport = null;
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 20e6) throw new Error('big');
+      pendingImport = clean(JSON.parse(await file.text()));
+      $('#importText').textContent = `備份有 ${pendingImport.tx.length} 筆記錄、${pendingImport.accounts.length} 個帳戶。匯入會取代而家嘅 ${state.tx.length} 筆記錄。`;
+      $('#importConfirm').hidden = false; setMsg('');
+    } catch (err) { pendingImport = null; $('#importConfirm').hidden = true; setMsg('呢個檔案唔係本 App 嘅備份 JSON，請揀「備份 JSON」下載嘅檔案', 'err'); }
+  });
+  $('#importGo').addEventListener('click', () => {
+    if (!pendingImport) return;
+    state = Object.assign(pendingImport, { sample: false }); pendingImport = null;
+    $('#importConfirm').hidden = true; save(); render(); setMsg(`已匯入 ${state.tx.length} 筆記錄`, 'ok');
+  });
+  $('#importCancel').addEventListener('click', () => { pendingImport = null; $('#importConfirm').hidden = true; });
+  armable($('#clearAll'), '再撳一次：真係全部清除', () => {
+    state = defaults(); save(); ui.filter = null; render(); flash('已清除全部資料');
+  });
+  $('#loadSample').addEventListener('click', () => {
+    if (state.tx.length && !state.sample) { flash('你已經有自己嘅記錄，唔會載入示範資料'); return; }
+    loadSample(); save(); setTab('book'); flash('已載入示範資料');
+  });
+  $('#clearSample').addEventListener('click', () => { state.tx = []; state.sample = false; save(); render(); flash('示範資料已清除'); });
+
+  // Six months of made-up spending so the charts have something to show. Seeded, so it looks the same every time.
+  function loadSample() {
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const tx = [];
+    const add = (date, type, cat, amt, acc, note, to) => { if (type === 'tr' || C[cat]) tx.push({ id: uid() + tx.length, type, amt: round2(amt), date, cat: type === 'tr' ? '' : cat, acc, to: to || '', note: note || '', ts: tx.length }); };
+    const accs = activeAccs().map((a) => a.id);
+    const acc = (pref) => (A[pref] ? pref : accs[0]);
+    const end = new Date(); const start = new Date(end.getFullYear(), end.getMonth() - 5, 1);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = isoDate(d);
+      add(iso, 'exp', 'c_food', 35 + Math.round(rnd() * 90), acc(pick(['a_octopus', 'a_payme', 'a_card', 'a_cash'])), pick(['', '茶記', '飯堂', '便利店', '麵店']));
+      if (rnd() < .55) add(iso, 'exp', 'c_drink', 18 + Math.round(rnd() * 22), acc('a_octopus'), pick(['', '珍奶', '咖啡']));
+      if (rnd() < .5) add(iso, 'exp', 'c_mtr', 8 + Math.round(rnd() * 25), acc('a_octopus'), '');
+      if (rnd() < .12) add(iso, 'exp', pick(['c_taobao', 'c_clothes', 'c_shop']), 60 + Math.round(rnd() * 400), acc('a_card'), '');
+      if (rnd() < .1) add(iso, 'exp', pick(['c_misc', 'c_daily']), 30 + Math.round(rnd() * 150), acc('a_payme'), pick(['超市', '', '屈臣氏']));
+      if (rnd() < .06) add(iso, 'exp', pick(['c_fun', 'c_alcohol']), 80 + Math.round(rnd() * 300), acc('a_card'), '');
+      if (rnd() < .04) add(iso, 'exp', 'c_medical', 150 + Math.round(rnd() * 300), acc('a_cash'), '睇醫生');
+      if (d.getDate() === 1) { add(iso, 'inc', 'c_salary', 20000, acc('a_fps'), '示範人工'); add(iso, 'tr', '', 500, acc('a_fps'), '八達通增值', acc('a_octopus')); }
+      if (d.getDate() === 5) { add(iso, 'exp', 'c_netflix', 78, acc('a_card'), ''); add(iso, 'exp', 'c_phone', 168, acc('a_card'), ''); }
+      if (d.getDate() === 20) add(iso, 'tr', '', 1500, acc('a_fps'), '還卡數', acc('a_card'));
+    }
+    state.tx = tx; state.sample = true;
+  }
+
+  // ---------- render ----------
+  function applyTheme() {
+    if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', state.theme);
+    $$('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === state.theme)));
+  }
+  function renderMore() {
+    $('#budget').value = state.budget || '';
+    let kb = 0;
+    try { kb = ((localStorage.getItem(KEY) || '').length * 2) / 1024; } catch (e) { /* storage blocked */ }
+    $('#storageInfo').textContent = `而家有 ${state.tx.length} 筆記錄，大約用咗 ${kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB'} 儲存空間（瀏覽器一般俾大約 5 MB，實際上限視乎手機同瀏覽器）。`;
+  }
+  function render() {
+    reindex();
+    applyTheme();
+    renderBar();
+    if (ui.tab === 'book') renderBook();
+    if (ui.tab === 'wallet') renderWallet();
+    if (ui.tab === 'chart') renderChart();
+    if (ui.tab === 'more') renderMore();
+    if (isOpen('catman')) renderCatman();
+  }
+
+  let toastT;
+  function flash(text) {
+    const t = $('#toast'); t.textContent = text; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
+  }
+
+  // ---------- phone app: offline cache, install prompt, keep storage ----------
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* not supported */ }
+  const DISMISS_KEY = 'daily-ledger-install-dismissed';
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { /* storage blocked */ }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let promptEvent = null;
+  if (!standalone && !dismissed) {
+    if (ios) { $('#installHow').textContent = '用 Safari 撳「分享」掣，再揀「加至主畫面」。Safari 同主畫面 App 嘅記錄係分開儲，裝好之後就喺 App 度記。'; $('#installBox').hidden = false; }
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); promptEvent = e; $('#installBtn').hidden = false; $('#installBox').hidden = false; });
+  }
+  $('#installBtn').addEventListener('click', async () => {
+    if (!promptEvent) return;
+    promptEvent.prompt();
+    const choice = await promptEvent.userChoice.catch(() => null);
+    promptEvent = null;
+    if (choice && choice.outcome === 'accepted') { $('#installBox').hidden = true; flash('已安裝，喺主畫面搵「記帳」'); }
+  });
+  $('#installLater').addEventListener('click', () => { $('#installBox').hidden = true; try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) { /* storage blocked */ } });
+  window.addEventListener('appinstalled', () => { $('#installBox').hidden = true; });
+
+  // A reload while a page was open leaves a stale history entry; start clean.
+  if (history.state && history.state.ledgerLayer) history.replaceState(null, '');
+  render();
+})();
+</script>
+</body>
+</html>
