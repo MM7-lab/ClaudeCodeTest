@@ -205,6 +205,17 @@ input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0
 .page-bar .icon-btn{color:var(--brand)}
 .page-bar .icon-btn:hover{background:var(--brand-soft)}
 .page-bar .icon-btn.danger{color:var(--bad)}
+.page-bar .icon-btn.recur{font-size:20px;filter:grayscale(1);opacity:.6}
+.page-bar .icon-btn.recur[aria-pressed="true"]{background:var(--brand-soft);filter:none;opacity:1}
+.recur-bar{background:var(--brand-soft);border-bottom:1px solid var(--brand-line);padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--ink)}
+.recur-bar .what{flex:1 1 14em;min-width:0}
+.recur-bar label{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.recur-bar select{width:auto;padding:5px 8px;font-size:13px;background:var(--paper)}
+.recur-bar input[type=checkbox]{width:18px;height:18px;accent-color:var(--brand-fill)}
+.rrow{display:flex;align-items:center;gap:10px;padding:0 12px 0 0;border-bottom:1px solid var(--rule)}
+.rrow:last-child{border-bottom:0}
+.rrow .row{border-bottom:0;flex:1;min-width:0}
+.rrow.paused .row{opacity:.5}
 .page-bar .icon-btn.danger.armed{background:var(--bad);color:#fff;width:auto;padding:0 12px;font-size:13px;font-weight:700}
 .page-body{flex:1;overflow:auto;padding:12px 16px}
 .panel-head{position:sticky;top:0;background:var(--paper);display:flex;align-items:center;gap:8px;padding:14px 16px 8px;z-index:1}
@@ -245,6 +256,7 @@ input:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0
 .kk.date{font-size:14px;letter-spacing:.02em}
 .kk.date input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;padding:0;cursor:pointer}
 .kk.again{font-size:14px}
+#kAgain[hidden] + #kOk{grid-column:span 2}
 .display{grid-column:span 3;background:var(--key);border-radius:16px;display:flex;align-items:center;gap:8px;padding:0 12px;min-width:0;height:50px;color:var(--key-ink)}
 .display input{flex:1;min-width:0;border:0;background:transparent;padding:6px 0;font-size:15px;color:var(--key-ink);box-shadow:none}
 .display input:focus{box-shadow:none}
@@ -394,6 +406,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     <div class="menu">
       <button type="button" class="row" id="openCats"><span class="bubble">🗂️</span><span class="txt"><span class="t1">分類管理</span><span class="t2">新增、改名、換圖示、合併分類同群組</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openAuto"><span class="bubble">🔔</span><span class="txt"><span class="t1">自動記帳</span><span class="t2" id="autoRowSub">讀取八達通、PayMe、信用卡付款通知，一撳記低</span></span><span class="go">›</span></button>
+      <button type="button" class="row" id="openRecur"><span class="bubble">🔁</span><span class="txt"><span class="t1">定期記帳</span><span class="t2" id="recurRowSub">每月 Netflix、租金、保險、分期… 到期自動記低</span></span><span class="go">›</span></button>
       <button type="button" class="row" id="openAccs"><span class="bubble">👛</span><span class="txt"><span class="t1">帳戶管理</span><span class="t2">現金、八達通、信用卡、銀行…校正餘額</span></span><span class="go">›</span></button>
     </div>
     <div class="card stack">
@@ -455,7 +468,13 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <button type="button" data-etype="inc" aria-pressed="false"><span class="ico">💰</span>收入</button>
       <button type="button" data-etype="tr" aria-pressed="false"><span class="ico">🔁</span>轉帳</button>
     </div></div>
+    <button type="button" class="icon-btn recur" id="recurBtn" aria-pressed="false" aria-label="每月重複" title="每月重複">🔁</button>
     <button type="button" class="icon-btn danger" id="entryDel" aria-label="刪除呢筆" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+  </div>
+  <div class="recur-bar" id="recurBar" hidden>
+    <span class="what" id="recurWhat"></span>
+    <label>期數 <select id="recurCount"></select></label>
+    <label id="recurPausedWrap"><input type="checkbox" id="recurPaused">暫停</label>
   </div>
   <div class="gtabs" id="gtabs" role="group" aria-label="分類群組"></div>
   <div class="entry-scroll">
@@ -561,6 +580,16 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   </div></div>
 </div>
 
+<!-- 定期記帳 -->
+<div class="layer page" id="recurPage" role="dialog" aria-modal="true" aria-label="定期記帳" hidden>
+  <div class="page-bar">
+    <button type="button" class="icon-btn" data-close aria-label="返回"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2>定期記帳</h2>
+    <button class="btn small primary" type="button" id="recurAdd">＋ 新增</button>
+  </div>
+  <div class="page-body"><div class="stack" id="recurBody"></div></div>
+</div>
+
 <!-- 待確認 -->
 <div class="layer page" id="inbox" role="dialog" aria-modal="true" aria-label="待確認" hidden>
   <div class="page-bar">
@@ -633,6 +662,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       ],
       tx: [], budget: null, theme: 'auto', lastAcc: 'a_cash', sample: false,
       auto: { mode: 'confirm', sources: {} },
+      // Monthly repeats: {id, type, amt, cat, acc, to, note, start (first date), count (0 = no end), done, last (YYYY-MM), paused}
+      recur: [],
     };
   }
 
@@ -656,10 +687,19 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         id: t.id, type: t.type, amt: round2(t.amt), date: t.date,
         cat: t.type !== 'tr' && okId(t.cat) ? t.cat : '', acc: t.acc, to: t.type === 'tr' ? t.to : '',
         note: str(t.note, 100), ts: num(t.ts),
+        ...(okId(t.rid) ? { rid: t.rid } : {}),
+      }));
+    const seenR = new Set();
+    s.recur = (Array.isArray(d.recur) ? d.recur : []).filter((r) => r && okId(r.id) && !seenR.has(r.id) && seenR.add(r.id) && ['exp', 'inc', 'tr'].includes(r.type)
+      && num(r.amt) > 0 && num(r.amt) < 1e12 && /^\d{4}-\d{2}-\d{2}$/.test(r.start) && okId(r.acc) && (r.type !== 'tr' || okId(r.to)))
+      .slice(0, 200).map((r) => ({
+        id: r.id, type: r.type, amt: round2(r.amt), cat: r.type !== 'tr' && okId(r.cat) ? r.cat : '', acc: r.acc, to: r.type === 'tr' ? r.to : '',
+        note: str(r.note, 100), start: r.start, count: Math.max(0, Math.min(600, Math.floor(num(r.count)))), done: Math.max(0, Math.floor(num(r.done))),
+        last: /^\d{4}-\d{2}$/.test(r.last) ? r.last : '', paused: r.paused === true,
       }));
     // Every account a record points at must exist, or its money would vanish from the balances.
     const aIds = new Set(s.accounts.map((a) => a.id));
-    s.tx.forEach((t) => [t.acc, t.to].forEach((id) => {
+    s.tx.concat(s.recur).forEach((t) => [t.acc, t.to].forEach((id) => {
       if (id && !aIds.has(id)) { aIds.add(id); s.accounts.push({ id, name: '未命名帳戶', icon: '❔', init: 0, archived: false }); }
     }));
     if (!s.accounts.length) s.accounts = defaults().accounts;
@@ -835,12 +875,13 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const c = catOf(t);
     let icon, t1, t2, cls, amt;
     if (t.type === 'tr') {
-      icon = '🔁'; t1 = t.note || '轉帳'; t2 = `${accOf(t.acc).name} → ${accOf(t.to).name}`; cls = 'tr'; amt = money(t.amt);
+      icon = '⇄'; t1 = t.note || '轉帳'; t2 = `${accOf(t.acc).name} → ${accOf(t.to).name}`; cls = 'tr'; amt = money(t.amt);
       if (ui.filter && ui.filter.acc) { amt = money(t.acc === ui.filter.acc ? -t.amt : t.amt, true); cls = t.acc === ui.filter.acc ? '' : 'inc'; }
     } else {
       icon = c.icon; t1 = c.name; t2 = [t.note, accOf(t.acc).name].filter(Boolean).join(' · ');
       cls = t.type === 'inc' ? 'inc' : ''; amt = t.type === 'inc' ? money(t.amt, true) : money(-t.amt);
     }
+    if (t.rid) t2 = '🔁 ' + t2;
     return `<button type="button" class="row" data-tx="${escHtml(t.id)}">
       <span class="bubble ico">${escHtml(icon)}</span>
       <span class="txt"><span class="t1">${escHtml(t1)}</span><span class="t2">${escHtml(t2)}</span></span>
@@ -935,7 +976,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   function editAccount(a) {
     const bal = a ? balances()[a.id] || 0 : 0;
-    const used = a ? state.tx.filter((t) => t.acc === a.id || t.to === a.id).length : 0;
+    const used = a ? state.tx.concat(state.recur).filter((t) => t.acc === a.id || t.to === a.id).length : 0;
     openEditor({
       title: a ? '修改帳戶' : '新增帳戶',
       fields: [
@@ -962,7 +1003,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         { label: '下移', run() { moveIn(state.accounts, a, 1); save(); render(); } },
         { label: '刪除帳戶', danger: true, confirm: used ? null : '再撳一次確認刪除',
           run() {
-            if (used) return `有 ${used} 筆記錄用緊呢個帳戶，唔可以刪除。可以剔「封存」收埋佢。`;
+            if (used) return `有 ${used} 筆記錄或者定期記帳用緊呢個帳戶，唔可以刪除。可以剔「封存」收埋佢。`;
             if (state.accounts.length <= 1) return '最少要留一個帳戶';
             state.accounts = state.accounts.filter((x) => x !== a);
             if (state.lastAcc === a.id) state.lastAcc = state.accounts[0].id;
@@ -1075,7 +1116,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $$('[data-cper]').forEach((b) => b.addEventListener('click', () => { ui.cper = b.dataset.cper; ui.csel = null; ui.trendSel = null; render(); }));
 
   // ---------- 記一筆 ----------
-  const E = { type: 'exp', cat: '', acc: '', to: '', date: '', expr: '', note: '', editing: null, group: 'rec', fromPending: null };
+  const E = { type: 'exp', cat: '', acc: '', to: '', date: '', expr: '', note: '', editing: null, group: 'rec', fromPending: null, recur: false, recurId: null, recurCount: 0, recurPaused: false };
   function lastCat(type) {
     const t = state.tx.filter((x) => x.type === type && C[x.cat]).sort(sortTx)[0];
     return t ? t.cat : (catsOf(type)[0] || {}).id || '';
@@ -1092,6 +1133,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   function openEntry(t, fromPending) {
     E.fromPending = fromPending || null;
+    Object.assign(E, { recur: false, recurId: null, recurCount: 0, recurPaused: false });
     if (t) Object.assign(E, { editing: t.id, type: t.type, cat: t.cat, acc: t.acc, to: t.to || otherAcc(t.acc), date: t.date, expr: String(t.amt), note: t.note });
     else {
       const acc = ui.filter && ui.filter.acc && A[ui.filter.acc] && !A[ui.filter.acc].archived ? ui.filter.acc : defaultAcc();
@@ -1106,7 +1148,20 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   function renderEntry() {
     $$('[data-etype]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.etype === E.type)));
-    $('#entryDel').hidden = !E.editing;
+    $('#entryDel').hidden = !E.editing && !E.recurId;
+    $('#entryDel').setAttribute('aria-label', E.recurId ? '刪除呢個定期記帳' : '刪除呢筆');
+    $('#recurBtn').setAttribute('aria-pressed', String(E.recur));
+    $('#recurBtn').hidden = !!E.fromPending || !!(E.editing && state.tx.some((t) => t.id === E.editing && t.rid));
+    $('#recurBtn').disabled = !!E.recurId;
+    $('#recurBar').hidden = !E.recur;
+    if (E.recur) {
+      const day = +E.date.slice(8);
+      $('#recurWhat').textContent = `🔁 每月 ${day} 號${day > 28 ? '（細月就月尾）' : ''}，${E.recurId ? '下次' : '第一次'}：${shortDate(E.date)}` + (E.editing ? '（今筆算第一期）' : '');
+      $('#recurCount').innerHTML = '<option value="0">不限</option>' + Array.from({ length: 59 }, (_, i) => i + 2).map((n) => `<option value="${n}" ${n === E.recurCount ? 'selected' : ''}>${n} 期</option>`).join('');
+      $('#recurCount').value = String(E.recurCount);
+      $('#recurPausedWrap').hidden = !E.recurId;
+      $('#recurPaused').checked = E.recurPaused;
+    }
     const tr = E.type === 'tr';
     $('#gtabs').hidden = $('#cgrid').hidden = tr;
     $('#trPanel').hidden = !tr;
@@ -1125,7 +1180,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     $('#note').placeholder = tr ? '備註（例如：還卡數）' : '備註';
     $('#entryDate').value = E.date;
     $('#kDate').textContent = E.date === today() ? 'TODAY' : shortDate(E.date);
-    $('#kAgain').hidden = !!E.editing || !!E.fromPending;
+    $('#kAgain').hidden = !!E.editing || !!E.fromPending || !!E.recurId;
     renderDisplay();
   }
   function renderGrid() {
@@ -1220,9 +1275,18 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (E.type !== 'tr' && !C[E.cat]) { flash('請揀分類'); return; }
     if (E.type === 'tr' && E.acc === E.to) { flash('轉出同轉入唔可以係同一個帳戶'); return; }
     if (!A[E.acc] || (E.type === 'tr' && !A[E.to])) { flash('請揀帳戶'); return; }
+    if (E.recur && !E.editing) { saveRule(v, again); return; }
     if (state.sample && !E.editing) { state.tx = []; state.sample = false; }
     const old = E.editing && state.tx.find((x) => x.id === E.editing);
     const t = { id: old ? old.id : E.fromPending ? 'n_' + E.fromPending : uid(), type: E.type, amt: v, date: E.date || today(), cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '', note: E.note.trim().slice(0, 100), ts: old ? old.ts : Date.now() };
+    if (old && old.rid) t.rid = old.rid;
+    // Turning an existing record into a monthly repeat: this record is the first instalment.
+    if (old && E.recur && !old.rid) {
+      const r = ruleFrom(v, t.date);
+      Object.assign(r, { done: 1, last: t.date.slice(0, 7) });
+      state.recur.push(r);
+      t.rid = r.id;
+    }
     if (old) state.tx[state.tx.indexOf(old)] = t; else state.tx.push(t);
     state.lastAcc = E.acc;
     save();
@@ -1236,9 +1300,129 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('#kOk').addEventListener('click', () => saveEntry(false));
   $('#kAgain').addEventListener('click', () => saveEntry(true));
   armable($('#entryDel'), '再撳刪除', () => {
+    if (E.recurId) {
+      state.recur = state.recur.filter((r) => r.id !== E.recurId);
+      save(); closeLayer(); render(); flash('已刪除定期記帳，之前記低嘅記錄會保留');
+      return;
+    }
     state.tx = state.tx.filter((x) => x.id !== E.editing);
     save(); closeLayer(); render(); flash('已刪除');
   });
+  $('#recurBtn').addEventListener('click', () => {
+    if (E.recurId) return;
+    E.recur = !E.recur;
+    renderEntry();
+    if (E.recur) flash('會每月同一日自動記低，可以喺「更多 → 定期記帳」管理');
+  });
+  $('#recurCount').addEventListener('change', () => { E.recurCount = +$('#recurCount').value || 0; });
+  $('#recurPaused').addEventListener('change', () => { E.recurPaused = $('#recurPaused').checked; });
+
+  // ---------- 定期記帳 ----------
+  const daysIn = (ym) => new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+  // The date a rule falls on in a month; a day past the month's end lands on its last day.
+  const occur = (r, ym) => `${ym}-${pad(Math.min(+r.start.slice(8), daysIn(ym)))}`;
+  function ruleFrom(v, start) {
+    return {
+      id: 'q' + uid(), type: E.type, amt: v, cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '',
+      note: E.note.trim().slice(0, 100), start, count: E.recurCount || 0, done: 0, last: '', paused: false,
+    };
+  }
+  function nextDue(r) {
+    if (r.paused || (r.count && r.done >= r.count)) return '';
+    let m = r.last ? shiftMonth(r.last, 1) : r.start.slice(0, 7);
+    if (m < r.start.slice(0, 7)) m = r.start.slice(0, 7);
+    return occur(r, m);
+  }
+  // Records every instalment that has fallen due since the last run (catching up after weeks away).
+  function runRecurring() {
+    const now = today();
+    let n = 0;
+    state.recur.forEach((r) => {
+      for (let i = 0; i < 240; i++) {
+        const d = nextDue(r);
+        if (!d || d > now) break;
+        const m = d.slice(0, 7);
+        const id = `r_${r.id}_${m.replace('-', '')}`;
+        if (!state.tx.some((t) => t.id === id)) {
+          state.tx.push({ id, type: r.type, amt: r.amt, date: d, cat: r.cat, acc: r.acc, to: r.to, note: r.note, ts: Date.now() + i, rid: r.id });
+          n++;
+        }
+        r.done++;
+        r.last = m;
+      }
+    });
+    if (n) { save(); flash(`已自動記低 ${n} 筆定期記帳`); }
+    return n;
+  }
+  function saveRule(v, again) {
+    if (E.recurId) {
+      const r = state.recur.find((x) => x.id === E.recurId);
+      if (!r) { closeLayer(); return; }
+      const prevDue = nextDue(r);
+      Object.assign(r, { type: E.type, amt: v, cat: E.type === 'tr' ? '' : E.cat, acc: E.acc, to: E.type === 'tr' ? E.to : '', note: E.note.trim().slice(0, 100), count: E.recurCount || 0, paused: E.recurPaused });
+      // A new date moves the schedule: the next instalment falls on it.
+      if (E.date !== prevDue) r.start = E.date;
+      save(); runRecurring(); closeLayer(); render(); flash('已更新定期記帳，之前記低嘅記錄唔會改');
+      return;
+    }
+    if (state.sample) { state.tx = []; state.sample = false; }
+    const r = ruleFrom(v, E.date || today());
+    state.recur.push(r);
+    state.lastAcc = E.acc;
+    save();
+    const n = runRecurring();
+    const what = E.type === 'tr' ? '轉帳' : (C[E.cat] || {}).name;
+    const msg = n ? `已設定每月重複，今次記低咗 ${n} 筆` : `已設定每月重複，${shortDate(nextDue(r))} 會自動記低`;
+    if (again) { E.expr = ''; E.note = ''; E.recur = false; renderEntry(); flash(`${what} ${money(v)}：${msg}`); }
+    else { closeLayer(); flash(msg); }
+    render();
+  }
+  function openRule(r) {
+    openEntry(null);
+    Object.assign(E, { type: r.type, cat: r.cat, acc: r.acc, to: r.to || otherAcc(r.acc), date: nextDue(r) || r.start, expr: String(r.amt), note: r.note, recur: true, recurId: r.id, recurCount: r.count, recurPaused: r.paused });
+    renderEntry();
+  }
+  function renderRecur() {
+    const list = state.recur;
+    let exp = 0, inc = 0;
+    list.forEach((r) => { if (r.paused || (r.count && r.done >= r.count)) return; if (r.type === 'exp') exp += r.amt; else if (r.type === 'inc') inc += r.amt; });
+    const rows = list.map((r) => {
+      const c = C[r.cat] || { name: '未分類', icon: '❔' };
+      const tr = r.type === 'tr';
+      const finished = r.count && r.done >= r.count;
+      const nd = nextDue(r);
+      const when = r.paused ? '已暫停' : finished ? `已完成 ${r.done}/${r.count} 期` : `下次 ${shortDate(nd)}${r.count ? `・第 ${r.done + 1}/${r.count} 期` : ''}`;
+      const day = +r.start.slice(8);
+      const t2 = [`每月 ${day} 號`, tr ? `${accOf(r.acc).name} → ${accOf(r.to).name}` : accOf(r.acc).name, when].join(' · ');
+      return `<div class="rrow${r.paused || finished ? ' paused' : ''}"><button type="button" class="row" data-rule="${escHtml(r.id)}">
+        <span class="bubble ico">${escHtml(tr ? '⇄' : c.icon)}</span>
+        <span class="txt"><span class="t1">${escHtml(r.note || (tr ? '轉帳' : c.name))}</span><span class="t2">${escHtml(t2)}</span></span>
+        <span class="amt ${r.type === 'inc' ? 'inc' : tr ? 'tr' : ''}">${r.type === 'inc' ? money(r.amt, true) : tr ? money(r.amt) : money(-r.amt)}</span></button>
+        ${finished ? '' : `<label class="switch"><input type="checkbox" data-rpause="${escHtml(r.id)}" ${r.paused ? '' : 'checked'} aria-label="${r.paused ? '恢復' : '暫停'}"><i></i></label>`}</div>`;
+    }).join('');
+    $('#recurBody').innerHTML = `<div class="card"><div class="sum3">
+        <div><span class="k">每月固定支出</span><span class="v">${money(exp)}</span></div>
+        <div><span class="k">每月固定收入</span><span class="v inc">${money(inc)}</span></div>
+        <div><span class="k">項目</span><span class="v">${list.length}</span></div></div></div>
+      ${list.length ? `<div class="list">${rows}</div>` : '<div class="empty"><span class="big">🔁</span><p>未有定期記帳。撳「＋ 新增」，或者記一筆嗰陣撳頂部 🔁，例如 Netflix、租金、保險、強積金、信用卡分期。</p></div>'}
+      <p class="hint">到期嗰日打開 App 就會自動記低（隔咗幾日或者幾個月先開都會補返）。右邊開關可以暫停；撳項目修改金額、分類、日子或者期數。改動只影響之後嘅記錄。</p>`;
+  }
+  $('#recurBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rule]');
+    if (b) { const r = state.recur.find((x) => x.id === b.dataset.rule); if (r) openRule(r); }
+  });
+  $('#recurBody').addEventListener('change', (e) => {
+    const i = e.target.closest('[data-rpause]');
+    if (!i) return;
+    const r = state.recur.find((x) => x.id === i.dataset.rpause);
+    if (!r) return;
+    r.paused = !i.checked;
+    // Resuming does not back-fill the paused months.
+    if (!r.paused) { const cur = thisMonth(); const due = nextDue(r); if (due && due.slice(0, 7) < cur) r.last = shiftMonth(cur, -1); }
+    save(); runRecurring(); render(); flash(r.paused ? '已暫停' : '已恢復');
+  });
+  $('#openRecur').addEventListener('click', () => { renderRecur(); openLayer($('#recurPage')); });
+  $('#recurAdd').addEventListener('click', () => { openEntry(null); E.recur = true; renderEntry(); });
 
   // ---------- 帳戶選擇 ----------
   let pickCb = null;
@@ -1373,6 +1557,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         { label: '刪除分類', danger: true, confirm: used && !others.length ? null : '再撳一次確認刪除', run(v) {
           if (used && !others.length) return '呢個係最後一個分類，有記錄用緊，唔可以刪除。';
           if (used) state.tx.forEach((t) => { if (t.cat === c.id) t.cat = v.merge; });
+          state.recur.forEach((r) => { if (r.cat === c.id) r.cat = others.length ? v.merge : ''; });
           state.cats = state.cats.filter((x) => x !== c);
           save(); closeLayer(); render(); flash(used ? `已刪除，${used} 筆記錄已併入「${C[v.merge] ? C[v.merge].name : ''}」` : '已刪除分類');
         } },
@@ -1509,6 +1694,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (!Array.isArray(list)) list = [];
     if (!Array.isArray(undo)) undo = [];
     reindex();
+    runRecurring();
     let added = 0, undone = 0;
     const done = [];
     undo.forEach((id) => { const n = state.tx.length; state.tx = state.tx.filter((t) => t.id !== 'n_' + id); undone += n - state.tx.length; });
@@ -1644,6 +1830,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (ui.tab === 'more') renderMore();
     if (isOpen('catman')) renderCatman();
     if (isOpen('autoPage')) renderAuto();
+    if (isOpen('recurPage')) renderRecur();
+    $('#recurRowSub').textContent = state.recur.length ? `${state.recur.length} 項・每月 Netflix、租金、保險、分期… 到期自動記低` : '每月 Netflix、租金、保險、分期… 到期自動記低';
     if (isOpen('inbox')) renderInbox();
     $('#inboxBar').hidden = ui.tab !== 'book' || !inbox.length;
     $('#inboxText').textContent = `${inbox.length} 筆自動偵測到嘅付款等你確認`;
@@ -1683,6 +1871,9 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 
   // A reload while a page was open leaves a stale history entry; start clean.
   if (history.state && history.state.ledgerLayer) history.replaceState(null, '');
+  reindex();
+  runRecurring();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && runRecurring()) render(); });
   render();
   if (bridge) { pushConfig(); syncAuto(); window.__autoOpen(); }
 })();
