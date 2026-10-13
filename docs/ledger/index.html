@@ -1520,6 +1520,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     inbox = list.filter((p) => validPending(p) && p.status === 'new').sort((a, b) => (+b.ts || 0) - (+a.ts || 0));
     if (added || undone) { save(); flash([added ? `自動記低咗 ${added} 筆` : '', undone ? `復原咗 ${undone} 筆` : ''].filter(Boolean).join('，')); }
     if (done.length) resolvePending(done);
+    console.info(`[ledger] pending ${inbox.length} added ${added}`);
     render();
   }
   window.__autoSync = syncAuto;

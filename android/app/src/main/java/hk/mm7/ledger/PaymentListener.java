@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.provider.Telephony;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -63,7 +64,11 @@ public class PaymentListener extends NotificationListenerService {
                 .put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(ts)))
                 .put("ts", ts)
                 .put("status", auto ? "ok" : "new");
-        if (store.addPending(p)) Notifier.captured(this, p, auto);
+        if (store.addPending(p)) {
+            // Amount and direction only; the notification text never reaches the log.
+            Log.i("LedgerListener", "captured " + r.type + " " + r.amount);
+            Notifier.captured(this, p, auto);
+        }
     }
 
     @Override

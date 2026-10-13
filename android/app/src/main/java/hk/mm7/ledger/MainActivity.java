@@ -17,7 +17,9 @@ import android.provider.MediaStore;
 import android.provider.Settings;
 import android.provider.Telephony;
 import android.view.View;
+import android.util.Log;
 import android.view.WindowInsetsController;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -80,6 +82,13 @@ public class MainActivity extends Activity {
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
+            // Only the page's own "[ledger] …" status lines reach logcat (used by the CI emulator check).
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage m) {
+                if (m.message() != null && m.message().startsWith("[ledger]")) Log.i("LedgerWeb", m.message());
+                return true;
+            }
+
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
