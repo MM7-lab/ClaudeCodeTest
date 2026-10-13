@@ -171,6 +171,47 @@ final class Store {
         return s == null || s.optBoolean("on", true);
     }
 
+    // ---- 偵錯記錄: the last 20 money-looking notifications and what the parser made of them.
+    // Off by default, switches itself off after 3 days, and stays on the phone. ----
+
+    private static final long DEBUG_MS = 3L * 24 * 60 * 60 * 1000;
+
+    synchronized boolean debugOn() {
+        long since = prefs.getLong("debugSince", 0);
+        if (since == 0) return false;
+        if (System.currentTimeMillis() - since > DEBUG_MS) {
+            prefs.edit().putLong("debugSince", 0).apply();
+            return false;
+        }
+        return true;
+    }
+
+    synchronized void setDebug(boolean on) {
+        prefs.edit().putLong("debugSince", on ? System.currentTimeMillis() : 0).apply();
+        if (!on) prefs.edit().remove("debug").apply();
+    }
+
+    synchronized void addDebug(String pkg, String label, String title, String text, String verdict, long ts) {
+        JSONArray list = readArray("debug");
+        try {
+            String body = (title + "\n" + text).trim();
+            list.put(new JSONObject().put("pkg", pkg).put("app", label).put("text", body.length() > 300 ? body.substring(0, 300) : body)
+                    .put("verdict", verdict).put("ts", ts));
+        } catch (JSONException ignored) {
+            return;
+        }
+        while (list.length() > 20) list.remove(0);
+        prefs.edit().putString("debug", list.toString()).apply();
+    }
+
+    synchronized String debugJson() {
+        try {
+            return new JSONObject().put("on", debugOn()).put("since", prefs.getLong("debugSince", 0)).put("items", readArray("debug")).toString();
+        } catch (JSONException e) {
+            return "{}";
+        }
+    }
+
     // ---- 365-day challenge settings pushed from the ledger: {on, dir, start, unit, days, remindDay} ----
 
     synchronized void setChallenge(String json) {

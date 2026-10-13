@@ -15,16 +15,34 @@ import java.util.regex.Pattern;
 final class PaymentParser {
 
     static final class Result {
-        final double amount;
+        final double amount; // 0 when a wallet said "paid" but gave no amount
         final String type; // "exp" or "inc"
         final String note;
+        final boolean needAmount;
 
         Result(double amount, String type, String note) {
+            this(amount, type, note, false);
+        }
+
+        Result(double amount, String type, String note, boolean needAmount) {
             this.amount = amount;
             this.type = type;
             this.note = note;
+            this.needAmount = needAmount;
         }
     }
+
+    // Phone wallets (tap to pay). Their notifications are terse, e.g. title "7-Eleven", text
+    // "HK$45.00 · Visa ••1234", so any HK$ amount counts, and "payment done" without an amount
+    // still becomes a pending item for the user to fill in.
+    private static final Set<String> WALLETS = new HashSet<>(Arrays.asList(
+            "com.samsung.android.spay", "com.samsung.android.spayfw", "com.samsung.android.samsungpay.gear",
+            "com.google.android.apps.walletnfcrel"));
+    private static final Pattern WALLET_DONE = Pattern.compile(
+            "(?i)(付款|支付|已付|完成|成功|交易|payment|paid|purchase|transaction|contactless)");
+    // Titles that are not a merchant name.
+    private static final Pattern GENERIC_TITLE = Pattern.compile(
+            "(?i).*(wallet|pay|付款|支付|交易|完成|成功|通知|提示|payment|transaction|purchase|complete|successful|alert).*");
 
     // Chat, social and mail apps: people type amounts in messages, so these are never read.
     // The phone's default SMS app is skipped separately (see PaymentListener).
@@ -70,11 +88,33 @@ final class PaymentParser {
         return pkg == null || EXCLUDED.contains(pkg);
     }
 
+    static boolean isWallet(String pkg) {
+        return pkg != null && WALLETS.contains(pkg);
+    }
+
     static Result parse(String title, String text) {
+        return parse(title, text, false, new String[1]);
+    }
+
+    static Result parse(String title, String text, boolean wallet) {
+        return parse(title, text, wallet, new String[1]);
+    }
+
+    /** Why a notification was or wasn't taken, for the in-app 偵錯記錄. */
+    static String why(String title, String text, boolean wallet) {
+        String[] reason = new String[1];
+        Result r = parse(title, text, wallet, reason);
+        if (r == null) return reason[0];
+        return r.needAmount ? "當付款（金額待填）" : "當" + ("inc".equals(r.type) ? "收款" : "付款") + " " + r.amount;
+    }
+
+    private static Result parse(String title, String text, boolean wallet, String[] why) {
         String all = ((title == null ? "" : title) + "\n" + (text == null ? "" : text)).trim();
-        if (all.isEmpty() || all.length() > 2000) return null;
-        if (OTP.matcher(all).find() || PROMO.matcher(all).find() || TOP_UP.matcher(all).find()) return null;
-        if (!PAY.matcher(all).find()) return null;
+        if (all.isEmpty() || all.length() > 2000) { why[0] = "冇內容"; return null; }
+        if (OTP.matcher(all).find()) { why[0] = "略過：驗證碼／登入"; return null; }
+        if (PROMO.matcher(all).find()) { why[0] = "略過：推廣"; return null; }
+        if (TOP_UP.matcher(all).find()) { why[0] = "略過：增值"; return null; }
+        if (!wallet && !PAY.matcher(all).find()) { why[0] = "略過：冇付款字眼"; return null; }
 
         String cleaned = BALANCE.matcher(all).replaceAll(" ");
         String num = null;
@@ -84,14 +124,19 @@ final class PaymentParser {
             m = AMT_POST.matcher(cleaned);
             if (m.find()) num = m.group(1);
         }
-        if (num == null) return null;
+        if (num == null) {
+            if (wallet && WALLET_DONE.matcher(all).find()) return new Result(0, "exp", merchant(title, cleaned), true);
+            why[0] = "略過：冇港幣金額";
+            return null;
+        }
         double v;
         try {
             v = Double.parseDouble(num.replace(",", ""));
         } catch (NumberFormatException e) {
+            why[0] = "略過：金額讀唔到";
             return null;
         }
-        if (!(v > 0) || v >= 1e9) return null;
+        if (!(v > 0) || v >= 1e9) { why[0] = "略過：金額唔合理"; return null; }
         v = Math.round(v * 100) / 100.0;
 
         String type = INCOME.matcher(cleaned).find() ? "inc" : "exp";
@@ -111,7 +156,7 @@ final class PaymentParser {
         }
         if (title != null) {
             String t = title.trim();
-            if (!t.isEmpty() && t.length() <= 30 && !MONEY.matcher(t).find()) return clip(t);
+            if (!t.isEmpty() && t.length() <= 30 && !MONEY.matcher(t).find() && !GENERIC_TITLE.matcher(t).matches()) return clip(t);
         }
         return "";
     }

@@ -42,25 +42,31 @@ public class PaymentListener extends NotificationListenerService {
         Bundle ex = n.extras;
         if (ex == null) return;
         String title = str(ex.getCharSequence(Notification.EXTRA_TITLE));
-        String text = str(ex.getCharSequence(Notification.EXTRA_BIG_TEXT));
-        if (text.isEmpty()) text = str(ex.getCharSequence(Notification.EXTRA_TEXT));
-        PaymentParser.Result r = PaymentParser.parse(title, text);
-        if (r == null) return;
-
+        if (title.isEmpty()) title = str(ex.getCharSequence(Notification.EXTRA_TITLE_BIG));
+        String text = bodyOf(ex);
+        boolean wallet = PaymentParser.isWallet(pkg);
         Store store = Store.get(this);
         String label = appLabel(pkg);
         long ts = sbn.getPostTime() > 0 ? sbn.getPostTime() : System.currentTimeMillis();
+        PaymentParser.Result r = PaymentParser.parse(title, text, wallet);
+        if (store.debugOn() && MONEYISH.matcher(title + "\n" + text).find()) {
+            String verdict = r == null ? PaymentParser.why(title, text, wallet) : store.sourceEnabled(pkg) ? PaymentParser.why(title, text, wallet) : "略過：你熄咗呢個 App";
+            store.addDebug(pkg, label, title, text, verdict, ts);
+        }
+        if (r == null) return;
         store.noteSource(pkg, label, ts);
         if (!store.sourceEnabled(pkg)) return;
 
-        boolean auto = store.autoMode();
+        boolean auto = store.autoMode() && !r.needAmount;
+        String note = r.note.equals(label) ? "" : r.note;
         JSONObject p = new JSONObject()
                 .put("id", Store.newId())
                 .put("pkg", pkg)
                 .put("app", label)
                 .put("amt", r.amount)
                 .put("type", r.type)
-                .put("note", r.note)
+                .put("note", note)
+                .put("needAmt", r.needAmount)
                 .put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(ts)))
                 .put("ts", ts)
                 .put("status", auto ? "ok" : "new");
@@ -85,6 +91,22 @@ public class PaymentListener extends NotificationListenerService {
         } catch (Exception e) {
             return pkg;
         }
+    }
+
+    private static final java.util.regex.Pattern MONEYISH = java.util.regex.Pattern.compile("(?i)(HK\\$|HKD|港幣|港元|\\$\\s*[0-9]|[0-9]\\s*元)");
+
+    /** Every text part a notification may carry: big text or text, plus sub/info/summary text and inbox lines. */
+    private static String bodyOf(Bundle ex) {
+        java.util.LinkedHashSet<String> parts = new java.util.LinkedHashSet<>();
+        String big = str(ex.getCharSequence(Notification.EXTRA_BIG_TEXT));
+        parts.add(big.isEmpty() ? str(ex.getCharSequence(Notification.EXTRA_TEXT)) : big);
+        parts.add(str(ex.getCharSequence(Notification.EXTRA_SUB_TEXT)));
+        parts.add(str(ex.getCharSequence(Notification.EXTRA_INFO_TEXT)));
+        parts.add(str(ex.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)));
+        CharSequence[] lines = ex.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
+        if (lines != null) for (CharSequence l : lines) parts.add(str(l));
+        parts.remove("");
+        return String.join("\n", parts);
     }
 
     private static String str(CharSequence cs) {

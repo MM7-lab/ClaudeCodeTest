@@ -25,6 +25,28 @@ public class PaymentParserTest {
     }
 
     @Test
+    public void wallets() {
+        // Google Wallet / Samsung Wallet style: merchant in the title, amount without a payment word.
+        PaymentParser.Result g = PaymentParser.parse("7-Eleven", "HK$45.00 · Visa ••1234", true);
+        assertNotNull(g);
+        assertEquals(45.0, g.amount, 0.001);
+        assertEquals("exp", g.type);
+        assertEquals("7-Eleven", g.note);
+        assertNull(PaymentParser.parse("7-Eleven", "HK$45.00 · Visa ••1234", false));
+        PaymentParser.Result s = PaymentParser.parse("Samsung Wallet", "已使用 Visa 付款 HK$88.50", true);
+        assertEquals(88.5, s.amount, 0.001);
+        assertEquals("", s.note);
+        PaymentParser.Result none = PaymentParser.parse("Samsung Wallet", "付款完成", true);
+        assertNotNull(none);
+        assertEquals(true, none.needAmount);
+        assertEquals(0, none.amount, 0.001);
+        assertNull(PaymentParser.parse("Google Wallet", "Your card is ready to use", true));
+        assertNull(PaymentParser.parse("Samsung Wallet", "Verification code 123456 for HK$500", true));
+        assertEquals("略過：冇付款字眼", PaymentParser.why("7-Eleven", "HK$45.00 · Visa ••1234", false));
+        assertEquals("當付款 45.0", PaymentParser.why("7-Eleven", "HK$45.00 · Visa ••1234", true));
+    }
+
+    @Test
     public void samples() {
         check("八達通", "你已於 7-Eleven 消費 HK$23.5，餘額 HK$156.2", 23.5, "exp", "7-Eleven");
         check("Octopus", "Payment of HK$12.30 at MTR Corporation. Remaining balance: HK$45.60", 12.3, "exp", "MTR Corporation");

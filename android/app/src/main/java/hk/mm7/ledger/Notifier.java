@@ -51,8 +51,9 @@ final class Notifier {
         String amt = money(p.optDouble("amt"));
         String note = p.optString("note");
         String where = p.optString("app") + (note.isEmpty() ? "" : " · " + note);
-        String title = auto ? "已自動記低" + (inc ? "收入 " : " ") + amt : "偵測到" + (inc ? "收款 " : "付款 ") + amt;
-        String text = auto ? where : where + "　撳「記低」就入帳";
+        boolean needAmt = p.optBoolean("needAmt");
+        String title = needAmt ? "偵測到付款（金額待填）" : auto ? "已自動記低" + (inc ? "收入 " : " ") + amt : "偵測到" + (inc ? "收款 " : "付款 ") + amt;
+        String text = needAmt ? where + "　撳入去填金額" : auto ? where : where + "　撳「記低」就入帳";
 
         Notification.Builder b = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
@@ -63,7 +64,9 @@ final class Notifier {
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setContentIntent(open(c, id));
-        if (auto) {
+        if (needAmt) {
+            b.addAction(action(c, id, ConfirmReceiver.SKIP, "略過"));
+        } else if (auto) {
             b.addAction(action(c, id, ConfirmReceiver.UNDO, "復原"));
         } else {
             b.addAction(action(c, id, ConfirmReceiver.OK, "記低"));

@@ -612,7 +612,7 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       <p class="hint" style="text-align:center">逐項開啟，即可開始自動記帳。</p>
       <div class="card perm">
         <span class="pi">🔔</span><h3>自動擷取付款通知</h3>
-        <p>用嚟擷取八達通付款、PayMe 收付款同信用卡消費嘅通知。唔會讀短訊（手機預設短訊 App 一律略過）、WhatsApp 之類嘅通訊 App、驗證碼（OTP）或者推廣訊息。全部喺手機入面處理，App 冇上網權限，唔會上傳任何資料。</p>
+        <p>用嚟擷取八達通付款、PayMe 收付款、Samsung Wallet／Google Wallet 拍卡同信用卡消費嘅通知。唔會讀短訊（手機預設短訊 App 一律略過）、WhatsApp 之類嘅通訊 App、驗證碼（OTP）或者推廣訊息。全部喺手機入面處理，App 冇上網權限，唔會上傳任何資料。</p>
         <div class="btns"><button class="btn primary" type="button" id="permListener">啟用</button></div>
       </div>
       <div class="card perm">
@@ -638,6 +638,12 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         <h2>付款來源</h2>
         <p class="hint">每個 App 可以揀記入邊個帳戶同預設分類；收款會用最近用過嘅收入分類。唔想讀邊個 App，就熄咗佢。</p>
         <div id="srcList"></div>
+      </div>
+      <div class="card stack">
+        <h2>偵錯記錄</h2>
+        <p class="hint">某個 App（例如 Samsung Pay）付咗款但冇偵測到？開咗呢度之後再付一次款，呢度會列出最近 20 個有金額嘅通知同 App 點判斷。截圖俾開發者（記得遮咗卡號）就可以調校。只存喺手機，3 日後自動關閉。</p>
+        <label class="check-field"><input type="checkbox" id="debugOn">開啟偵錯記錄</label>
+        <div id="debugList"></div>
       </div>
       <p class="hint">留意：每間銀行同 App 嘅通知寫法唔同，有啲可能認唔到，或者認錯金額。「每筆確認」模式下你可以喺通知或者「待確認」入面先睇清楚先記。增值（例如信用卡自動增值八達通）唔會自動記，避免計多咗支出。</p>
     </div>
@@ -2221,7 +2227,8 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   // The app captures payments into its own queue; this page turns confirmed ones into records
   // (id "n_" + capture id, so nothing is imported twice) and lists unconfirmed ones in 待確認.
   let inbox = [];
-  const validPending = (p) => p && typeof p === 'object' && /^[A-Za-z0-9_-]{1,36}$/.test(p.id) && +p.amt > 0 && +p.amt < 1e9 && typeof p.pkg === 'string';
+  // Wallet notifications sometimes say "paid" without an amount: those come through as needAmt with amt 0.
+  const validPending = (p) => p && typeof p === 'object' && /^[A-Za-z0-9_-]{1,36}$/.test(p.id) && (+p.amt > 0 || (p.needAmt === true && +p.amt === 0)) && +p.amt < 1e9 && typeof p.pkg === 'string';
   // ---------- 365 日儲錢挑戰 ----------
   // Counting down (default): day 1 saves 365 × unit, day 2 saves 364 × unit … day 365 saves 1 × unit.
   // Counting up: day n saves n × unit. Money goes in as transfers flagged `chal`
@@ -2436,11 +2443,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const done = [];
     undo.forEach((id) => { const n = state.tx.length; state.tx = state.tx.filter((t) => t.id !== 'n_' + id); undone += n - state.tx.length; });
     list.filter(validPending).forEach((p) => {
-      if (p.status !== 'ok') return;
+      if (p.status !== 'ok' || p.needAmt) return;
       if (addFromPending(p)) added++;
       done.push(p.id);
     });
-    inbox = list.filter((p) => validPending(p) && p.status === 'new').sort((a, b) => (+b.ts || 0) - (+a.ts || 0));
+    inbox = list.filter((p) => validPending(p) && (p.status === 'new' || p.needAmt)).sort((a, b) => (+b.ts || 0) - (+a.ts || 0));
     if (added || undone) { save(); flash([added ? `自動記低咗 ${added} 筆` : '', undone ? `復原咗 ${undone} 筆` : ''].filter(Boolean).join('，')); }
     if (done.length) resolvePending(done);
     console.info(`[ledger] pending ${inbox.length} added ${added}`);
@@ -2466,8 +2473,10 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
       const c = catOf(t);
       return `<div class="card pend"><div class="row"><span class="bubble ico">${ic(c.icon)}</span>
         <span class="txt"><span class="t1">${escHtml(t.note || p.app || '付款')}</span><span class="t2">${escHtml(p.app || '')} · ${escHtml(dayLabel(t.date))}</span><span class="t2">記入 ${escHtml(accOf(t.acc).name)}／${escHtml(c.name)}</span></span>
-        <span class="amt ${t.type === 'inc' ? 'inc' : ''}">${t.type === 'inc' ? money(t.amt, true) : money(-t.amt)}</span></div>
-        <div class="btns"><button class="btn small" type="button" data-pskip="${escHtml(p.id)}">略過</button><button class="btn small" type="button" data-pedit="${escHtml(p.id)}">修改</button><button class="btn small primary" type="button" data-pok="${escHtml(p.id)}">記低</button></div></div>`;
+        <span class="amt ${t.type === 'inc' ? 'inc' : ''}">${p.needAmt ? '<span class="tag warn">金額待填</span>' : t.type === 'inc' ? money(t.amt, true) : money(-t.amt)}</span></div>
+        <div class="btns"><button class="btn small" type="button" data-pskip="${escHtml(p.id)}">略過</button>${p.needAmt
+          ? `<button class="btn small primary" type="button" data-pedit="${escHtml(p.id)}">填金額</button>`
+          : `<button class="btn small" type="button" data-pedit="${escHtml(p.id)}">修改</button><button class="btn small primary" type="button" data-pok="${escHtml(p.id)}">記低</button>`}</div></div>`;
     }).join('');
   }
   $('#inboxBody').addEventListener('click', (e) => {
@@ -2476,19 +2485,20 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     const id = b.dataset.pok || b.dataset.pskip || b.dataset.pedit;
     const p = inbox.find((x) => x.id === id);
     if (!p) return;
-    if (b.dataset.pok) { if (addFromPending(p)) save(); resolvePending([id]); flash(`已記低 ${money(+p.amt)}`); render(); }
+    if (b.dataset.pok && !p.needAmt) { if (addFromPending(p)) save(); resolvePending([id]); flash(`已記低 ${money(+p.amt)}`); render(); }
     else if (b.dataset.pskip) { resolvePending([id]); flash('已略過'); render(); }
     else {
       const t = autoTx(p, '');
       openEntry(null, id);
-      Object.assign(E, { type: t.type, cat: t.cat, acc: t.acc, to: otherAcc(t.acc), date: t.date, expr: String(t.amt), note: t.note });
+      Object.assign(E, { type: t.type, cat: t.cat, acc: t.acc, to: otherAcc(t.acc), date: t.date, expr: p.needAmt ? '' : String(t.amt), note: t.note });
       renderEntry();
     }
   });
   $('#inboxAll').addEventListener('click', () => {
-    const ids = inbox.map((p) => p.id);
+    const ready = inbox.filter((p) => !p.needAmt);
+    const ids = ready.map((p) => p.id);
     let n = 0;
-    inbox.slice().forEach((p) => { if (addFromPending(p)) n++; });
+    ready.forEach((p) => { if (addFromPending(p)) n++; });
     save(); resolvePending(ids); flash(`已記低 ${n} 筆`); render();
   });
   $('#inboxBar').addEventListener('click', () => { renderInbox(); openLayer($('#inbox')); });
@@ -2521,8 +2531,23 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         <div class="top"><span class="txt"><span class="t1">${escHtml(name)}</span><span class="t2">偵測到 ${+x.count || 0} 次 · ${escHtml(x.pkg)}</span></span>
           <label class="switch"><input type="checkbox" data-son ${on ? 'checked' : ''} aria-label="讀取 ${escHtml(name)} 嘅通知"><i></i></label></div>
         <div class="pair"><select data-sacc aria-label="帳戶">${accOpts(cfg.acc)}</select><select data-scat aria-label="預設分類">${catOpts(cfg.cat)}</select></div></div>`;
-    }).join('') : '<p class="hint" style="margin-top:8px">未偵測到任何付款通知。開啟上面三項之後，用八達通、PayMe 或者信用卡付一次款，個 App 就會出現喺呢度。</p>';
+    }).join('') : '<p class="hint" style="margin-top:8px">未偵測到任何付款通知。開啟上面三項之後，用八達通、PayMe、Samsung Pay、Google Pay 或者信用卡付一次款，個 App 就會出現喺呢度。</p>';
+    if (bridge.getDebug) renderDebug();
   }
+  function renderDebug() {
+    let d = {};
+    try { d = JSON.parse(bridge.getDebug()) || {}; } catch (e) { /* older app */ }
+    $('#debugOn').checked = !!d.on;
+    const items = Array.isArray(d.items) ? d.items.slice().reverse() : [];
+    $('#debugList').innerHTML = !d.on && !items.length ? '' : items.length ? `<div class="list">${items.map((x) => `<div class="row" style="align-items:flex-start"><span class="txt">
+        <span class="t1">${escHtml(String(x.app || x.pkg || ''))} · ${escHtml(String(x.verdict || ''))}</span>
+        <span class="t2" style="white-space:pre-wrap">${escHtml(String(x.text || ''))}</span>
+        <span class="t2">${escHtml(new Date(+x.ts || 0).toLocaleString('zh-HK'))} · ${escHtml(String(x.pkg || ''))}</span></span></div>`).join('')}</div>
+        <div class="btns"><button class="btn small" type="button" id="debugClear">清除記錄</button></div>`
+      : '<p class="hint">開咗，未收到有金額嘅通知。去付一次款再返嚟睇。</p>';
+  }
+  $('#debugOn').addEventListener('change', (e) => { if (!bridge || !bridge.setDebug) return; bridge.setDebug(e.target.checked); renderDebug(); });
+  $('#debugList').addEventListener('click', (e) => { if (e.target.closest('#debugClear')) { bridge.setDebug(false); bridge.setDebug(true); renderDebug(); } });
   $('#srcList').addEventListener('change', (e) => {
     const row = e.target.closest('[data-src]');
     if (!row || !okPkg(row.dataset.src)) return;

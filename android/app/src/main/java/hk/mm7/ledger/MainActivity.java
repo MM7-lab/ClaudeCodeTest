@@ -345,6 +345,16 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String getDebug() {
+            return Store.get(MainActivity.this).debugJson();
+        }
+
+        @JavascriptInterface
+        public void setDebug(boolean on) {
+            Store.get(MainActivity.this).setDebug(on);
+        }
+
+        @JavascriptInterface
         public void setChallenge(String json) {
             Store.get(MainActivity.this).setChallenge(json);
             ChallengeReminder.schedule(MainActivity.this);
