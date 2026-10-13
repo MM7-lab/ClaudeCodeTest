@@ -614,6 +614,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         <span class="pi">🔔</span><h3>自動擷取付款通知</h3>
         <p>用嚟擷取八達通付款、PayMe 收付款、Samsung Wallet／Google Wallet 拍卡同信用卡消費嘅通知。唔會讀短訊（手機預設短訊 App 一律略過）、WhatsApp 之類嘅通訊 App、驗證碼（OTP）或者推廣訊息。全部喺手機入面處理，App 冇上網權限，唔會上傳任何資料。</p>
         <div class="btns"><button class="btn primary" type="button" id="permListener">啟用</button></div>
+        <div class="note-bar" id="restrictedHint" hidden style="grid-column:1 / -1;margin-top:8px;flex-direction:column;align-items:stretch">
+          <span><b>開關係灰色、或者撳唔到？</b>Android 13 或以上，由瀏覽器安裝嘅 App 要先解鎖「受限制的設定」：</span>
+          <span>① 撳下面「App 資料頁」② 右上角 ⋮ ③「允許受限制的設定」（要驗證指紋／密碼）④ 返嚟再撳「啟用」，開啟「日常記帳」。</span>
+          <span class="btns"><button class="btn small" type="button" id="permAppInfo">App 資料頁</button></span>
+        </div>
       </div>
       <div class="card perm">
         <span class="pi">🔋</span><h3>背景持續運作</h3>
@@ -624,6 +629,12 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
         <span class="pi">🛎️</span><h3>一鍵確認</h3>
         <p>偵測到付款就彈通知，撳「記低」就入帳，撳「略過」就唔記。</p>
         <div class="btns"><button class="btn primary" type="button" id="permNotify">啟用</button></div>
+      </div>
+      <div class="card stack">
+        <h2>監聽狀態</h2>
+        <p class="hint" id="healthText"></p>
+        <div class="btns"><button class="btn" type="button" id="selfTest">自我測試：彈一個測試通知睇吓讀唔讀到</button></div>
+        <div class="msg" id="selfTestMsg"></div>
       </div>
       <div class="card stack">
         <h2>確認方式</h2>
@@ -2511,6 +2522,11 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
     try { st = JSON.parse(bridge.status()) || {}; sources = JSON.parse(bridge.getSources()) || []; } catch (e) { /* older app */ }
     const mark = (id, on) => { const b = $(id); b.textContent = on ? '✓ 已啟用' : '啟用'; b.classList.toggle('done', !!on); b.classList.toggle('primary', !on); };
     mark('#permListener', st.listener);
+    $('#restrictedHint').hidden = !!st.listener || !(+st.sdk >= 33);
+    const h = st.health || {};
+    const when = (t) => (+t ? new Date(+t).toLocaleString('zh-HK', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '未有');
+    $('#healthText').textContent = !st.listener ? '通知存取未開，App 讀唔到任何通知。'
+      : `通知監聽最後連接：${when(h.connectedAt)}。最後收到其他 App 嘅通知：${when(h.lastSeen)}（共 ${+h.seenCount || 0} 個）。如果付完款呢度個時間冇變，即係 App 收唔到通知（多數係被系統停咗，睇吓「背景持續運作」）。`;
     mark('#permBattery', st.battery);
     mark('#permNotify', st.notify);
     const brand = String(st.brand || '');
@@ -2564,6 +2580,27 @@ body.locked .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('#permBattery').addEventListener('click', () => bridge && bridge.requestBattery());
   $('#permAppSettings').addEventListener('click', () => bridge && bridge.openAppSettings());
   $('#permNotify').addEventListener('click', () => bridge && bridge.requestNotify());
+  $('#permAppInfo').addEventListener('click', () => bridge && bridge.openAppSettings());
+  $('#selfTest').addEventListener('click', () => {
+    if (!bridge || !bridge.listenerSelfTest) return;
+    const msg = $('#selfTestMsg');
+    let st = {};
+    try { st = JSON.parse(bridge.status()) || {}; } catch (e) { /* older app */ }
+    if (!st.listener) { msg.className = 'msg err'; msg.textContent = '「自動擷取付款通知」未開，請先撳上面「啟用」。'; return; }
+    if (!st.notify) { msg.className = 'msg err'; msg.textContent = '要先開「一鍵確認」（通知權限），先可以彈測試通知。'; return; }
+    const t0 = Date.now();
+    bridge.listenerSelfTest();
+    msg.className = 'msg'; msg.textContent = '測試緊…';
+    setTimeout(() => {
+      let h = {};
+      try { h = (JSON.parse(bridge.status()) || {}).health || {}; } catch (e) { /* older app */ }
+      const ok = +h.selfTestAt >= t0 - 1000;
+      msg.className = 'msg ' + (ok ? 'ok' : 'err');
+      msg.textContent = ok ? '✓ 讀到測試通知，監聽正常。如果付款仍然冇記錄，即係嗰個 App 冇出通知或者寫法認唔到：開「偵錯記錄」再付一次款，截圖偵錯記錄。'
+        : '✗ 讀唔到測試通知：通知存取冇真正生效。請熄咗再開「通知存取」入面嘅「日常記帳」，或者重新開機；Android 13+ 要先「允許受限制的設定」。';
+      renderAuto();
+    }, 4000);
+  });
   $('#autoTest').addEventListener('click', () => {
     if (!bridge) return;
     bridge.testCapture();

@@ -32,10 +32,25 @@ public class PaymentListener extends NotificationListenerService {
         }
     }
 
+    @Override
+    public void onListenerConnected() {
+        Store.get(this).markConnected();
+    }
+
     private void handle(StatusBarNotification sbn) throws JSONException {
         String pkg = sbn.getPackageName();
-        if (pkg == null || pkg.equals(getPackageName()) || sbn.isOngoing()) return;
+        if (pkg == null) return;
         Notification n = sbn.getNotification();
+        // The in-app 自我測試 posts one of our own notifications; reading it proves the listener works.
+        if (pkg.equals(getPackageName())) {
+            if (n != null && n.extras != null && n.extras.getBoolean(SELF_TEST)) {
+                Store.get(this).markSelfTest();
+                cancelNotification(sbn.getKey());
+            }
+            return;
+        }
+        Store.get(this).markSeen(sbn.getPostTime());
+        if (sbn.isOngoing()) return;
         if (n == null || (n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
         if (PaymentParser.isExcludedPackage(pkg) || pkg.equals(Telephony.Sms.getDefaultSmsPackage(this))) return;
 
@@ -49,7 +64,8 @@ public class PaymentListener extends NotificationListenerService {
         String label = appLabel(pkg);
         long ts = sbn.getPostTime() > 0 ? sbn.getPostTime() : System.currentTimeMillis();
         PaymentParser.Result r = PaymentParser.parse(title, text, wallet);
-        if (store.debugOn() && MONEYISH.matcher(title + "\n" + text).find()) {
+        // Wallet notifications are logged even without an amount, to see what Samsung Pay / Google Pay actually post.
+        if (store.debugOn() && (wallet || MONEYISH.matcher(title + "\n" + text).find())) {
             String verdict = r == null ? PaymentParser.why(title, text, wallet) : store.sourceEnabled(pkg) ? PaymentParser.why(title, text, wallet) : "略過：你熄咗呢個 App";
             store.addDebug(pkg, label, title, text, verdict, ts);
         }
@@ -76,6 +92,8 @@ public class PaymentListener extends NotificationListenerService {
             Notifier.captured(this, p, auto);
         }
     }
+
+    static final String SELF_TEST = "hk.mm7.ledger.SELF_TEST";
 
     @Override
     public void onListenerDisconnected() {

@@ -171,6 +171,25 @@ final class Store {
         return s == null || s.optBoolean("on", true);
     }
 
+    // ---- Listener health, for the 監聽狀態 line: when it last connected, saw a notification, read the self-test ----
+
+    synchronized void markConnected() {
+        prefs.edit().putLong("connectedAt", System.currentTimeMillis()).apply();
+    }
+
+    synchronized void markSeen(long ts) {
+        prefs.edit().putLong("lastSeen", ts).putInt("seenCount", prefs.getInt("seenCount", 0) + 1).apply();
+    }
+
+    synchronized void markSelfTest() {
+        prefs.edit().putLong("selfTestAt", System.currentTimeMillis()).apply();
+    }
+
+    synchronized JSONObject health() throws JSONException {
+        return new JSONObject().put("connectedAt", prefs.getLong("connectedAt", 0)).put("lastSeen", prefs.getLong("lastSeen", 0))
+                .put("seenCount", prefs.getInt("seenCount", 0)).put("selfTestAt", prefs.getLong("selfTestAt", 0));
+    }
+
     // ---- 偵錯記錄: the last 20 money-looking notifications and what the parser made of them.
     // Off by default, switches itself off after 3 days, and stays on the phone. ----
 

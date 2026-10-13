@@ -282,6 +282,8 @@ public class MainActivity extends Activity {
                         .put("notify", canNotify())
                         .put("sms", String.valueOf(Telephony.Sms.getDefaultSmsPackage(MainActivity.this)))
                         .put("brand", Build.MANUFACTURER)
+                        .put("sdk", Build.VERSION.SDK_INT)
+                        .put("health", Store.get(MainActivity.this).health())
                         .toString();
             } catch (JSONException e) {
                 return "{}";
@@ -341,6 +343,30 @@ public class MainActivity extends Activity {
                 }
             } catch (JSONException ignored) {
                 // cannot happen with literal values
+            }
+        }
+
+        /** Posts a fake payment notification that only the listener reacts to; status().health.selfTestAt shows if it was read. */
+        @JavascriptInterface
+        public boolean listenerSelfTest() {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm == null) return false;
+            Notifier.ensureChannel(MainActivity.this);
+            android.os.Bundle extra = new android.os.Bundle();
+            extra.putBoolean(PaymentListener.SELF_TEST, true);
+            android.app.Notification n = new android.app.Notification.Builder(MainActivity.this, Notifier.REMINDER_CHANNEL)
+                    .setSmallIcon(R.drawable.ic_stat)
+                    .setContentTitle("自動記帳自我測試")
+                    .setContentText("你已付款 HK$1.00（測試，會自動消失）")
+                    .addExtras(extra)
+                    .setAutoCancel(true)
+                    .setTimeoutAfter(15000)
+                    .build();
+            try {
+                nm.notify(9001, n);
+                return true;
+            } catch (SecurityException e) {
+                return false;
             }
         }
 
