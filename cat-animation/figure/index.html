@@ -87,6 +87,11 @@
   .swatch input::-webkit-color-swatch { border: 0; border-radius: 50%; }
   .swatch:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
   .status { color: var(--accent); }
+  .desk body { background: transparent; }
+  .desk .label, .desk .bar { display: none; }
+  .desk #loading { background: transparent; }
+  .desk #loading strong { font-size: 1rem; }
+  .desk canvas#gfx { cursor: default; }
   .dropzone { background: rgba(17, 18, 19, 0.82); border: 2px dashed var(--accent); pointer-events: none; }
   .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
@@ -175,6 +180,10 @@
 "use strict";
 (async function main() {
 const $ = (id) => document.getElementById(id);
+// desk mode (?desk): the desktop app shows only the figure on a transparent window
+const DESK = new URLSearchParams(location.search).has("desk");
+const desk = window.deskApp || null;  // bridge provided by the desktop app, absent in a browser
+if (DESK) document.documentElement.classList.add("desk");
 
 function fail(msg) {
   $("loading").hidden = true;
@@ -194,7 +203,7 @@ device.addEventListener && device.addEventListener("uncapturederror", (e) => { c
 const canvas = $("gfx");
 const ctx = canvas.getContext("webgpu");
 const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
+ctx.configure({ device, format: canvasFormat, alphaMode: DESK ? "premultiplied" : "opaque" });
 
 // =====================================================================
 // Small math kit (column-major 4x4 for WGSL)
@@ -593,7 +602,7 @@ const NPART = PARTS.length;
 const PART_HEAD = 8, PART_ARMR = 10, PART_CUFF = 11, PART_PAW = 12, PART_MUG = 13, PART_TAIL = 14, PART_CIG = 15, PART_PUFF = 16, PART_SMOKE = 17;
 const MAXPART = 20;
 // two editions share one sculpt; each hides the other's accessory
-let variant = location.hash === "#coffee" ? "coffee" : "smoke";
+let variant = location.hash === "#coffee" || new URLSearchParams(location.search).get("edition") === "coffee" ? "coffee" : "smoke";
 const isHidden = (pi) => (variant === "smoke" ? pi === PART_MUG : pi === PART_CIG || pi === PART_SMOKE || pi === PART_PUFF);
 
 // joint state (radians) + rest pose
@@ -992,7 +1001,7 @@ fn paintHead(h: vec3f, ln: vec3f, fw: f32) -> Mat {
   var col = lin(FUR);
   // airbrushed gradients: darker crown and nape
   col = mix(col, lin(vec3f(0.60, 0.42, 0.27)), smoothstep(0.03, 0.2, h.y) * 0.75);
-  col = mix(col, lin(vec3f(0.58, 0.41, 0.26)), smoothstep(0.0, -0.17, h.z) * 0.6);
+  col = mix(col, lin(vec3f(0.58, 0.41, 0.26)), (1.0 - smoothstep(-0.17, 0.0, h.z)) * 0.6);
   let front = smoothstep(0.04, 0.1, h.z);
   // muzzle + chin cream
   let dm = min(length((p2 - vec2f(0.032, -0.062)) / vec2f(0.058, 0.045)) - 1.0,
@@ -1019,7 +1028,7 @@ fn paintHead(h: vec3f, ln: vec3f, fw: f32) -> Mat {
   let dp = dot(ph - B, nE);
   let pinkD = max(cone - 0.0012, abs(dp - 0.0175) - 0.0098);
   let inner = fillAA(pinkD, fw) * step(0.1, h.y);
-  col = mix(col, mix(lin(vec3f(0.93, 0.6, 0.58)), lin(vec3f(0.75, 0.4, 0.4)), smoothstep(0.2, 0.13, h.y)), inner);
+  col = mix(col, mix(lin(vec3f(0.93, 0.6, 0.58)), lin(vec3f(0.75, 0.4, 0.4)), (1.0 - smoothstep(0.13, 0.2, h.y))), inner);
   var m = mk(col, 0.5, 0.32, 0.33, 1.0);
 
   // eyes (painted under the sculpted lid)
@@ -1092,7 +1101,7 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
     let tr = RIM1_COL * pow(max(dot(V, -RIM1_DIR), 0.0), 3.0) + RIM2_COL * pow(max(dot(V, -RIM2_DIR), 0.0), 3.0)
            + KEY_COL * sh * pow(max(dot(V, -KEY_DIR), 0.0), 3.0) + vec3f(0.35);
     col += m.sss * thin * m.albedo * vec3f(1.0, 0.55, 0.32) * tr * 0.45;
-    let term = smoothstep(0.25, 0.0, abs(nlk)) * sh;
+    let term = (1.0 - smoothstep(0.0, 0.25, abs(nlk))) * sh;
     col += m.sss * m.albedo * vec3f(0.5, 0.12, 0.04) * term * 0.25;
   }
   let R = reflect(-V, N);
@@ -1221,7 +1230,7 @@ fn shade(m: Mat, N: vec3f, V: vec3f, P: vec3f, ao: f32, thin: f32, sh: f32, kern
   let refr = envRad(normalize(T + vec3f(0.0, -0.2, 0.0)), 0.12, 1.0);
   let ln = i.lnrm;
   let r = length(i.loc.xz);
-  let bevel = smoothstep(0.98, 0.6, abs(ln.y)) * smoothstep(0.0, 0.25, abs(ln.y));
+  let bevel = (1.0 - smoothstep(0.6, 0.98, abs(ln.y))) * smoothstep(0.0, 0.25, abs(ln.y));
   let side = 1.0 - abs(ln.y);
   // fake total-internal-reflection rings seen through the top face
   let top = step(0.9, ln.y);
@@ -1254,8 +1263,11 @@ fn backdrop(rd: vec3f) -> vec3f {
   let pf = F.invViewProj * vec4f(i.ndc, 1.0, 1.0);
   let ro = pn.xyz / pn.w;
   let rd = normalize(pf.xyz / pf.w - ro);
+  let deskMode = F.misc3.y > 0.5;
   var col = backdrop(rd);
+  var alpha = select(1.0, 0.0, deskMode);
   var depth = 1.0;
+  if (deskMode) { col = vec3f(0.0); }
   if (rd.y < -1e-4) {
     let t = -ro.y / rd.y;
     let P = ro + rd * t;
@@ -1276,12 +1288,18 @@ fn backdrop(rd: vec3f) -> vec3f {
     let lit = KEY_COL * KEY_DIR.y * sh * spot + (RIM1_COL * RIM1_DIR.y + RIM2_COL * RIM2_DIR.y) * 0.5 * spot;
     var fcol = alb * (lit / PI * mix(1.0, ao, 0.6) + vec3f(0.06) * ao);
     let dist = length(P.xz - F.misc.zw);
-    col = mix(fcol, col, smoothstep(2.2, 7.5, dist));
+    if (deskMode) {
+      // only the shadow survives: black, with its darkness as coverage
+      let dark = clamp((1.0 - sh) * 0.5 + (1.0 - ao) * 0.75, 0.0, 0.8);
+      alpha = dark * (1.0 - smoothstep(0.32, 0.8, dist));
+    } else {
+      col = mix(fcol, col, smoothstep(2.2, 7.5, dist));
+    }
     let clip = F.viewProj * vec4f(P, 1.0);
     depth = clamp(clip.z / clip.w, 0.0, 1.0);
   }
   var o: BgOut;
-  o.color = vec4f(col, 1.0);
+  o.color = vec4f(col, alpha);
   o.depth = depth;
   return o;
 }
@@ -1289,7 +1307,8 @@ fn backdrop(rd: vec3f) -> vec3f {
 
 const TONE_WGSL = /* wgsl */ `
 @group(0) @binding(0) var hdr: texture_2d<f32>;
-@group(0) @binding(1) var<uniform> TP: vec4f; // exposure, time, width, height
+struct TPU { a: vec4f, b: vec4f, };  // a: exposure, time, width, height; b.x: desk (transparent) mode
+@group(0) @binding(1) var<uniform> TP: TPU;
 @vertex fn vsT(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f {
   var p = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
   return vec4f(p[vi], 0.0, 1.0);
@@ -1304,15 +1323,21 @@ fn toSrgb(c: vec3f) -> vec3f {
   return select(hi, lo, c <= vec3f(0.0031308));
 }
 @fragment fn fsT(@builtin(position) fc: vec4f) -> @location(0) vec4f {
-  let c = textureLoad(hdr, vec2i(fc.xy), 0).rgb * TP.x;
-  var m = aces(c);
-  let uv = fc.xy / TP.zw;
-  let v = 1.0 - 0.32 * pow(length((uv - 0.5) * vec2f(1.0, 0.9)) * 1.25, 2.6);
-  m *= clamp(v, 0.0, 1.0);
+  let px = textureLoad(hdr, vec2i(fc.xy), 0);
+  let deskMode = TP.b.x > 0.5;
+  // the HDR target holds premultiplied colour; tone map the straight colour, then premultiply again
+  let a = select(1.0, clamp(px.a, 0.0, 1.0), deskMode);
+  let straight = select(px.rgb, px.rgb / max(a, 1e-4), deskMode);
+  var m = aces(straight * TP.a.x);
+  if (!deskMode) {
+    let uv = fc.xy / TP.a.zw;
+    let v = 1.0 - 0.32 * pow(length((uv - 0.5) * vec2f(1.0, 0.9)) * 1.25, 2.6);
+    m *= clamp(v, 0.0, 1.0);
+  }
   var s = toSrgb(m);
-  let n = fract(sin(dot(fc.xy + TP.y, vec2f(12.9898, 78.233))) * 43758.5453) - 0.5;
+  let n = fract(sin(dot(fc.xy + TP.a.y, vec2f(12.9898, 78.233))) * 43758.5453) - 0.5;
   s += n / 255.0;
-  return vec4f(s, 1.0);
+  return vec4f(clamp(s, vec3f(0.0), vec3f(1.0)) * a, a);
 }
 `;
 
@@ -1353,7 +1378,7 @@ for (const [name, mod] of [["figure", figModule], ["backdrop", bgModule], ["tone
 
 const uniBuf = device.createBuffer({ size: 512, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 const partBuf = device.createBuffer({ size: MAXPART * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-const toneBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const toneBuf = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
 const shadowTex = device.createTexture({ size: [SHADOW_SIZE, SHADOW_SIZE], format: "depth32float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
 const shadowSmp = device.createSampler({ compare: "less", magFilter: "linear", minFilter: "linear" });
@@ -1819,6 +1844,13 @@ canvas.addEventListener("pointerdown", (e) => {
   }
   const ray = screenRay(e.clientX, e.clientY);
   const hit = pick(ray.o, ray.d);
+  if (DESK) {
+    if (e.button !== 0 || !hit) return;
+    drag = hit.part === 0
+      ? { kind: "window", sx: e.screenX, sy: e.screenY }
+      : { kind: "orbit", x: e.clientX, y: e.clientY, yaw: cam.tYaw, pitch: cam.tPitch };
+    return;
+  }
   if (hit && poseMode && (hit.part === PART_HEAD || [PART_ARMR, PART_CUFF, PART_PAW, PART_MUG, PART_CIG, PART_SMOKE].includes(hit.part))) setAction(false, true);
   if (hit && poseMode && hit.part === PART_HEAD) {
     drag = { kind: "head", x: e.clientX, y: e.clientY, j: { ...joint } };
@@ -1848,6 +1880,7 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   if (!drag) {
+    if (DESK && desk) deskHover(e);
     if (poseMode && e.pointerType === "mouse") {
       const ray = screenRay(e.clientX, e.clientY);
       const hit = pick(ray.o, ray.d);
@@ -1856,6 +1889,11 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   idle = 0;
+  if (drag.kind === "window") {
+    if (desk) desk.moveBy(e.screenX - drag.sx, e.screenY - drag.sy);
+    drag.sx = e.screenX; drag.sy = e.screenY;
+    return;
+  }
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (drag.kind === "orbit") {
     cam.tYaw = drag.yaw - dx * 0.008;
@@ -1894,6 +1932,21 @@ function endPointer(e) {
   drag = null;
 }
 canvas.addEventListener("pointerup", endPointer);
+// desk mode: clicks on empty (transparent) pixels pass through to the desktop underneath
+let lastHoverCheck = 0, passThrough = null;
+function deskHover(e) {
+  const now = performance.now();
+  if (now - lastHoverCheck < 40) return;
+  lastHoverCheck = now;
+  const ray = screenRay(e.clientX, e.clientY);
+  const over = !!pick(ray.o, ray.d);
+  if (passThrough !== !over) { passThrough = !over; desk.setIgnore(passThrough); }
+}
+canvas.addEventListener("contextmenu", (e) => {
+  if (!DESK) return;
+  e.preventDefault();
+  if (desk) desk.showMenu({ variant, action: action.on, spin: spinOn, custom: scene.kind === "custom" });
+});
 canvas.addEventListener("pointercancel", endPointer);
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
@@ -2572,12 +2625,25 @@ $("tint").addEventListener("input", (e) => {
   if (custom) for (const m of custom.mats) writeMaterial(m);
 });
 
+// desktop app: right-click menu commands and models opened from its file dialog
+if (desk) {
+  desk.onMenu((cmd) => {
+    if (cmd === "smoke" || cmd === "coffee") { if (scene.kind !== "cat") useScene(catScene); setVariant(cmd); }
+    else if (cmd === "action") setAction(!action.on, false);
+    else if (cmd === "spin") spinOn = !spinOn;
+    else if (cmd === "reset") { resetFigure(); cam.tYaw = 0.55; cam.tPitch = 0.2; cam.tDist = scene.view.dist; }
+    else if (cmd === "kitten") useScene(catScene);
+    else if (cmd.startsWith("finish-")) $("f-" + cmd.slice(7)).click();
+  });
+  desk.onModelFiles((list) => loadFiles(list.map((f) => new File([f.data], f.name))));
+}
+
 // =====================================================================
 // Frame loop
 // =====================================================================
 const uni = new Float32Array(128);
 const partData = new Float32Array(MAXPART * 16);
-const toneData = new Float32Array(4);
+const toneData = new Float32Array(8);
 const lightProjSize = 1.15;
 setVariant(variant);
 resetFigure();
@@ -2638,13 +2704,13 @@ function frame(now) {
     [HC[0], HC[1], HC[2], 0.2], [0, 0.34, 0, 0.14], [0, 0.18, 0, 0.11], [0.072, 0.04, 0.03, 0.06], [-0.072, 0.04, 0.03, 0.06],
     variant === "smoke" ? [CIG_B[0], CIG_B[1], CIG_B[2], 0.02] : [MC[0], MC[1], MC[2], 0.05], [0.09, 0.32, -0.2, 0.05],
   ];
-  uni.set([BASE_R, 0, 0, 0], 60);
+  uni.set([BASE_R, DESK ? 1 : 0, 0, 0], 60);
   for (let k = 0; k < 16; k++) {
     const s = occ[k] || [0, 0, 0, 0], wp = m4.xform(B, s);
     uni.set([wp[0], wp[1], wp[2], s[3]], 64 + k * 4);
   }
   device.queue.writeBuffer(uniBuf, 0, uni);
-  toneData.set([1.0, time, W, H]);
+  toneData.set([1.0, time, W, H, DESK ? 1 : 0, 0, 0, 0]);
   device.queue.writeBuffer(toneBuf, 0, toneData);
 
   const enc = device.createCommandEncoder();
@@ -2659,7 +2725,7 @@ function frame(now) {
   }
   { // main HDR pass with 4x MSAA
     const p = enc.beginRenderPass({
-      colorAttachments: [{ view: msaaTex.createView(), resolveTarget: resolveTex.createView(), clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: "clear", storeOp: "discard" }],
+      colorAttachments: [{ view: msaaTex.createView(), resolveTarget: resolveTex.createView(), clearValue: { r: 0, g: 0, b: 0, a: DESK ? 0 : 1 }, loadOp: "clear", storeOp: "discard" }],
       depthStencilAttachment: { view: depthTex.createView(), depthClearValue: 1, depthLoadOp: "clear", depthStoreOp: "discard" },
     });
     p.setPipeline(bgPipe);

@@ -1,0 +1,4 @@
+node_modules/
+dist/
+figure.html
+package-lock.json

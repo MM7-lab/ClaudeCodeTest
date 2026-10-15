@@ -1,0 +1,41 @@
+{
+  "name": "overtime-kitten-desk",
+  "productName": "Overtime Kitten",
+  "version": "1.0.0",
+  "description": "Desk toy: the Overtime Kitten PVC figure standing on your Windows desktop",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync-figure.js",
+    "start": "npm run sync && electron .",
+    "dist": "npm run sync && electron-builder --win portable nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "lab.mm7.overtimekitten",
+    "productName": "Overtime Kitten",
+    "files": [
+      "main.js",
+      "preload.js",
+      "figure.html",
+      "icon.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "OvertimeKitten-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "artifactName": "OvertimeKitten-${version}-setup.exe"
+    }
+  },
+  "author": "Overtime Kitten"
+}
