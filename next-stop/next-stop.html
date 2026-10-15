@@ -166,12 +166,12 @@ button:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outli
 <div id="cards" hidden></div>
 <div id="dlg" hidden><button class="min" id="dlgMin" type="button">收起 ▾</button><div class="who"></div><div class="say"></div><div class="btns"></div></div>
 <div id="tip" hidden></div>
-<div id="hint">撳乘客，或者用 ◀ ▶ 逐個切換觀察。</div>
+<div id="hint" hidden>撳有號碼嘅乘客，或者用 ◀ ▶／鍵盤 ← → 逐個切換。</div>
 
 <div class="ov" id="intro">
   <div class="sheet">
     <h1>星期日嘅車廂，<span>邊個需要你？</span></h1>
-    <p>星期日傍晚，外面落緊雨，你搭緊車去探朋友。車廂本身已經唔少人，每到一站仲有更多人上車。睇清楚身邊每一個人，搵出真正需要幫助嘅人，再諗下點樣幫。</p>
+    <p>星期日傍晚，外面落緊雨，你搭緊車去探朋友。車廂已經坐滿晒人，下一站仲有人要上車。睇清楚身邊每一個人，搵出真正需要幫助嘅人，再諗下點樣幫。</p>
     <div class="six">
       <div><b>STEP 1</b>生活中探索各人的需要</div>
       <div><b>STEP 2 · WHO</b>確認需要幫助的群體</div>
@@ -180,7 +180,7 @@ button:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outli
       <div><b>STEP 5 · HOW</b>計劃實際的善幸</div>
       <div><b>STEP 6</b>善幸的經驗反思（4F）</div>
     </div>
-    <div class="ctrl">鏡頭會自動跟住劇情。到第二步，用 ◀ ▶ 逐個乘客切換鏡頭，判斷佢需唔需要幫助；亦可以直接撳畫面上嘅乘客。</div>
+    <div class="ctrl">鏡頭會自動跟住劇情。列車到站、婆婆上車之後，用 ◀ ▶（或者鍵盤 ← →）逐個睇 10 位有號碼嘅乘客，判斷佢需唔需要幫助；亦可以直接撳嗰位乘客。</div>
     <div><button class="btn primary" id="startBtn" type="button">上車 ▸</button></div>
   </div>
 </div>
@@ -500,9 +500,10 @@ function updateOccluders(){
     if(cam.mode!=='over'&&p.spawned&&!(cam.follow&&p===cam.follow.p)&&!(p===granny&&cam.mode==='fixed')){
       p.torso.getWorldPosition(_q);
       const t=_q.clone().sub(a).dot(_ab);
-      if(t>0&&t<L-0.2){_c.copy(a).addScaledVector(_ab,t);if(Math.hypot(_c.x-_q.x,_c.z-_q.z)<0.34)occ=true;}
-      if(Math.hypot(_q.x-a.x,_q.z-a.z)<0.5)occ=true;}
+      if(t>0&&t<L-0.2){_c.copy(a).addScaledVector(_ab,t);if(Math.hypot(_c.x-_q.x,_c.z-_q.z)<0.42)occ=true;}
+      if(Math.hypot(_q.x-a.x,_q.z-a.z)<0.85)occ=true;}
     p.occ=occ;p.g.visible=p.spawned&&!occ;});
+  S.cast.forEach(p=>{if(p.tag)p.tag.visible=S.step===2;});
 }
 
 /* ---------- train ---------- */
@@ -556,8 +557,8 @@ function populate(){
     label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳','右腳踭包住紗布，鞋踭冇穿好'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
   standAt(hurt,{x:-2.2,z:0.4,occ:null},-Math.PI*0.6);reserve(-2.2,0.4,hurt);hurt.arm='strap';hurt.injured=true;
   const free=seats.filter(s=>!s.occ);free.sort(()=>Math.random()-.5);
-  free.slice(0,Math.floor(free.length*0.62)).forEach(s=>{const p=makePerson(randomLook());sitAt(p,s);});
-  for(let i=0;i<5;i++){const sp=freeSpot();if(!sp)break;const p=makePerson(randomLook());standAt(p,sp);}
+  free.forEach(s=>{const p=makePerson(randomLook());sitAt(p,s);});
+  for(let i=0;i<7;i++){const sp=freeSpot();if(!sp)break;const p=makePerson(randomLook());standAt(p,sp);}
 }
 function boardPerson(p,door,target,delay){
   p.g.position.set(door+rand(-0.35,0.35),0,-2.1);p.spawned=false;p.g.visible=false;p.pose='walk';p.delay=delay;
@@ -566,21 +567,14 @@ function boardPerson(p,door,target,delay){
   else{const sp=target.spot;sp.occ=p;p.path=[mid,{x:sp.x,z:sp.z}];p.onArrive=()=>{standAt(p,null,target.face);p.spot=sp;};}
   train.boarding.push(p);
 }
-function boardStop(n){
-  if(n===1){for(let i=0;i<6;i++){const d=pick(DOORS);const seat=i<3?freeSeat():null;const sp=seat?null:freeSpot(d);if(!seat&&!sp)continue;const p=makePerson(randomLook());boardPerson(p,d,seat?{seat}:{spot:sp},i*0.5);}}
-  if(n===2){
+function boardStop(){
     const preg=makePerson({id:'preg',need:true,skin:SKINS[4],top:0xd8c2aa,bottom:0x3a3f58,coat:0x6f7d52,belly:true,badge:true,hair:0x3f2a22,hairStyle:'long',longSleeve:true,arm:'belly',focus:'badge',
       label:'著住長褸嘅女士',clues:['一隻手一直輕輕扶住個肚','褸邊隱約見到粉紅色襟章：「BB on board」'],feedback:'答對！佢係孕婦，件褸遮住咗大部分襟章，要細心先發現到。'});
     reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
-    const rest=seats.filter(s=>!s.occ);rest.forEach((s,i)=>{const p=makePerson(randomLook());boardPerson(p,pick(DOORS),{seat:s},0.6+i*0.35);});
-    for(let i=0;i<3;i++){const d=pick(DOORS);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},1+i*0.5);}
-  }
-  if(n===3){
     granny=makeGranny();reserve(-5.55,-0.38,granny);reserve(-4.3,0.85,granny);
-    boardPerson(granny,-6,{spot:{x:-5.3,z:-0.4,occ:null},face:-Math.PI*0.45},0.8);
+    boardPerson(granny,-6,{spot:{x:-5.3,z:-0.4,occ:null},face:-Math.PI*0.45},1.6);
     granny.onArrive=()=>{granny.pose='stand';granny.g.rotation.y=-Math.PI*0.45;granny.arm='pole';};
-    for(let i=0;i<6;i++){const d=pick([0,6,6]);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},i*0.45);}
-  }
+    for(let i=0;i<4;i++){const d=pick([0,6,6]);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},i*0.45);}
 }
 let granny=null,trolley=null,bags=[];
 function makeGranny(){
@@ -637,35 +631,47 @@ function updatePeople(dt,t){
 
 /* ---------- picking ---------- */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
-function pickAt(cx,cy){const r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
-  const objs=[peopleGroup];if(trolley)objs.push(trolley);const hit=ray.intersectObjects(objs,true).find(h=>{const p=h.object.userData.person;return p&&p.g.visible;});return hit?hit.object.userData.person:null;}
+function pickAt(cx,cy,ok){const r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+  const objs=[peopleGroup];if(trolley)objs.push(trolley);const hit=ray.intersectObjects(objs,true).find(h=>{const p=h.object.userData.person;return p&&p.g.visible&&(!ok||ok(p));});return hit?hit.object.userData.person:null;}
 let down=null;
 canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
-canvas.addEventListener('pointermove',e=>{if(TOUCH)return;const p=(S.step===1||S.step===2)?pickAt(e.clientX,e.clientY):null;const tp=$('#tip');
-  if(p){tp.hidden=false;tp.style.left=e.clientX+'px';tp.style.top=e.clientY+'px';tp.textContent=p.label||'乘客';canvas.classList.add('hover');}else{tp.hidden=true;canvas.classList.remove('hover');}});
+const inCast=p=>S.cast.indexOf(p)>=0;
+canvas.addEventListener('pointermove',e=>{if(TOUCH)return;const p=S.step===2?pickAt(e.clientX,e.clientY,inCast):null;const tp=$('#tip');
+  if(p){tp.hidden=false;tp.style.left=e.clientX+'px';tp.style.top=e.clientY+'px';tp.textContent=(S.cast.indexOf(p)+1)+' 號：'+(p.label||'乘客');canvas.classList.add('hover');}else{tp.hidden=true;canvas.classList.remove('hover');}});
 canvas.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>8;down=null;if(moved)return;
-  if(S.step===1||S.step===2){const p=pickAt(e.clientX,e.clientY);if(p){const i=S.cast.indexOf(p);if(i>=0)S.ci=i;inspect(p);}}});
+  if(S.step===2){const p=pickAt(e.clientX,e.clientY,inCast);if(p){S.ci=S.cast.indexOf(p);inspect(p);}}});
 canvas.addEventListener('pointerleave',()=>{$('#tip').hidden=true;});
-addEventListener('keydown',e=>{if(S.step!==2||!current)return;if(e.key==='ArrowRight')stepCast(1);if(e.key==='ArrowLeft')stepCast(-1);});
+addEventListener('keydown',e=>{if(S.step!==2||!S.cast.length)return;if(e.key==='ArrowRight'){e.preventDefault();stepCast(1);}if(e.key==='ArrowLeft'){e.preventDefault();stepCast(-1);}});
 
 /* ---------- inspect / passenger switching ---------- */
 let current=null;
+const CAST_SIZE=10;
 const CORE=['hurt','youth','grandpa','uncle','preg','mum','granny','kid'];
 function buildCast(){
   const named=['hurt','youth','grandpa','uncle','preg','mum','granny'].map(id=>people.find(p=>p.id===id)).filter(Boolean);
-  const extras=people.filter(p=>CORE.indexOf(p.id)<0&&p.spawned&&p.g.position.x>-9.5&&p.g.position.x<1.5).sort(()=>Math.random()-.5).slice(0,3);
+  const need=CAST_SIZE-named.length,pool=people.filter(p=>CORE.indexOf(p.id)<0&&p.spawned).sort(()=>Math.random()-.5);
+  const near=p=>p.g.position.x>-9.5&&p.g.position.x<1.5;
+  const labels=new Set(named.map(p=>p.label)),extras=[];
+  pool.filter(near).concat(pool.filter(p=>!near(p))).forEach(p=>{if(extras.length<need&&!labels.has(p.label)){labels.add(p.label);extras.push(p);}});
   const all=named.concat(extras);
   all.sort((a,b)=>a.g.position.x-b.g.position.x);
   if(all[0]&&all[0].id==='granny')all.push(all.shift());
   S.cast=all;S.ci=0;
+  all.forEach((p,i)=>{p.tag=new THREE.Sprite(new THREE.SpriteMaterial({map:tagTex(i+1,null),depthTest:false,transparent:true}));
+    p.tag.renderOrder=10;p.tag.scale.set(0.13,0.13,1);p.tag.position.y=0.42;p.neck.add(p.tag);});
 }
+const TAGC={};
+function tagTex(n,state){const k=n+'|'+state;return TAGC[k]||(TAGC[k]=textTex(64,64,(c)=>{
+  c.fillStyle=state==='ok'?'#6fe0b0':state==='no'?'#ff8f7a':'#ffbe55';c.strokeStyle='#1b1530';c.lineWidth=5;c.beginPath();c.arc(32,32,28,0,7);c.fill();c.stroke();
+  c.fillStyle='#1b1530';c.font='900 32px '+FONT;c.textAlign='center';c.textBaseline='middle';c.fillText(n,32,34);}));}
+function setTag(p){const i=S.cast.indexOf(p);if(p.tag&&i>=0){p.tag.material.map=tagTex(i+1,p.judged);p.tag.material.needsUpdate=true;}}
 function inspect(p){
   if(S.step>=3)return;
   current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:null);
   const panel=$('#insp');panel.hidden=false;
   const n=S.cast.length,i=S.cast.indexOf(p);
   let html='';
-  if(S.step===2&&n)html+=`<div class="nav"><button type="button" id="pv" aria-label="上一位">◀</button><div class="idx">乘客 ${i>=0?i+1:'–'} / ${n}</div><button type="button" id="nx" aria-label="下一位">▶</button></div>`;
+  if(S.step===2&&n)html+=`<div class="nav"><button type="button" id="pv" aria-label="上一位">◀</button><div class="idx">${i>=0?i+1:'–'} 號 / 共 ${n} 位</div><button type="button" id="nx" aria-label="下一位">▶</button></div>`;
   const tag=p.judged==='ok'?(p.need?'<span class="chip y">需要幫助</span>':'<span class="chip n">冇特別需要</span>'):'';
   html+=`<div class="lbl">觀察</div><h3>${esc(p.label||'乘客')}${tag}</h3><ul>${(p.clues.length?p.clues:['冇咩特別']).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
   if(S.step===1)html+=`<div class="fb info">先觀察。到第二步先判斷邊個需要幫助。</div>`;
@@ -676,7 +682,7 @@ function inspect(p){
   html+=`<div class="row"><button class="btn" id="jb" type="button">返回全景</button></div>`;
   panel.innerHTML=html;
   const jy=$('#jy'),jn=$('#jn');if(jy)jy.onclick=()=>judge(p,true);if(jn)jn.onclick=()=>judge(p,false);
-  $('#jb').onclick=closeInspect;
+  $('#jb').onclick=S.step===2?overview:closeInspect;
   const pv=$('#pv'),nx=$('#nx');if(pv)pv.onclick=()=>stepCast(-1);if(nx)nx.onclick=()=>stepCast(1);
 }
 function stepCast(d){const n=S.cast.length;if(!n)return;let i=S.cast.indexOf(current);if(i<0)i=S.ci;i=(i+d+n)%n;S.ci=i;inspect(S.cast[i]);}
@@ -686,7 +692,7 @@ function judge(p,yes){
   else if(!yes&&!p.need){p.judged='ok';p.lastFb=p.feedback||'冇錯，佢暫時冇明顯需要。';}
   else if(yes&&!p.need){p.judged='no';S.wrong++;p.lastFb=p.feedback||'佢暫時睇唔到有明顯困難。幫人之前，要先觀察清楚對方係咪真係有需要。';}
   else{p.judged='no';S.wrong++;p.lastFb='再望清楚啲……睇下佢隻手、對腳，同埋身上嘅標記。';}
-  inspect(p);updateFound();
+  setTag(p);inspect(p);updateFound();
 }
 function updateFound(){
   const judged=S.cast.filter(p=>p.judged==='ok').length;
@@ -700,18 +706,14 @@ function updateFound(){
 /* ---------- flow ---------- */
 function nextStop(){
   S.stop++;const name=STATIONS[S.stop];
-  say('車廂廣播',`下一站：${name}。Next station: ${name}.`,[]);
-  if(current)closeInspect();
-  arrive(name,()=>boardStop(S.stop),()=>{
-    $('#ns').textContent='下一站：'+STATIONS[S.stop+1];
-    if(S.stop===1)say('旁白','又多咗幾個人上車。窗外仲落緊雨，車廂越嚟越迫。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
-    else if(S.stop===2)say('旁白','座位已經坐滿晒。可以撳任何乘客，鏡頭會影近佢。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
-    else startStep2();
-  });
+  say('旁白',`星期日傍晚，外面落緊雨。你搭緊車去探朋友，車廂已經坐滿晒人，有人坐，有人企。<br>列車就快到${name}。`,[]);
+  arrive(name,()=>{boardStop();say('旁白',`列車到咗${name}，車門打開。一位婆婆拎住大包細包、拖住手推車，慢慢上車；後面仲有幾位乘客跟住上嚟……`,[]);},()=>{
+    $('#ns').textContent='下一站：'+STATIONS[S.stop+1];startStep2();});
 }
 function startStep2(){
   setStep(2);buildCast();
-  say('旁白','一位婆婆拎住大包細包，拖住手推車上咗車。車廂已經冇位坐……<br>用 <b>◀ ▶</b> 逐個乘客切換鏡頭，判斷佢<b>需唔需要幫助</b>。',[]);
+  $('#hint').hidden=false;
+  say('旁白','車門關上，列車開出。車廂已經冇位坐，婆婆只能企喺車門邊……<br>用 <b>◀ ▶</b>（或者鍵盤 ← →）逐個睇清楚 <b>10 位有號碼嘅乘客</b>，判斷佢<b>需唔需要幫助</b>。',[]);
   updateFound();setTimeout(()=>inspect(S.cast[0]),600);
 }
 const DIFFS=[
@@ -721,7 +723,7 @@ const DIFFS=[
 ];
 function partObj(part){if(part==='bags')return bags[0];if(part==='knees')return granny.legs[0].knee;if(part==='trolley')return trolley;return null;}
 function goStep3(){
-  current=null;$('#insp').hidden=true;setStep(3);setTask('<b>任務 WHY：</b>觀察婆婆遇到嘅困難，配對佢嘅需要。');
+  current=null;$('#insp').hidden=true;$('#hint').hidden=true;setStep(3);setTask('<b>任務 WHY：</b>觀察婆婆遇到嘅困難，配對佢嘅需要。');
   shotPerson(granny,null,1.5);
   say('旁白','你行近婆婆。睇清楚佢遇到咩困難——每個困難反映咗咩需要？',[]);
   const box=$('#cards');box.hidden=false;box.innerHTML='';
@@ -811,8 +813,7 @@ function goStep6(){
 }
 $('#againBtn').onclick=()=>location.reload();
 $('#startBtn').onclick=()=>{
-  $('#intro').hidden=true;initAudio();setStep(1);
-  say('旁白','星期日傍晚，外面落緊雨。你搭緊車去探朋友，車廂本身已經唔少人，有人坐，有人企。<br>可以撳畫面上嘅乘客，鏡頭會影近佢。',[{label:'▸ 去下一站',primary:true,on:nextStop}]);
+  $('#intro').hidden=true;initAudio();setStep(1);nextStop();
 };
 renderSteps();
 
