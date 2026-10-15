@@ -1,0 +1,28 @@
+name: Desk app (Windows)
+
+on:
+  push:
+    paths:
+      - "cat-animation/desk-app/**"
+      - "cat-animation/figure/index.html"
+      - ".github/workflows/desk-app.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cat-animation/desk-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OvertimeKitten-windows
+          path: cat-animation/desk-app/dist/*.exe
+          retention-days: 30
