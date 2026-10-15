@@ -16,7 +16,9 @@
 
 ## 技術
 - Three.js r128 UMD，由 cdnjs 載入
-- 卡通畫風：MeshToonMaterial 配 3 階 gradient map，加反向殼描邊；人臉用 canvas texture 畫
+- 寫實風格：MeshStandardMaterial（PBR）、ACES 色調映射、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
+- 人物仍然用簡單形狀砌成，頭身比約 1:7（`neck` 群組縮細 0.8）；人臉用 canvas texture 畫寫實五官（細眼、眉、鼻、唇），唔好加返動漫式大眼同腮紅
+- 車廂：淺灰牆身、斑點膠地板、白色 LED 燈條、不銹鋼長櫈，關愛座係紅色
 - 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客
 - 窗外係雨夜城市（大廈、燈光 sprite、雨絲 LineSegments），到站時會滑入露天月台
 - 版面適用於電腦投影同手機（手機版面：`@media (max-width:760px),(max-height:500px)`，橫向手機都用；窄過 1180px 會收起左上角標題牌，避免頂部列轉行）
