@@ -400,6 +400,18 @@ function faceTex(skin,mood){const k=skin+mood;if(faceCache[k])return faceCache[k
     c.fillStyle='rgba(170,90,85,.25)';c.beginPath();c.ellipse(cx,ey+40,7,2.2,0,0,7);c.fill();
   });faceCache[k]=t;return t;}
 let pid=0;
+/* tunic from chest to hips; the bump is a smooth gaussian pushed out of the front, so it blends into the body */
+function bellyTorsoGeo(){const g=new THREE.CylinderGeometry(0.15,0.175,0.75,32,20),a=g.attributes.position,v=new THREE.Vector3();
+  for(let i=0;i<a.count;i++){v.fromBufferAttribute(a,i);const r=Math.hypot(v.x,v.z);if(r<1e-4)continue;const th=Math.atan2(v.x,v.z);
+    const f=Math.exp(-Math.pow((v.y+0.03)/0.13,2))*Math.pow(Math.max(0,Math.cos(th)),1.6),k=(r+0.145*f)/r;a.setXYZ(i,v.x*k,v.y,v.z*k);}
+  g.computeVertexNormals();return g;}
+/* open coat: nearly closed at the collar, falling open around the belly, wider at the hem */
+function drapeCoatGeo(){const RS=36,HS=14,H=1.01,g=new THREE.CylinderGeometry(1,1,H,RS,HS,true),a=g.attributes.position;
+  const lerp=(x,y,t)=>x+(y-x)*t,prof=[[0,0.24],[0.45,0.228],[0.61,0.225],[0.8,0.19],[1,0.168]];
+  const rad=t=>{for(let k=1;k<prof.length;k++)if(t<=prof[k][0]){const[a0,r0]=prof[k-1],[a1,r1]=prof[k];return lerp(r0,r1,(t-a0)/(a1-a0));}return 0.168;};
+  const gap=t=>t>0.61?lerp(0.85,0.3,Math.pow((t-0.61)/0.39,1.2)):lerp(0.72,0.85,t/0.61);
+  for(let i=0;i<a.count;i++){const u=(i%(RS+1))/RS,y=a.getY(i),t=(y+H/2)/H,gp=gap(t),th=gp+u*(Math.PI*2-2*gp),r=rad(t);a.setXYZ(i,r*Math.sin(th),y,r*Math.cos(th));}
+  g.computeVertexNormals();return g;}
 const BLOB=new THREE.MeshBasicMaterial({map:textTex(64,64,(c)=>{const g=c.createRadialGradient(32,32,2,32,32,31);g.addColorStop(0,'rgba(0,0,0,.42)');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,64,64);}),transparent:true,depthWrite:false});
 function limb(r1,r2,len,m){return outline(mesh(cgeo(r1,r2,len,10),m),0.009);}
 function makePerson(o){
@@ -419,14 +431,12 @@ function makePerson(o){
     legs.push({hip,knee,shin:sn,shoe:sh});
   });
   const spine=new THREE.Group();hips.add(spine);
-  const torso=outline(mesh(cgeo(0.15,0.165,0.52,14),topM),0.011);torso.scale.z=0.72;torso.position.y=0.3;spine.add(torso);
-  let coat=null;if(o.coat){const cm=toon(o.coat,{side:THREE.DoubleSide});coat=new THREE.Group();spine.add(coat);
-    const body=mesh(G('coatOpen',()=>new THREE.CylinderGeometry(0.19,0.245,0.98,20,1,false,0.6,Math.PI*2-1.2)),cm);body.scale.z=0.8;body.position.y=0.07;coat.add(body);
-    [-1,1].forEach(sd=>{const lp=outline(mesh(bgeo(0.05,0.15,0.012),cm),0.006);lp.position.set(sd*0.088,0.47,0.112);lp.rotation.set(-0.1,sd*0.5,sd*0.38);coat.add(lp);});}
-  let belly=null;if(o.belly){belly=outline(mesh(sgeo(0.14,22,16),toon(o.top)),0.01);belly.scale.set(0.9,1.1,0.85);belly.position.set(0,0.2,0.05);spine.add(belly);}
+  const torso=o.belly?mesh(bellyTorsoGeo(),topM):mesh(cgeo(0.15,0.165,0.52,14),topM);torso.scale.z=0.72;torso.position.y=o.belly?0.185:0.3;spine.add(torso);
+  let coat=null;if(o.coat){coat=mesh(drapeCoatGeo(),toon(o.coat,{side:THREE.DoubleSide,roughness:0.9}));coat.scale.z=0.8;coat.position.y=0.055;spine.add(coat);}
+  const belly=o.belly?torso:null;
   let badge=null;
   if(o.badge){const t=textTex(128,128,(c)=>{c.fillStyle='#f48fb1';c.beginPath();c.arc(64,64,60,0,7);c.fill();c.fillStyle='#fff';c.font='900 40px Arial';c.textAlign='center';c.fillText('BB',64,62);c.font='700 17px Arial';c.fillText('on board',64,90);});
-    badge=mesh(new THREE.CircleGeometry(0.035,20),new THREE.MeshBasicMaterial({map:t}));badge.position.set(0.085,0.4,0.1);badge.rotation.y=0.55;spine.add(badge);}
+    badge=mesh(new THREE.CircleGeometry(0.035,20),new THREE.MeshBasicMaterial({map:t}));badge.position.set(0.075,0.42,0.104);badge.rotation.y=0.5;spine.add(badge);}
   if(o.backpack){const b=outline(mesh(bgeo(0.3,0.38,0.15),toon(pick([0x2a3b66,0xb2414f,0x3f8a6c]))),0.012);b.position.set(0,0.32,-0.19);spine.add(b);}
   const arms=[];
   [-1,1].forEach(sd=>{
@@ -445,7 +455,7 @@ function makePerson(o){
   const cap=mesh(G('hcap',()=>new THREE.SphereGeometry(0.158,22,14,0,Math.PI*2,0,Math.PI*0.4)),hairM);cap.position.y=0.185;neck.add(cap);
   const back=mesh(G('hback',()=>new THREE.SphereGeometry(0.16,22,14,Math.PI*0.95,Math.PI*1.1,0,Math.PI*0.72)),hairM);back.position.y=0.18;neck.add(back);
   const fr=mesh(G('hfringe',()=>new THREE.SphereGeometry(0.161,24,10,Math.PI*0.17,Math.PI*0.66,Math.PI*0.2,Math.PI*0.17)),hairM);fr.scale.set(0.96,1.04,0.97);fr.position.y=0.17;neck.add(fr);
-  if(o.hairStyle==='long'){const l=outline(mesh(cgeo(0.14,0.17,0.42,14),toon(o.hair)),0.01);l.scale.z=0.55;l.position.set(0,-0.04,-0.075);neck.add(l);}
+  if(o.hairStyle==='long'){const l=mesh(G('hlong',()=>new THREE.CylinderGeometry(0.152,0.17,0.32,20,1,true,Math.PI/2+0.3,Math.PI-0.6)),hairM);l.scale.set(0.97,1,0.9);l.position.set(0,0.05,-0.005);neck.add(l);}
   if(o.hairStyle==='bun'){const b=outline(mesh(sgeo(0.07,12,10),toon(o.hair)),0.01);b.position.set(0,0.31,-0.08);neck.add(b);}
   if(o.hairStyle==='pony'){const b=outline(mesh(cgeo(0.05,0.02,0.3,8),toon(o.hair)),0.01);b.position.set(0,0.12,-0.19);b.rotation.x=0.4;neck.add(b);}
   if(o.headphones){const hp=mesh(G('hp',()=>new THREE.TorusGeometry(0.165,0.017,6,20,Math.PI)),toon(0x20243a));hp.position.y=0.19;neck.add(hp);
@@ -518,10 +528,10 @@ function updateOccluders(){
   const a=camera.position;_ab.copy(cam.look).sub(a);const L=_ab.length();_ab.normalize();
   people.forEach(p=>{let occ=false;
     if(cam.mode!=='over'&&p.spawned&&!(cam.follow&&p===cam.follow.p)&&!(p===granny&&cam.mode==='fixed')){
-      p.torso.getWorldPosition(_q);
-      const t=_q.clone().sub(a).dot(_ab);
-      if(t>0&&t<L-0.2){_c.copy(a).addScaledVector(_ab,t);if(Math.hypot(_c.x-_q.x,_c.z-_q.z)<0.42)occ=true;}
-      if(Math.hypot(_q.x-a.x,_q.z-a.z)<0.85)occ=true;}
+      [p.torso,p.head].forEach(o=>{o.getWorldPosition(_q);
+        const t=_q.clone().sub(a).dot(_ab);
+        if(t>0&&t<L-0.25){_c.copy(a).addScaledVector(_ab,t);if(_c.distanceTo(_q)<0.42)occ=true;}
+        if(Math.hypot(_q.x-a.x,_q.z-a.z)<0.85)occ=true;});}
     p.occ=occ;p.g.visible=p.spawned&&!occ;});
   S.cast.forEach(p=>{if(p.tag)p.tag.visible=S.step===2;});
 }
@@ -622,7 +632,7 @@ function poseArms(p){
     case'pole':L.sh.rotation.x=-1.15;L.sh.rotation.z=0.25;L.el.rotation.x=-0.4;R.sh.rotation.x=0.05;break;
     case'phone':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-1.25;a.sh.rotation.z=-a.sd*0.15;});break;
     case'lap':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-0.75;});break;
-    case'belly':R.sh.rotation.x=-0.3;R.sh.rotation.z=-0.2;R.el.rotation.x=-1.05;R.el.rotation.z=-0.5;L.sh.rotation.x=-2.85;break;
+    case'belly':R.sh.rotation.x=-0.3;R.sh.rotation.z=0.12;R.el.rotation.x=-0.75;R.el.rotation.z=-0.85;L.sh.rotation.x=-2.85;break;
   }
 }
 function updatePeople(dt,t){
@@ -839,6 +849,7 @@ renderSteps();
 
 /* ---------- loop ---------- */
 const clock=new THREE.Clock();
+let viewOx=0,lastOx=0;
 function loop(){
   const dt=Math.min(clock.getDelta(),0.05),t=clock.elapsedTime;
   if(train.state==='arriving'){train.speed=Math.max(0,train.speed-train.decel*dt);platDist-=train.speed*dt;plat.position.x=Math.max(0,platDist);
@@ -863,7 +874,12 @@ function loop(){
   const sway=cam.mode==='over'?Math.sin(t*0.35)*0.05:0;
   camera.position.set(cam.pos.x,cam.pos.y+Math.sin(t*1.7)*0.004*(train.speed/13),cam.pos.z+sway);
   camera.lookAt(cam.look);
-  if(Math.abs(camera.fov-cam.fov)>0.01){camera.fov=cam.fov;camera.updateProjectionMatrix();}
+  /* keep the subject clear of the right-hand panel: shift the frame left by half the panel width (landscape only) */
+  const pnl=!$('#insp').hidden?$('#insp'):!$('#cards').hidden?$('#cards'):null;
+  const wantOx=(pnl&&innerWidth>innerHeight&&innerWidth>760)?(pnl.offsetWidth+16)/2:0;
+  viewOx+=(wantOx-viewOx)*k;if(Math.abs(viewOx-wantOx)<0.5)viewOx=wantOx;
+  if(Math.abs(camera.fov-cam.fov)>0.01||viewOx!==lastOx){camera.fov=cam.fov;lastOx=viewOx;
+    if(viewOx)camera.setViewOffset(innerWidth,innerHeight,viewOx,0,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();}
   updateOccluders();
   renderer.render(scene,camera);
   requestAnimationFrame(loop);

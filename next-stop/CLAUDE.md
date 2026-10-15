@@ -19,7 +19,9 @@
 - 寫實風格：MeshStandardMaterial（PBR）、ACES 色調映射、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
 - 人物仍然用簡單形狀砌成，頭身比約 1:7（`neck` 群組縮細 0.8）；人臉用 canvas texture 畫寫實五官（細眼、眉、鼻、唇），唔好加返動漫式大眼同腮紅
 - 車廂：淺灰牆身、斑點膠地板、白色 LED 燈條、不銹鋼長櫈，關愛座係紅色
-- 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客
+- 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客（身體或者頭部接近視線，或者離鏡頭 0.85m 以內）
+- 電腦橫向畫面打開右邊面板（`#insp`／`#cards`）時，用 `camera.setViewOffset` 將畫面向左移半個面板闊，被睇嘅乘客唔會俾面板遮住
+- 孕婦：`bellyTorsoGeo()` 由件衫前面推出順滑嘅肚；`drapeCoatGeo()` 係領口近乎合埋、肚位散開嘅長褸；BB 襟章喺褸邊露出一半
 - 窗外係雨夜城市（大廈、燈光 sprite、雨絲 LineSegments），到站時會滑入露天月台
 - 版面適用於電腦投影同手機（手機版面：`@media (max-width:760px),(max-height:500px)`，橫向手機都用；窄過 1180px 會收起左上角標題牌，避免頂部列轉行）
 - 左下角提示（`#hint`）會跟住對話框高度（`--dlg-h`）向上移，而且唔攔截點擊，唔好再放返喺 bottom:18px，否則喺 1024 闊嘅投影機會遮住對話框按鈕
