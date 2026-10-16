@@ -57,6 +57,7 @@ python3 floor-planner/build_pages.py
 | `cat-animation/desk-app/` | Windows 桌面公仔 app（Electron）：透明視窗淨係顯示公仔，詳情睇入面嘅 README |
 | `cat-animation/bear-figure/index.html` | 熊仔衫人仔 Q 版 3D 公仔（WebGPU，toon 三級光影＋粗描邊）：發呆（眨眼、推眼鏡）、瞓覺、食杯麵、用手提電腦做嘢；撳肚上隻熊仔會出心心 |
 | `cat-animation/bear-2d/index.html` | 熊仔衫人仔 2D 版（直接用原圖做底，貼足原畫；WebGL 網格令頭、耳仔、眼鏡、尾巴、腳板、熊掌郁得）：發呆（眨眼、望兩邊、歪頭、耳仔郁、推眼鏡、搖尾）、瞓覺（Zzz＋鼻涕泡）、食杯麵（夾麵吸麵）、做嘢（手提電腦＋螢幕光）；撳肚上隻熊仔會出心心 |
+| `cat-animation/bear-2d-standing/index.html` | 熊仔衫人仔 2D 企起身版：上半身保留原圖（剪走背景同盤住嘅腳），下半身、腳板同尾巴用同款粗線重畫；動作同 2D 版一樣，再加踮腳、企住瞌眼眉搖下搖下、撳肚熊仔會跳 |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
