@@ -17,10 +17,10 @@
 ## 技術
 - Three.js r128 UMD，由 cdnjs 載入；光暈（UnrealBloomPass 等 6 個 examples/js 檔）由 jsdelivr 載入，載入失敗就自動用返普通渲染
 - 後期：EffectComposer 畫落 HDR（WebGL2 用 HalfFloat＋多重取樣）render target → UnrealBloomPass → 自己寫嘅 ACES＋sRGB ShaderPass（因為 render target 唔會套用 renderer 嘅 tone mapping）；LED 燈條、月台燈、窗外燈光故意調到大過 1，等佢哋發光
-- 風格跟參考圖：**環境寫實、人物動漫**。環境用 MeshStandardMaterial（PBR）、ACES 色調映射（曝光 0.75）、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
+- 風格跟參考圖：**環境寫實、人物係柔和上色嘅風格化 3D**（跟 Tommy 畀嘅示意圖，唔係動漫大眼）。環境用 MeshStandardMaterial（PBR）、ACES 色調映射（曝光 0.75）、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
 - 人物用程式砌成，頭身比約 1:6.5（`neck` 群組縮細 0.84）：身軀、盆骨、四肢用 LatheGeometry 曲線（`latheGeo`／`limbGeo`／`tubeGeo`，接縫喺背後）；有手掌同手指公、鞋底、耳仔、下巴收窄嘅頭（`headGeo`）；短袖衫袖去到上臂一半；衫褲係平塗卡通色（`makePerson` 入面 `cloth`／`toon` 已改成指向 `anime()`，布紋 `FAB` 唔再用喺人物）
-- 人物用卡通上色：`anime()`（MeshToonMaterial，2 級明暗，衫 `cloth`／皮膚 `skin`／面 `face` 三種陰影深淺），色碼要 `convertSRGBToLinear()`，否則同面部貼圖唔夾、成個人變白；`addOutlines()` 用法線向外推嘅描邊，只會畫喺離鏡頭 5 米內嘅人（控制 draw calls）；頭髮 `hairMat()` 有光圈紋理，劉海同長髮用 `STRANDS` alpha 剪出髮尖（描邊 shader 都會跟住剪）
-- 人臉用 canvas texture 畫動漫五官：大眼、漸變瞳孔、兩點反光、粗上眼線、淡腮紅、細嘴；冇立體鼻；男仔髮線較高、側分，女仔有六成機會有齊陰；企姿有少少重心側向一邊（`lean`）
+- 人物上色：`anime()`（MeshToonMaterial，3 格線性過渡嘅柔和明暗，衫 `cloth`／皮膚 `skin`／面 `face` 三種深淺，皮膚同面最光只到 232 免得變白），色碼要 `convertSRGBToLinear()`；`addOutlines()` 幼描邊（0.0042），只畫喺離鏡頭 5 米內嘅人；頭髮係一整塊球殼（`hairShellMat`），用 `hairMask(style)` 透明遮罩剪出髮線同面部（女：Fbang 齊陰／Fpart 中分；男：Mside 側分／Mshort），長髮後面再加 `STRANDS` 剪尖嘅髮片
+- 人臉：`faceTex(skin,mood,age)` 畫示意圖風格五官：正常大細嘅杏仁眼、深色瞳孔加一點反光、粗眉、細鼻（立體鼻戴口罩就唔加）、細嘴；`age:1`（婆婆、伯伯）加額紋、魚尾紋、法令紋；唔好再改返動漫大眼
 - 車廂：淺灰牆身、有少少反光嘅斑點膠地板、白色 LED 燈條、不銹鋼長櫈、座位尾玻璃擋板，關愛座係紅色；車門頂有橙色 LED 報站牌（`setLED()`）
 - 婆婆手推車：上車時婆婆左手拉住車柄（`pullTrolley()`），架車斜住喺佢身後碌；到位後放手，架車斜斜哋卡喺車門邊（`settleTrolley()`）
 - 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客（身體或者頭部接近視線，或者離鏡頭 0.85m 以內）
@@ -29,6 +29,8 @@
 - 窗外係雨夜城市（大廈、燈光 sprite、雨絲 LineSegments），到站時會滑入露天月台
 - 版面適用於電腦投影同手機（手機版面：`@media (max-width:760px),(max-height:500px)`，橫向手機都用；窄過 1180px 會收起左上角標題牌，避免頂部列轉行）
 - 左下角提示（`#hint`）會跟住對話框高度（`--dlg-h`）向上移，而且唔攔截點擊，唔好再放返喺 bottom:18px，否則喺 1024 闊嘅投影機會遮住對話框按鈕
+
+- 人物類型：`uniform` 學生（白恤衫、領呔、深藍裙或灰褲、書包，冇真實學校校徽）、`jacket` 短外套、`sling` 斜孭袋、`build` 肥瘦；婆婆洋紅色冷衫、駝背（spine 0.3、neck -0.3）、有皺紋；孕婦身體向後挨少少；坐低嘅人座位上有接觸陰影（`seatBlob`）
 
 ## 約束
 - 介面文字一律用香港繁體中文（廣東話口語）
