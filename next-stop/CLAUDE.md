@@ -37,5 +37,6 @@
 
 ## 可以再做嘅方向
 - 載入現成 glTF 動漫角色模型，取代用簡單形狀砌成嘅人物
+- VRoid（.vrm）角色：`@pixiv/three-vrm` 由 0.6.x 到 3.x 都要求 Three.js ≥ 0.137，要用就要離開 r128、改寫成 ES module，光暈嗰 6 個 examples/js 檔都要換
 - 真正鏡面反射（Reflector）、窗玻璃反映車廂入面
 - 老師模式：可以直接跳去指定步驟
