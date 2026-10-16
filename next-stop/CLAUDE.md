@@ -32,6 +32,8 @@
 
 - 人物類型：`uniform` 學生（白恤衫、領呔、深藍裙或灰褲、書包，冇真實學校校徽）、`jacket` 短外套、`sling` 斜孭袋、`build` 肥瘦；婆婆洋紅色冷衫、駝背（spine 0.3、neck -0.3）、有皺紋；孕婦身體向後挨少少；坐低嘅人座位上有接觸陰影（`seatBlob`）
 - 生活感（第二批）：每人有 `act`（phone 低頭睇電話、read 睇書、news 伯伯睇報紙、doze 瞌眼耷頭、music 跟節奏郁頭、chat 轉頭同隔籬傾偈、up 望報站牌、kid 媽媽望住個仔、look 周圍望，有時望向有需要嘅人）；`updateGaze()` 平滑轉頸；`blink()` 用 `faceOpen`／`faceShut` 材質眨眼（換面部材質時要同時更新 `faceOpen`）；呼吸（`spineX` 加細微起伏）、重心慢慢轉移；`swayPerson()` 跟 `trainAcc` 由腳踝向前後傾，再加左右搖；`gripIK()` 兩節反向運動學，令舉高嘅手真係握住 `RINGS` 吊環或者 `POLES` 企柱（包括座位尾擋板支柱，婆婆就係揸住佢），夠唔到就用返原本姿勢；手插袋 `pocket`；坐低有機會拎住摺遮（`umbrella`）
+- 面形：`headGeo(shape)`，`FACE_SHAPES` 有 oval／long／square／round（細路仔用 round），由球體拉長面、削平面頰、收窄下顎（`low` 越大，收窄越集中喺下面，就越有下顎角而唔會變尖下巴）、下巴向前；面部陰影 `CEL.face` 暗位 152，唔好再調淡，否則面形只睇到輪廓、全部變返圓面
+- 頭髮殼放大（1.03×1.13×1.06）同埋頭頂升高，劉海用 `hairMask` 嘅幾個闊圓弧做成一撮撮，唔好用高頻鋸齒
 
 ## 約束
 - 介面文字一律用香港繁體中文（廣東話口語）
