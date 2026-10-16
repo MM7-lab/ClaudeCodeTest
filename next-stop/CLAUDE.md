@@ -18,7 +18,7 @@
 - Three.js r128 UMD，由 cdnjs 載入；光暈（UnrealBloomPass 等 6 個 examples/js 檔）由 jsdelivr 載入，載入失敗就自動用返普通渲染
 - 後期：EffectComposer 畫落 HDR（WebGL2 用 HalfFloat＋多重取樣）render target → UnrealBloomPass → 自己寫嘅 ACES＋sRGB ShaderPass（因為 render target 唔會套用 renderer 嘅 tone mapping）；LED 燈條、月台燈、窗外燈光故意調到大過 1，等佢哋發光
 - 風格跟參考圖：**環境寫實、人物動漫**。環境用 MeshStandardMaterial（PBR）、ACES 色調映射（曝光 0.75）、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
-- 人物用程式砌成，頭身比約 1:6.5（`neck` 群組縮細 0.84）：身軀、盆骨、四肢用 LatheGeometry 曲線（`latheGeo`／`limbGeo`／`tubeGeo`，接縫喺背後）；有手掌同手指公、鞋底、耳仔、下巴收窄嘅頭（`headGeo`）；短袖衫袖去到上臂一半；衫褲同頭髮用 `cloth()` 加布紋／牛仔斜紋／髮絲紋理
+- 人物用程式砌成，頭身比約 1:6.5（`neck` 群組縮細 0.84）：身軀、盆骨、四肢用 LatheGeometry 曲線（`latheGeo`／`limbGeo`／`tubeGeo`，接縫喺背後）；有手掌同手指公、鞋底、耳仔、下巴收窄嘅頭（`headGeo`）；短袖衫袖去到上臂一半；衫褲係平塗卡通色（`makePerson` 入面 `cloth`／`toon` 已改成指向 `anime()`，布紋 `FAB` 唔再用喺人物）
 - 人物用卡通上色：`anime()`（MeshToonMaterial，2 級明暗，衫 `cloth`／皮膚 `skin`／面 `face` 三種陰影深淺），色碼要 `convertSRGBToLinear()`，否則同面部貼圖唔夾、成個人變白；`addOutlines()` 用法線向外推嘅描邊，只會畫喺離鏡頭 5 米內嘅人（控制 draw calls）；頭髮 `hairMat()` 有光圈紋理，劉海同長髮用 `STRANDS` alpha 剪出髮尖（描邊 shader 都會跟住剪）
 - 人臉用 canvas texture 畫動漫五官：大眼、漸變瞳孔、兩點反光、粗上眼線、淡腮紅、細嘴；冇立體鼻；男仔髮線較高、側分，女仔有六成機會有齊陰；企姿有少少重心側向一邊（`lean`）
 - 車廂：淺灰牆身、有少少反光嘅斑點膠地板、白色 LED 燈條、不銹鋼長櫈、座位尾玻璃擋板，關愛座係紅色；車門頂有橙色 LED 報站牌（`setLED()`）
