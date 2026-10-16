@@ -2655,7 +2655,7 @@ window.addEventListener("resize", resize);
 let last = performance.now(), acc = 0, time = 0, frames = 0;
 const FIXED = 1 / 240;
 function frame(now) {
-  const dt = Math.min((now - last) / 1000, 1 / 20);
+  const dt = Math.min(Math.max((now - last) / 1000, 0), 1 / 20);   // the first rAF stamp can predate `last`
   last = now; time += dt; frames++;
   resize();
   idle += dt;

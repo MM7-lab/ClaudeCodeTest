@@ -55,6 +55,7 @@ python3 floor-planner/build_pages.py
 | `cat-animation/3d/lying-office-cat.glb` | 匯出嘅 3D 模型檔（Blender 等軟件開到，冇動畫） |
 | `cat-animation/figure/index.html` | WebGPU 收藏公仔版（單一 HTML，程序生成 PVC 公仔、亞加力底座、剛體物理、可擺姿勢、飲咖啡／食煙動作；撳「Load model」可以載入自己嘅 .glb/.gltf/.obj/.stl，自動套用同一套 PVC 效果；要支援 WebGPU 嘅瀏覽器） |
 | `cat-animation/desk-app/` | Windows 桌面公仔 app（Electron）：透明視窗淨係顯示公仔，詳情睇入面嘅 README |
+| `cat-animation/bear-figure/index.html` | 熊仔衫人仔 Q 版 3D 公仔（WebGPU，toon 三級光影＋粗描邊）：發呆（眨眼、推眼鏡）、瞓覺、食杯麵、用手提電腦做嘢；撳肚上隻熊仔會出心心 |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
