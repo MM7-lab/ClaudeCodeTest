@@ -205,6 +205,12 @@ button:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outli
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 (function(){
 'use strict';
@@ -230,17 +236,34 @@ scene.fog=new THREE.Fog(0x0c1a3e,16,46);
 const camera=new THREE.PerspectiveCamera(58,1,0.05,160);
 function baseFov(){return innerWidth<innerHeight?80:56;}
 let dlgSync=()=>{};
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();dlgSync();}
+let composer=null;
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);if(composer)composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();dlgSync();}
 addEventListener('resize',resize);resize();
 
 /* lighting: cool-white carriage LEDs overhead, faint blue from the night windows */
-scene.add(new THREE.HemisphereLight(0xf4f7ff,0x4a4e5a,0.55));
+scene.add(new THREE.HemisphereLight(0xf4f7ff,0x3e4250,0.45));
 const key=new THREE.DirectionalLight(0xfaf8f2,0.62);key.position.set(0.5,6,0.8);scene.add(key);
 const rim=new THREE.DirectionalLight(0x8fb0ff,0.18);rim.position.set(-3,2,-5);scene.add(rim);
 (function(){const env=new THREE.Scene();env.add(new THREE.Mesh(new THREE.BoxGeometry(24,4,6),new THREE.MeshBasicMaterial({color:0x3a3f4a,side:THREE.BackSide})));
   for(let x=-10;x<=10;x+=2.5)[-0.6,0.6].forEach(z=>{const l=new THREE.Mesh(new THREE.BoxGeometry(2,0.05,0.25),new THREE.MeshBasicMaterial({color:0xffffff}));l.position.set(x,1.9,z);env.add(l);});
   [-1,1].forEach(s=>{const w=new THREE.Mesh(new THREE.BoxGeometry(24,1,0.05),new THREE.MeshBasicMaterial({color:0x1a2850}));w.position.set(0,0.4,s*2.9);env.add(w);});
   const pm=new THREE.PMREMGenerator(renderer);scene.environment=pm.fromScene(env,0.02).texture;pm.dispose();})();
+/* glow: render to an HDR target, bloom the bright parts (LED strips, city lights, lamps), then ACES + sRGB by hand */
+(function(){if(!(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass&&THREE.UnrealBloomPass))return;
+  try{const gl2=renderer.capabilities.isWebGL2,sz=renderer.getDrawingBufferSize(new THREE.Vector2()),opt={type:gl2?THREE.HalfFloatType:THREE.UnsignedByteType};
+    const rt=gl2&&THREE.WebGLMultisampleRenderTarget?new THREE.WebGLMultisampleRenderTarget(sz.x,sz.y,opt):new THREE.WebGLRenderTarget(sz.x,sz.y,opt);
+    const c=new THREE.EffectComposer(renderer,rt);c.setPixelRatio(renderer.getPixelRatio());c.setSize(innerWidth,innerHeight);
+    c.addPass(new THREE.RenderPass(scene,camera));
+    c.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.9,0.6,0.8));
+    c.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:renderer.toneMappingExposure}},
+      vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure;varying vec2 vUv;
+        vec3 fit(vec3 v){vec3 a=v*(v+0.0245786)-0.000090537;vec3 b=v*(0.983729*v+0.4329510)+0.238081;return a/b;}
+        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb*exposure/0.6;
+          c=mat3(0.59719,0.07600,0.02840,0.35458,0.90834,0.13383,0.04823,0.01566,0.83777)*c;c=fit(c);
+          c=clamp(mat3(1.60475,-0.10208,-0.00327,-0.53108,1.10813,-0.07276,-0.07367,-0.00605,1.07602)*c,0.,1.);
+          c=mix(pow(c,vec3(0.41666))*1.055-0.055,c*12.92,vec3(lessThanEqual(c,vec3(0.0031308))));gl_FragColor=vec4(c,1.);}`}));
+    composer=c;}catch(e){composer=null;}})();
 
 /* ---------- materials ---------- */
 const MC={},GC={};
@@ -268,9 +291,9 @@ const FLOORTEX=textTex(256,256,(c,w,h)=>{c.fillStyle='#7d828b';c.fillRect(0,0,w,
 FLOORTEX.wrapS=FLOORTEX.wrapT=THREE.RepeatWrapping;FLOORTEX.repeat.set(18,2.4);
 const M={
   wall:toon(0xeceef1,{roughness:0.55}),lower:toon(0xd3d7dd,{roughness:0.6}),
-  floor:new THREE.MeshStandardMaterial({map:FLOORTEX,roughness:0.62,metalness:0}),
+  floor:new THREE.MeshStandardMaterial({map:FLOORTEX,roughness:0.24,metalness:0,envMapIntensity:1.5}),
   steel:metal(0xdfe3e8,0.22),seat:metal(0xc7ccd3,0.34),prio:toon(0xa8323a,{roughness:0.45,metalness:0.25}),door:metal(0xb9bfc8,0.4),
-  strip:basic(0xfff3df),yellow:toon(0xf1c534),dark:basic(0x141a2e)
+  strip:new THREE.MeshBasicMaterial({color:new THREE.Color(0xfff6ea).multiplyScalar(1.7)}),yellow:toon(0xf1c534),dark:basic(0x141a2e)
 };
 const floor=mesh(bgeo(22.2,0.1,2.9),M.floor);floor.position.y=-0.05;world.add(floor);
 DOORS.forEach(d=>[-1,1].forEach(s=>{const y=mesh(bgeo(1.3,0.012,0.18),M.yellow);y.position.set(d,0.006,s*1.3);world.add(y);}));
@@ -283,6 +306,8 @@ const rainTex=textTex(256,256,(c,w,h)=>{c.fillStyle='rgba(40,70,140,0.18)';c.fil
   c.strokeStyle='rgba(200,220,255,.28)';c.lineWidth=1.3;for(let i=0;i<26;i++){const x=Math.random()*w,y=Math.random()*h;c.beginPath();c.moveTo(x,y);c.lineTo(x-rand(10,30),y+rand(30,80));c.stroke();}});
 rainTex.wrapS=rainTex.wrapT=THREE.RepeatWrapping;rainTex.repeat.set(2,1);
 const GLASS=new THREE.MeshBasicMaterial({map:rainTex,transparent:true,depthWrite:false,color:0xcfe0ff});
+const LEDM=new THREE.MeshBasicMaterial({color:new THREE.Color(0xffffff).multiplyScalar(1.4)});
+function setLED(text){LEDM.map=textTex(512,80,(c,w,h)=>{c.fillStyle='#070707';c.fillRect(0,0,w,h);c.fillStyle='#ff9b2f';c.font='700 46px '+FONT;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,h/2+2);});LEDM.needsUpdate=true;}
 const doorPanels=[];
 [-1,1].forEach(s=>{
   const z=s*CAR.hz;const edges=[-11,-6.7,-5.3,-0.7,0.7,5.3,6.7,11];
@@ -295,6 +320,7 @@ const doorPanels=[];
   }
   DOORS.forEach(d=>{
     const hd=mesh(bgeo(1.4,0.36,0.1),M.wall);hd.position.set(d,CAR.h-0.18,z);world.add(hd);
+    const led=mesh(G('ledg',()=>new THREE.PlaneGeometry(0.86,0.13)),LEDM);led.position.set(d,CAR.h-0.18,z-s*0.052);led.rotation.y=s<0?0:Math.PI;world.add(led);
     const l=new THREE.Group(),r=new THREE.Group();
     [l,r].forEach((g,j)=>{const pn=mesh(bgeo(0.7,2.0,0.06),M.door);pn.position.y=1.0;g.add(pn);
       const w=mesh(bgeo(0.42,0.8,0.07),GLASS);w.position.y=1.4;g.add(w);
@@ -302,6 +328,11 @@ const doorPanels=[];
     doorPanels.push({l,r,x:d,side:s});
   });
 });
+const SCREEN=new THREE.MeshStandardMaterial({color:0xdfe8ef,roughness:0.08,metalness:0,transparent:true,opacity:0.22,depthWrite:false});
+[-6.75,-5.25,-0.75,0.75,5.25,6.75].forEach(x=>[-1,1].forEach(s=>{
+  const gp=mesh(bgeo(0.015,0.95,0.4),SCREEN);gp.position.set(x,0.68,s*1.2);world.add(gp);
+  const v=mesh(cgeo(0.02,0.02,1.18,10),M.steel);v.position.set(x,0.59,s*0.99);world.add(v);
+  const h=mesh(cgeo(0.02,0.02,0.44,10),M.steel);h.rotation.x=Math.PI/2;h.position.set(x,1.18,s*1.21);world.add(h);}));
 const seats=[];
 SEGS.forEach((sg,si)=>{
   const [a,b]=sg,len=b-a,n=Math.floor(len/0.53),start=a+(len-n*0.53)/2+0.265;
@@ -337,7 +368,7 @@ const negSide=new THREE.Group();outside.add(negSide);
 for(let i=0;i<46;i++){
   const s=i%2?1:-1;const h=rand(4,16),w=rand(3,7),d=rand(3,6);
   const t=winTex[i%3].clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(w/4,h/8);
-  const b=mesh(bgeo(w,h,d),new THREE.MeshBasicMaterial({map:t,color:0xbfc8ff}));
+  const b=mesh(bgeo(w,h,d),new THREE.MeshBasicMaterial({map:t,color:new THREE.Color(0xbfc8ff).multiplyScalar(1.35)}));
   b.position.set(rand(-60,60),h/2-6,s*rand(9,22));(s<0?negSide:outside).add(b);movers.push({o:b,k:1});
 }
 const LAMP=[0xffb35a,0xffd27f,0x6fd4ff,0xff6f7a,0xfff0c0];
@@ -354,11 +385,11 @@ function updateRain(dt,speed){for(let i=0;i<RN;i++){const r=rainSeed[i];r.y-=r.v
 /* ---------- station platform ---------- */
 const plat=new THREE.Group();scene.add(plat);const signs=[];
 (function(){
-  const pf=mesh(bgeo(90,0.1,2.4),toon(0x7e86a3));pf.position.set(0,-0.05,-2.75);plat.add(pf);
+  const pf=mesh(bgeo(90,0.1,2.4),toon(0x4b5266,{roughness:0.18,metalness:0.1,envMapIntensity:1.3}));pf.position.set(0,-0.05,-2.75);plat.add(pf);
   const edge=mesh(bgeo(90,0.02,0.2),M.yellow);edge.position.set(0,0.01,-1.75);plat.add(edge);
   const roof=mesh(bgeo(90,0.15,3),toon(0x2b3a66));roof.position.set(0,3.25,-2.6);plat.add(roof);
   for(let x=-42;x<=42;x+=6){const p=mesh(cgeo(0.08,0.08,3.25,10),toon(0x3b4a7a));p.position.set(x,1.6,-3.3);plat.add(p);
-    const lamp=mesh(bgeo(1.2,0.05,0.25),basic(0xfff1d6));lamp.position.set(x+3,3.15,-2.4);plat.add(lamp);const g=glow(0xffe0a8,2.2,.55);g.position.set(x+3,3.0,-2.4);plat.add(g);}
+    const lamp=mesh(bgeo(1.2,0.05,0.25),new THREE.MeshBasicMaterial({color:new THREE.Color(0xfff1d6).multiplyScalar(1.8)}));lamp.position.set(x+3,3.15,-2.4);plat.add(lamp);const g=glow(0xffe0a8,2.2,.55);g.position.set(x+3,3.0,-2.4);plat.add(g);}
   const rail=mesh(bgeo(90,0.05,0.05),toon(0x9aa6cc));rail.position.set(0,1.0,-3.9);plat.add(rail);
   for(let k=0;k<7;k++){const p=mesh(new THREE.PlaneGeometry(2.4,0.6),new THREE.MeshBasicMaterial({color:0xffffff}));p.position.set(-36+k*12,2.55,-2.2);plat.add(p);signs.push(p);}
   for(let i=0;i<10;i++){const s=outline(mesh(cgeo(0.17,0.2,1.55,10),toon(pick([0x3b4a7a,0x5b4a6a,0x2f5b7c,0x6d6f8a]))),0.012);s.position.set(rand(-40,40),0.78,rand(-3.5,-2.6));plat.add(s);
@@ -539,7 +570,7 @@ function updateOccluders(){
 /* ---------- train ---------- */
 const train={speed:13,state:'run',doorOpen:0,doorTarget:0,boarding:[]};
 let platDist=200;
-function arrive(name,onBoard,onDone){setSign(name);train.state='arriving';train.decel=train.speed*train.speed/(2*26);platDist=26;plat.position.x=platDist;train.onBoard=onBoard;train.onDone=onDone;$('#ns').textContent='即將到達：'+name;}
+function arrive(name,onBoard,onDone){setSign(name);setLED('即將到達　'+name);train.state='arriving';train.decel=train.speed*train.speed/(2*26);platDist=26;plat.position.x=platDist;train.onBoard=onBoard;train.onDone=onDone;$('#ns').textContent='即將到達：'+name;}
 
 /* ---------- audio ---------- */
 let AC=null,rumbleGain=null,rainGain=null,muted=false;
@@ -603,7 +634,8 @@ function boardStop(){
     reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
     granny=makeGranny();reserve(-5.55,-0.38,granny);reserve(-4.3,0.85,granny);
     boardPerson(granny,-6,{spot:{x:-5.3,z:-0.4,occ:null},face:-Math.PI*0.45},1.6);
-    granny.onArrive=()=>{granny.pose='stand';granny.g.rotation.y=-Math.PI*0.45;granny.arm='pole';};
+    granny.pull=true;
+    granny.onArrive=()=>{granny.pull=false;trolley.userData.rest={x:-0.16,z:0.22};granny.pose='stand';granny.g.rotation.y=-Math.PI*0.45;granny.arm='pole';};
     for(let i=0;i<4;i++){const d=pick([0,6,6]);const sp=freeSpot(d);if(!sp)break;const p=makePerson(randomLook());boardPerson(p,d,{spot:sp},i*0.45);}
 }
 let granny=null,trolley=null,bags=[];
@@ -644,11 +676,10 @@ function updatePeople(dt,t){
       const sp=(p.granny?0.55:1.15)*dt;
       if(d<sp){p.g.position.x=tg.x;p.g.position.z=tg.z;p.path.shift();if(!p.path.length){p.pose='stand';p.onArrive&&p.onArrive();p.onArrive=null;}}
       else{p.g.position.x+=dx/d*sp;p.g.position.z+=dz/d*sp;p.g.rotation.y=Math.atan2(dx,dz);p.pose='walk';}
-      if(p===granny)trolley.position.set(p.g.position.x-0.35,0,p.g.position.z-0.25);
     }
     const L=p.legs;p.root.position.y=0;p.hips.rotation.z=0;
     if(p.pose==='walk'){p.phase+=dt*(p.granny?5:7.5);const w=Math.sin(p.phase);L[0].hip.rotation.x=w*.45;L[1].hip.rotation.x=-w*.45;L[0].knee.rotation.x=Math.max(0,-w)*.6;L[1].knee.rotation.x=Math.max(0,w)*.6;
-      p.arms.forEach((a,i)=>{a.sh.rotation.set((i?w:-w)*.35,0,a.sd*.08);a.el.rotation.x=-.2;});if(p.arm==='phone')poseArms(p);if(p.granny)p.arms[1].sh.rotation.x=0.05;}
+      p.arms.forEach((a,i)=>{a.sh.rotation.set((i?w:-w)*.35,0,a.sd*.08);a.el.rotation.x=-.2;});if(p.arm==='phone')poseArms(p);if(p.granny)p.arms[1].sh.rotation.x=0.05;if(p.granny&&p.pull){p.arms[0].sh.rotation.set(0.55,0,-0.1);p.arms[0].el.rotation.set(-0.2,0,0);}}
     else if(p.pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.5;l.knee.rotation.x=1.5;});p.root.position.y=0.47-0.88*p.s;poseArms(p);}
     else{L.forEach(l=>{l.hip.rotation.x=0;l.knee.rotation.x=0;});
       if(p.injured){L[1].hip.rotation.x=0.18;L[1].knee.rotation.x=0.4;p.hips.rotation.z=0.06+Math.sin(t*2+p.phase)*0.02;}
@@ -656,8 +687,21 @@ function updatePeople(dt,t){
       poseArms(p);p.root.rotation.z=Math.sin(t*1.5+p.phase)*0.018*Math.min(1,train.speed/10);}
     if(p.sleep)p.neck.rotation.set(0.45,0,0.3);
     else if(p.pose!=='walk')p.neck.rotation.y=Math.sin(t*0.3+p.phase)*0.22;
+    if(p===granny&&trolley&&p.spawned){if(p.pull)pullTrolley(p);else settleTrolley(dt);}
   });
 }
+/* trolley geometry: wheels at local (±0.15, 0.07, -0.05), handle bar at (0, 1.02, -0.13); local -z faces whoever pulls it */
+const _th=new THREE.Vector3();
+function wheelLift(a){return 0.07-(0.07*Math.cos(a)-0.05*Math.sin(a));}
+function pullTrolley(p){
+  p.arms[0].hand.getWorldPosition(_th);
+  const ry=p.g.rotation.y,dx=Math.sin(ry),dz=Math.cos(ry);
+  const a=Math.acos(clamp((_th.y-0.05)/1.03,0.25,0.97)),reach=1.02*Math.sin(a)+0.13*Math.cos(a);
+  trolley.rotation.order='YXZ';trolley.rotation.set(-a,Math.atan2(-dx,-dz),0);
+  trolley.position.set(_th.x-dx*reach,wheelLift(a),_th.z-dz*reach);
+}
+function settleTrolley(dt){const r=trolley.userData.rest;if(!r)return;const k=Math.min(1,dt*5);
+  trolley.rotation.x+=(r.x-trolley.rotation.x)*k;trolley.rotation.z+=(r.z-trolley.rotation.z)*k;trolley.position.y=wheelLift(-trolley.rotation.x);}
 
 /* ---------- picking ---------- */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
@@ -738,7 +782,7 @@ function nextStop(){
   S.stop++;const name=STATIONS[S.stop];
   say('旁白',`星期日傍晚，外面落緊雨。你搭緊車去探朋友，車廂已經坐滿晒人，有人坐，有人企。<br>列車就快到${name}。`,[]);
   arrive(name,()=>{boardStop();say('旁白',`列車到咗${name}，車門打開。一位婆婆拎住大包細包、拖住手推車，慢慢上車；後面仲有幾位乘客跟住上嚟……`,[]);},()=>{
-    $('#ns').textContent='下一站：'+STATIONS[S.stop+1];startStep2();});
+    $('#ns').textContent='下一站：'+STATIONS[S.stop+1];setLED('下一站　'+STATIONS[S.stop+1]);startStep2();});
 }
 function startStep2(){
   setStep(2);buildCast();
@@ -812,13 +856,13 @@ let acted=false;
 function doActions(){
   if(acted)return;acted=true;say('旁白','……',[]);
   const youth=people.find(p=>p.id==='youth');const seat=youth.seat;let t=0;
-  if(S.actions.has('trolley'))setTimeout(()=>{trolley.rotation.set(0,0,0);trolley.position.set(-6.05,0,-0.75);},t+=300);
+  if(S.actions.has('trolley'))setTimeout(()=>{trolley.userData.rest=null;trolley.rotation.set(0,0,0);trolley.position.set(-6.05,0,-0.75);},t+=300);
   if(S.actions.has('bags'))setTimeout(()=>{bags.forEach((b,i)=>{b.parent.remove(b);b.position.set(0.05,0.88,0.02+i*0.04);b.rotation.set(0,0,0);trolley.add(b);});granny.arm='pole';},t+=600);
   if(S.actions.has('seat')){
     setTimeout(()=>{say('後生仔','（除低耳機）「吓？呀，唔好意思，頭先冇留意。婆婆你坐啦！」',[]);youth.arm='down';shotPerson(youth,null,1.5);},t+=900);
     setTimeout(()=>{seat.occ=null;youth.seat=null;youth.pose='stand';youth.g.position.z=seat.side*0.55;youth.path=[{x:-8.9,z:-0.3}];youth.onArrive=()=>{standAt(youth,null,Math.PI/2);youth.arm='strap';};scene5Shot();},t+=1800);
     setTimeout(()=>{granny.path=[{x:seat.x,z:-0.55}];granny.onArrive=()=>{sitAt(granny,seat);granny.arm='lap';granny.spine.rotation.x=0.05;granny.head.material=toon(0xffffff,{map:faceTex(granny.o.skin,'happy')});};
-      if(!S.actions.has('trolley'))trolley.rotation.set(0,0,0);},t+=1500);
+      if(!S.actions.has('trolley')){trolley.userData.rest=null;trolley.rotation.set(0,0,0);trolley.position.y=0;}},t+=1500);
     t+=3600;
   }
   setTimeout(()=>{if(granny.pose==='sit')shotPerson(granny,null,1.4);outcome();},t+600);
@@ -881,12 +925,12 @@ function loop(){
   if(Math.abs(camera.fov-cam.fov)>0.01||viewOx!==lastOx){camera.fov=cam.fov;lastOx=viewOx;
     if(viewOx)camera.setViewOffset(innerWidth,innerHeight,viewOx,0,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();}
   updateOccluders();
-  renderer.render(scene,camera);
+  if(composer)composer.render();else renderer.render(scene,camera);
   requestAnimationFrame(loop);
 }
 addEventListener('resize',()=>{if(cam.mode==='over')cam.tFov=baseFov();});
 const ready=document.fonts&&document.fonts.load?Promise.race([Promise.all([document.fonts.load('900 40px "Noto Sans TC"'),document.fonts.load('500 20px "Noto Sans TC"')]),new Promise(r=>setTimeout(r,2500))]):Promise.resolve();
-ready.catch(()=>{}).then(()=>{buildSigns();populate();setSign(STATIONS[0]);loop();});
+ready.catch(()=>{}).then(()=>{buildSigns();populate();setSign(STATIONS[0]);setLED('下一站　'+STATIONS[1]);loop();});
 })();
 </script>
 </body>

@@ -15,10 +15,12 @@
 需要幫助嘅三個乘客：婆婆（主線）、孕婦（褸遮住 BB 襟章）、腳受傷嘅男仔。其餘都係干擾角色。
 
 ## 技術
-- Three.js r128 UMD，由 cdnjs 載入
+- Three.js r128 UMD，由 cdnjs 載入；光暈（UnrealBloomPass 等 6 個 examples/js 檔）由 jsdelivr 載入，載入失敗就自動用返普通渲染
+- 後期：EffectComposer 畫落 HDR（WebGL2 用 HalfFloat＋多重取樣）render target → UnrealBloomPass → 自己寫嘅 ACES＋sRGB ShaderPass（因為 render target 唔會套用 renderer 嘅 tone mapping）；LED 燈條、月台燈、窗外燈光故意調到大過 1，等佢哋發光
 - 寫實風格：MeshStandardMaterial（PBR）、ACES 色調映射、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
 - 人物仍然用簡單形狀砌成，頭身比約 1:7（`neck` 群組縮細 0.8）；人臉用 canvas texture 畫寫實五官（細眼、眉、鼻、唇），唔好加返動漫式大眼同腮紅
-- 車廂：淺灰牆身、斑點膠地板、白色 LED 燈條、不銹鋼長櫈，關愛座係紅色
+- 車廂：淺灰牆身、有少少反光嘅斑點膠地板、白色 LED 燈條、不銹鋼長櫈、座位尾玻璃擋板，關愛座係紅色；車門頂有橙色 LED 報站牌（`setLED()`）
+- 婆婆手推車：上車時婆婆左手拉住車柄（`pullTrolley()`），架車斜住喺佢身後碌；到位後放手，架車斜斜哋卡喺車門邊（`settleTrolley()`）
 - 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客（身體或者頭部接近視線，或者離鏡頭 0.85m 以內）
 - 電腦橫向畫面打開右邊面板（`#insp`／`#cards`）時，用 `camera.setViewOffset` 將畫面向左移半個面板闊，被睇嘅乘客唔會俾面板遮住
 - 孕婦：`bellyTorsoGeo()` 由件衫前面推出順滑嘅肚；`drapeCoatGeo()` 係領口近乎合埋、肚位散開嘅長褸；BB 襟章喺褸邊露出一半
@@ -33,5 +35,5 @@
 
 ## 可以再做嘅方向
 - 載入現成 glTF 動漫角色模型，取代用簡單形狀砌成嘅人物
-- 加 bloom、反光地板等後期效果
+- 真正鏡面反射（Reflector）、窗玻璃反映車廂入面
 - 老師模式：可以直接跳去指定步驟
