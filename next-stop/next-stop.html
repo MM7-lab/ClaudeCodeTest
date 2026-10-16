@@ -346,10 +346,12 @@ SEGS.forEach((sg,si)=>{
     }
   });
 });
-[-8.7,-3,3,8.7].concat(DOORS).forEach(x=>{const p=mesh(cgeo(0.024,0.024,CAR.h,10),M.steel);p.position.set(x,CAR.h/2,0);world.add(p);});
+const RINGS=[],POLES=[];
+[-8.7,-3,3,8.7].concat(DOORS).forEach(x=>{const p=mesh(cgeo(0.024,0.024,CAR.h,10),M.steel);p.position.set(x,CAR.h/2,0);world.add(p);POLES.push({x,z:0,top:2.2});});
+[-6.75,-5.25,-0.75,0.75,5.25,6.75].forEach(x=>[-1,1].forEach(s=>POLES.push({x,z:s*0.99,top:1.15})));
 [-0.72,0.72].forEach(z=>{const bar=mesh(cgeo(0.018,0.018,22,8),M.steel);bar.rotation.z=Math.PI/2;bar.position.set(0,1.98,z);world.add(bar);
   for(let x=-10.4;x<=10.4;x+=0.62){if(inDoor(x))continue;const st=mesh(cgeo(0.008,0.008,0.2,5),M.dark);st.position.set(x,1.87,z);world.add(st);
-    const ring=mesh(G('ring',()=>new THREE.TorusGeometry(0.05,0.011,6,14)),toon(0xf6f3ea));ring.position.set(x,1.74,z);world.add(ring);}});
+    const ring=mesh(G('ring',()=>new THREE.TorusGeometry(0.05,0.011,6,14)),toon(0xf6f3ea));ring.position.set(x,1.74,z);world.add(ring);RINGS.push({x,z});}});
 function buildSigns(){
   const t=textTex(512,160,(c,w,h)=>{c.fillStyle='#d65a4e';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='900 72px '+FONT;c.textBaseline='middle';c.fillText('關愛座',28,62);c.font='500 30px '+FONT;c.fillText('Priority Seat  請讓座予有需要人士',30,128);});
   const p=mesh(new THREE.PlaneGeometry(0.62,0.19),new THREE.MeshBasicMaterial({map:t}));p.position.set(-7.25,1.05,-1.405);world.add(p);
@@ -577,12 +579,15 @@ function makePerson(o){
     [-1,1].forEach(sd=>{const lp=mesh(G('maskloop',()=>new THREE.TorusGeometry(0.032,0.003,4,12)),basic(0xe8eef5));lp.rotation.y=Math.PI/2;lp.position.set(sd*0.138,0.145,0.03);neck.add(lp);});}
   if(o.glasses){const gm=toon(0x1d1d22,{roughness:0.35,metalness:0.4});[-1,1].forEach(sd=>{const r=mesh(G('gl2',()=>new THREE.TorusGeometry(0.021,0.0032,6,18)),gm);r.scale.set(1.15,0.85,1);r.position.set(sd*0.036,0.161,0.139);neck.add(r);});
     const br=mesh(cgeo(0.0025,0.0025,0.026,6),gm);br.rotation.z=Math.PI/2;br.position.set(0,0.165,0.142);neck.add(br);}
-  if(o.arm==='phone'||o.phone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
+  if(o.book){const bk=mesh(bgeo(0.15,0.2,0.025),toon(pick([0x7a2e2e,0x2e4a7a,0xd8cfb8])));bk.position.set(-0.03,-0.06,0.08);bk.rotation.x=-1.05;bk.userData.noOutline=true;arms[1].hand.add(bk);}
+  else if(o.arm==='phone'||o.phone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
+  neck.rotation.order='YXZ';
   let bandage=null;if(o.bandage){bandage=outline(mesh(cgeo(0.06,0.06,0.1,12),toon(0xffffff)),0.007);bandage.position.y=-0.36;legs[1].knee.add(bandage);legs[1].shoe.rotation.x=0.2;}
   const p={id:o.id||('p'+(pid++)),g,root,hips,spine,neck,head,torso,legs,arms,coat,belly,badge,bandage,o,
     label:o.label,clues:o.clues||[],need:!!o.need,feedback:o.feedback||'',focus:o.focus||'head',
-    pose:'stand',arm:o.arm||'down',path:[],phase:Math.random()*10,lean:rand(-0.04,0.04),seat:null,judged:null,s,spawned:true,occ:false};
+    pose:'stand',arm:o.arm||'down',path:[],phase:Math.random()*10,lean:rand(-0.04,0.04),act:o.act||'look',spineX:spine.rotation.x,neckX:neck.rotation.x,gy:0,gp:0,gr:0,gT:rand(0.5,3),bT:rand(1,5),bOff:0,chatDir:pick([-1,1]),seat:null,judged:null,s,spawned:true,occ:false};
   addOutlines(p);
+  p.faceOpen=head.material;p.faceShut=(o.mood==='closed'||o.act==='doze')?null:anime(0xffffff,{map:faceTex(o.skin,'closed',o.age)},'face');
   p.seatBlob=mesh(G('sblobg',()=>new THREE.PlaneGeometry(0.5,0.45)),BLOB);p.seatBlob.rotation.x=-Math.PI/2;p.seatBlob.position.set(0,0.488,0.1);p.seatBlob.visible=false;g.add(p.seatBlob);
   const blob=mesh(G('blobg',()=>new THREE.PlaneGeometry(0.8,0.8)),BLOB);blob.rotation.x=-Math.PI/2;blob.position.y=0.004;g.add(blob);
   g.traverse(m=>{m.userData.person=p;});
@@ -590,32 +595,40 @@ function makePerson(o){
   return p;
 }
 const GENERIC=[
- {label:'碌緊手機嘅上班族',clues:['專心碌緊手機','企得好穩，精神唔錯'],arm:'phone'},
- {g:'f',label:'行完街嘅後生女',clues:['手上拎住一個細紙袋','同朋友講緊笑，好輕鬆']},
- {label:'聽緊歌嘅中學生',clues:['戴住耳機跟住節奏郁頭','孭住書包，企得好穩'],headphones:true,backpack:true,uniform:true},
- {label:'放學嘅中學生',clues:['著住校服，孭住書包','同同學傾緊功課'],backpack:true,uniform:true},
- {g:'f',label:'閉目養神嘅姐姐',clues:['合埋眼休息','冇拎重嘢，坐得舒服'],mood:'closed'},
- {label:'睇緊書嘅大學生',clues:['好專心睇緊書','冇咩特別困難']},
+ {label:'碌緊手機嘅上班族',clues:['專心碌緊手機','企得好穩，精神唔錯'],arm:'phone',act:'phone'},
+ {g:'f',label:'行完街嘅後生女',clues:['手上拎住一個細紙袋','同朋友講緊笑，好輕鬆'],act:'chat'},
+ {label:'聽緊歌嘅中學生',clues:['戴住耳機跟住節奏郁頭','孭住書包，企得好穩'],headphones:true,backpack:true,uniform:true,act:'music'},
+ {label:'放學嘅中學生',clues:['著住校服，孭住書包','同同學傾緊功課'],backpack:true,uniform:true,act:'chat'},
+ {g:'f',label:'閉目養神嘅姐姐',clues:['合埋眼休息','冇拎重嘢，坐得舒服'],mood:'closed',act:'doze'},
+ {label:'睇緊書嘅大學生',clues:['好專心睇緊書','冇咩特別困難'],arm:'phone',book:true,act:'read'},
  {g:'m',label:'戴口罩嘅叔叔',clues:['戴住口罩望出窗外落雨','冇明顯困難'],mask:true},
- {label:'傾緊偈嘅朋友',clues:['同身邊朋友傾緊下晝食咩','心情幾好'],mood:'happy'},
- {g:'f',label:'返工嘅姐姐',clues:['著住制服，望住報站顯示','睇落準備落車']}
+ {label:'傾緊偈嘅朋友',clues:['同身邊朋友傾緊下晝食咩','心情幾好'],mood:'happy',act:'chat'},
+ {g:'f',label:'返工嘅姐姐',clues:['著住制服，望住報站顯示','睇落準備落車'],act:'up'}
 ];
 function randomLook(extra){
   const gen=Object.assign({},pick(GENERIC));const fem=gen.g?gen.g==='f':Math.random()<0.5;
   const uni=gen.uniform?{top:0xf3f3ef,tie:pick([0x9e2a33,0x24305e]),bottom:fem?0x2a3552:pick([0x5c5f66,0x2a3552]),skirt:fem?0x2a3552:null,hairStyle:fem?pick(['pony','long']):'short',scale:rand(.9,.97)}:{};
+  if(!gen.arm&&Math.random()<0.3)gen.arm='pocket';
   const extras={jacket:!fem&&!gen.uniform&&Math.random()<0.35?pick([0x1f5c63,0x2b3242,0x4c5a45,0x1d1f24]):null,sling:!gen.backpack&&Math.random()<0.18,build:rand(0.9,1.14)};
   return Object.assign({skin:pick(SKINS),top:pick(TOPS),bottom:pick(BOTTOMS),hair:pick(HAIRS),hairStyle:fem?pick(['long','long','bun','pony']):'short',
     skirt:fem&&Math.random()<.35?pick([0x2a3b66,0x6d4a7a,0x3f5f8a]):null,
-    scale:fem?rand(.93,.99):rand(.98,1.05),glasses:Math.random()<.22,label:gen.label,clues:gen.clues,arm:gen.arm,headphones:gen.headphones,backpack:gen.backpack,mask:gen.mask,mood:gen.mood},extras,uni,extra||{});
+    scale:fem?rand(.93,.99):rand(.98,1.05),glasses:Math.random()<.22,label:gen.label,clues:gen.clues,arm:gen.arm,headphones:gen.headphones,backpack:gen.backpack,mask:gen.mask,mood:gen.mood,act:gen.act,book:gen.book,umbrella:Math.random()<0.25},extras,uni,extra||{});
 }
 function freeSeat(filter){const f=seats.filter(s=>!s.occ&&(!filter||filter(s)));return f.length?pick(f):null;}
-function sitAt(p,seat){seat.occ=p;p.seat=seat;p.pose='sit';if(p.seatBlob)p.seatBlob.visible=true;p.g.position.set(seat.x,0,seat.z);p.g.rotation.y=seat.side<0?0:Math.PI;if(p.arm==='down')p.arm='lap';}
+function sitAt(p,seat){seat.occ=p;p.seat=seat;p.pose='sit';if(p.seatBlob)p.seatBlob.visible=true;p.g.position.set(seat.x,0,seat.z);p.g.rotation.y=seat.side<0?0:Math.PI;if(p.arm==='down'||p.arm==='pocket')p.arm='lap';
+  if(p.o.umbrella&&!p.umb){const u=new THREE.Group();const um=toon(pick([0x1d2a44,0x5a2a3a,0x2f4a3a,0x222226]));
+    const shaft=mesh(cgeo(0.03,0.012,0.62,10),um);shaft.position.y=0.36;u.add(shaft);const tip=mesh(cgeo(0.006,0.006,0.08,6),M.steel);tip.position.y=0.03;u.add(tip);
+    const hd=mesh(G('umbh',()=>new THREE.TorusGeometry(0.035,0.01,6,12,Math.PI)),toon(0x2a1c18));hd.position.set(0,0.69,-0.035);hd.rotation.y=Math.PI/2;u.add(hd);
+    u.position.set(0.05,0,0.5);u.rotation.x=-0.2;p.g.add(u);u.traverse(m=>m.userData.person=p);p.umb=u;}
+  if(p.o.news&&!p.paper){const t=textTex(256,180,(c,w,h)=>{c.fillStyle='#ece8de';c.fillRect(0,0,w,h);c.fillStyle='#2a2a2a';c.font='900 26px '+FONT;c.fillText('東灣日報',12,30);
+      c.fillStyle='rgba(40,40,40,.55)';for(let y=46;y<h-8;y+=9)for(let x=12;x<w-12;x+=62)c.fillRect(x,y,50,3);c.fillStyle='#8a8a8a';c.fillRect(138,46,104,60);});
+    const pp=mesh(new THREE.PlaneGeometry(0.5,0.35),new THREE.MeshToonMaterial({map:t,side:THREE.DoubleSide,gradientMap:CEL.face}));pp.position.set(0,0.86,0.47);pp.rotation.x=-0.25;p.g.add(pp);pp.userData.person=p;p.paper=pp;}}
 const SPOTS=[];for(let x=-10;x<=10.01;x+=0.72)[-0.42,0.42].forEach(z=>SPOTS.push({x,z,occ:null}));
 function reserve(x,z,p){SPOTS.forEach(s=>{if(Math.hypot(s.x-x,s.z-z)<0.6)s.occ=s.occ||p;});}
 function freeSpot(nearX){let f=SPOTS.filter(s=>!s.occ&&!inDoor(s.x)&&s.x>-9.4);
   if(nearX!=null){f.sort((a,b)=>Math.abs(a.x-nearX)-Math.abs(b.x-nearX));f=f.slice(0,6);}return f.length?pick(f):null;}
 function standAt(p,spot,face){if(spot){spot.occ=p;p.spot=spot;p.g.position.set(spot.x,0,spot.z);}p.pose='stand';p.g.rotation.y=face!=null?face:pick([0,Math.PI,Math.PI/2,-Math.PI/2]);
-  if(p.arm==='down'&&Math.random()<.6)p.arm='strap';}
+  if(p.arm==='down'&&Math.random()<.6)p.arm='strap';p.gripKey=null;}
 
 /* ---------- camera rig ---------- */
 const OVERVIEW={pos:V3(-10.35,2.12,1.02),look:V3(-2.2,0.75,-0.55)};
@@ -686,17 +699,17 @@ function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>
 /* ---------- crowd ---------- */
 function populate(){
   const prio=seats.filter(s=>s.prio).sort((a,b)=>b.x-a.x);
-  const youth=makePerson({id:'youth',skin:SKINS[1],top:0x2a2f45,bottom:0x3a3f58,hair:0x231a1a,hairStyle:'short',headphones:true,arm:'phone',
+  const youth=makePerson({id:'youth',act:'phone',skin:SKINS[1],top:0x2a2f45,bottom:0x3a3f58,hair:0x231a1a,hairStyle:'short',headphones:true,arm:'phone',
     label:'坐關愛座、戴住耳機嘅後生仔',clues:['坐緊關愛座','戴住耳機專心打機，完全冇留意身邊'],
     feedback:'佢自己冇明顯困難，但佢坐緊關愛座又冇留意周圍。記住佢——之後可能幫到手。'});
   sitAt(youth,prio[0]);
-  const grandpa=makePerson({id:'grandpa',age:1,skin:SKINS[2],top:0x8f97b0,bottom:0x3a3f58,hair:0xd9d6d0,hairStyle:'short',glasses:true,mood:'happy',
+  const grandpa=makePerson({id:'grandpa',age:1,news:true,arm:'news',act:'news',umbrella:true,skin:SKINS[2],top:0x8f97b0,bottom:0x3a3f58,hair:0xd9d6d0,hairStyle:'short',glasses:true,mood:'happy',
     label:'睇緊報紙嘅伯伯',clues:['已經有位坐','精神奕奕，睇緊報紙'],feedback:'佢係長者，但已經坐低，精神唔錯，暫時冇即時需要。唔好單憑年紀判斷。'});
   sitAt(grandpa,prio[1]);
   const uncle=makePerson({id:'uncle',skin:SKINS[3],top:0x3f8a6c,bottom:0x1f2a48,hair:0x2d2230,hairStyle:'short',mood:'closed',
     label:'瞓著咗嘅叔叔',clues:['頭側埋一邊瞓著咗','著住地盤靴，可能做完嘢好攰'],feedback:'佢只係攰到瞓著咗，坐得安穩，唔需要即時幫助。可以留意，但唔好打擾佢休息。'});
-  sitAt(uncle,seats.find(s=>s.side===-1&&Math.abs(s.x+2.6)<0.3)||freeSeat());uncle.sleep=true;
-  const mum=makePerson({id:'mum',skin:SKINS[0],top:0xe07a52,bottom:0x2a3b66,hair:0x3f2a22,hairStyle:'long',mood:'happy',label:'湊住小朋友嘅媽媽',clues:['同個仔坐埋一齊','講緊故仔俾個仔聽'],feedback:'兩母子都有位坐，玩得開心，暫時冇明顯需要。'});
+  sitAt(uncle,seats.find(s=>s.side===-1&&Math.abs(s.x+2.6)<0.3)||freeSeat());uncle.sleep=true;uncle.act='doze';uncle.faceShut=null;
+  const mum=makePerson({id:'mum',act:'kid',skin:SKINS[0],top:0xe07a52,bottom:0x2a3b66,hair:0x3f2a22,hairStyle:'long',mood:'happy',label:'湊住小朋友嘅媽媽',clues:['同個仔坐埋一齊','講緊故仔俾個仔聽'],feedback:'兩母子都有位坐，玩得開心，暫時冇明顯需要。'});
   sitAt(mum,seats.find(s=>s.side===1&&Math.abs(s.x+3.8)<0.3)||freeSeat());
   const kid=makePerson({id:'kid',skin:SKINS[0],top:0xf0c04f,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',scale:0.62,shorts:true,label:'細路仔',clues:['坐喺媽媽身邊','扭計想飲嘢'],feedback:'有媽媽照顧緊，冇即時需要幫助。'});
   sitAt(kid,seats.find(s=>s.side===1&&Math.abs(s.x+4.33)<0.3)||freeSeat());
@@ -728,7 +741,7 @@ let granny=null,trolley=null,bags=[];
 function makeGranny(){
   const p=makePerson({id:'granny',need:true,granny:true,age:1,skin:0xefc6a6,top:0xb3306f,bottom:0x2e3040,hair:0xcfccc6,hairStyle:'bun',glasses:true,scale:0.9,focus:'hands',mood:'tired',
     label:'拎住大包細包嘅婆婆',clues:['拎住兩大袋餸，仲拖住架手推車','企唔係好穩，一路用力扶住扶手'],feedback:'答對！婆婆係車廂入面最需要幫助嘅人之一。下一步，睇清楚佢遇到咩困難。'});
-  p.spine.rotation.x=0.3;p.granny=true;
+  p.spine.rotation.x=0.3;p.spineX=0.3;p.granny=true;
   const bm=[toon(0xd8383a),toon(0xf1ece0)];
   bags=bm.map((m,i)=>{const b=new THREE.Group();const body=outline(mesh(bgeo(0.22,0.26,0.13),m),0.01);body.position.y=-0.2;b.add(body);
     const h=mesh(G('bagh',()=>new THREE.TorusGeometry(0.05,0.01,5,10)),m);h.position.y=-0.05;b.add(h);b.position.set(i?0.06:-0.06,-0.02,i?0.04:-0.04);p.arms[1].hand.add(b);b.traverse(o=>o.userData.person=p);return b;});
@@ -750,10 +763,14 @@ function poseArms(p){
     case'pole':L.sh.rotation.x=-1.15;L.sh.rotation.z=0.25;L.el.rotation.x=-0.4;R.sh.rotation.x=0.05;break;
     case'phone':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-1.25;a.sh.rotation.z=-a.sd*0.15;});break;
     case'lap':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-0.75;});break;
+    case'pocket':[L,R].forEach(a=>{a.sh.rotation.set(0.1,0,a.sd*0.2);a.el.rotation.set(-0.5,0,-a.sd*0.35);});break;
+    case'news':[L,R].forEach(a=>{a.sh.rotation.set(-0.95,0,a.sd*0.16);a.el.rotation.set(-0.85,0,0);});break;
     case'belly':R.sh.rotation.x=-0.3;R.sh.rotation.z=0.12;R.el.rotation.x=-0.75;R.el.rotation.z=-0.85;L.sh.rotation.x=-2.85;break;
   }
 }
+let trainAcc=0,lastSpeed=13;
 function updatePeople(dt,t){
+  if(dt>0){const a=(train.speed-lastSpeed)/dt;lastSpeed=train.speed;trainAcc+=(a-trainAcc)*Math.min(1,dt*3);}
   people.forEach(p=>{
     if(p.delay>0){p.delay-=dt;return;}
     if(p.path.length){
@@ -763,20 +780,62 @@ function updatePeople(dt,t){
       if(d<sp){p.g.position.x=tg.x;p.g.position.z=tg.z;p.path.shift();if(!p.path.length){p.pose='stand';p.onArrive&&p.onArrive();p.onArrive=null;}}
       else{p.g.position.x+=dx/d*sp;p.g.position.z+=dz/d*sp;p.g.rotation.y=Math.atan2(dx,dz);p.pose='walk';}
     }
-    const L=p.legs;p.root.position.y=0;p.hips.rotation.z=0;p.spine.rotation.z=0;
+    const L=p.legs;p.root.position.y=0;p.root.rotation.set(0,0,0);p.hips.rotation.z=0;p.spine.rotation.z=0;p.spine.rotation.x=p.spineX+Math.sin(t*1.7+p.phase)*0.01;
     if(p.pose==='walk'){p.phase+=dt*(p.granny?5:7.5);const w=Math.sin(p.phase);L[0].hip.rotation.x=w*.45;L[1].hip.rotation.x=-w*.45;L[0].knee.rotation.x=Math.max(0,-w)*.6;L[1].knee.rotation.x=Math.max(0,w)*.6;
       p.arms.forEach((a,i)=>{a.sh.rotation.set((i?w:-w)*.35,0,a.sd*.08);a.el.rotation.x=-.2;});if(p.arm==='phone')poseArms(p);if(p.granny)p.arms[1].sh.rotation.x=0.05;if(p.granny&&p.pull){p.arms[0].sh.rotation.set(0.55,0,-0.1);p.arms[0].el.rotation.set(-0.2,0,0);}}
-    else if(p.pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.5;l.knee.rotation.x=1.5;});p.root.position.y=0.47-0.88*p.s;poseArms(p);}
+    else if(p.pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.5;l.knee.rotation.x=1.5;});p.root.position.y=0.47-0.88*p.s;poseArms(p);swayPerson(p,t,0.3);}
     else{L.forEach(l=>{l.hip.rotation.x=0;l.knee.rotation.x=0;});
-      if(!p.injured&&!p.granny){p.hips.rotation.z=p.lean;p.spine.rotation.z=-p.lean*0.8;L[p.lean>0?1:0].knee.rotation.x=0.07;}
+      if(!p.injured&&!p.granny){const ln=p.lean*(0.55+0.45*Math.sin(t*0.23+p.phase));p.hips.rotation.z=ln;p.spine.rotation.z=-ln*0.8;L[p.lean>0?1:0].knee.rotation.x=0.07;}
       if(p.injured){L[1].hip.rotation.x=0.18;L[1].knee.rotation.x=0.4;p.hips.rotation.z=0.06+Math.sin(t*2+p.phase)*0.02;}
       if(p.granny){const tr=0.14+Math.sin(t*22)*0.025;L.forEach(l=>{l.hip.rotation.x=-tr;l.knee.rotation.x=tr*2;});p.root.position.y=-0.02;}
-      poseArms(p);p.root.rotation.z=Math.sin(t*1.5+p.phase)*0.018*Math.min(1,train.speed/10);}
-    if(p.sleep)p.neck.rotation.set(0.45,0,0.3);
-    else if(p.pose!=='walk')p.neck.rotation.y=Math.sin(t*0.3+p.phase)*0.22;
+      poseArms(p);swayPerson(p,t,p.arm==='strap'||p.arm==='pole'||p.arm==='belly'?0.6:1);}
+    if(p.pose!=='walk')updateGaze(p,dt,t);else{p.neck.rotation.set(p.neckX,0,0);}
+    blink(p,dt);
+    if(p.pose==='stand'&&!p.path.length&&(p.arm==='strap'||p.arm==='pole'||p.arm==='belly'))gripIK(p);
     if(p===granny&&trolley&&p.spawned){if(p.pull)pullTrolley(p);else settleTrolley(dt);}
   });
 }
+/* the train's acceleration tips standing people from the ankles; plus a little side-to-side rocking */
+function swayPerson(p,t,k){const ry=p.g.rotation.y,sp=Math.min(1,train.speed/10);
+  const a=clamp(trainAcc*0.011,-0.06,0.06)*k,b=(Math.sin(t*1.3+p.phase)*0.6+Math.sin(t*2.9+p.phase*1.7)*0.4)*0.018*k*sp;
+  p.root.rotation.x=-a*Math.sin(ry)+b*Math.cos(ry);p.root.rotation.z=a*Math.cos(ry)+b*Math.sin(ry);}
+/* where each person looks: phone/book down, dozing nod, music bob, chatting to a neighbour, or glancing at people nearby */
+const _ha=new THREE.Vector3(),_hb=new THREE.Vector3();
+function lookAtPerson(p,q){p.head.getWorldPosition(_ha);q.head.getWorldPosition(_hb);const dx=_hb.x-_ha.x,dz=_hb.z-_ha.z,hd=Math.hypot(dx,dz);
+  let y=Math.atan2(dx,dz)-p.g.rotation.y;y=Math.atan2(Math.sin(y),Math.cos(y));if(Math.abs(y)>1.3)return false;p.ty=clamp(y,-1,1);p.tp=clamp(-Math.atan2(_hb.y-_ha.y,hd),-0.3,0.45);return true;}
+function updateGaze(p,dt,t){let y=0,x=0,r=0;
+  switch(p.act){
+    case'phone':case'read':x=0.5+Math.sin(t*0.5+p.phase)*0.03;y=0.05;break;
+    case'news':x=0.12;break;
+    case'doze':x=0.38+Math.sin(t*0.55+p.phase)*0.07;r=0.3*(p.phase>5?1:-1);break;
+    case'music':x=0.06+Math.max(0,Math.sin(t*7.4+p.phase))*0.08;y=Math.sin(t*0.4+p.phase)*0.25;break;
+    case'chat':y=0.75*p.chatDir+Math.sin(t*0.9+p.phase)*0.08;x=0.05+Math.sin(t*2.3+p.phase)*0.03;break;
+    case'up':y=0.5*p.chatDir;x=-0.22;break;
+    case'kid':{const k=people.find(q=>q.id==='kid');if(k&&lookAtPerson(p,k)){y=p.ty;x=p.tp;}break;}
+    default:
+      p.gT-=dt;if(p.gT<=0){p.gT=rand(1.4,4.2);p.ty=rand(-0.3,0.3);p.tp=rand(-0.05,0.15);
+        if(Math.random()<0.55){const near=people.filter(q=>q!==p&&q.spawned&&Math.hypot(q.g.position.x-p.g.position.x,q.g.position.z-p.g.position.z)<2.6);
+          const vip=near.filter(q=>q.need);const q=vip.length&&Math.random()<0.3?pick(vip):near.length?pick(near):null;if(q)lookAtPerson(p,q);}}
+      y=p.ty||0;x=p.tp||0;}
+  const k=Math.min(1,dt*3.5);p.gy+=(y-p.gy)*k;p.gp+=(x-p.gp)*k;p.gr+=(r-p.gr)*k;p.neck.rotation.set(p.neckX+p.gp,p.gy,p.gr);}
+function blink(p,dt){if(!p.faceShut)return;p.bT-=dt;
+  if(p.bOff>0){p.bOff-=dt;if(p.bOff<=0)p.head.material=p.faceOpen;}
+  else if(p.bT<=0){p.bT=rand(2,6);if(p.head.material===p.faceOpen){p.head.material=p.faceShut;p.bOff=0.13;}}}
+/* two-bone IK so a raised hand actually closes on a strap ring or a pole instead of passing through */
+const _ik=new THREE.Vector3(),_ie=new THREE.Vector3(),_iq=new THREE.Quaternion(),_sw=new THREE.Vector3();
+function gripTarget(p){const key=p.g.position.x.toFixed(2)+','+p.g.position.z.toFixed(2)+p.arm+p.g.rotation.y.toFixed(2);if(p.gripKey===key)return p.grip;
+  p.gripKey=key;p.grip=null;p.g.updateMatrixWorld(true);const reach=0.57*p.s;let best=null;
+  const idx=p.arm==='strap'?[1,0]:[0];
+  idx.forEach(i=>{p.arms[i].sh.getWorldPosition(_sw);
+    if(p.arm==='pole'){POLES.forEach(q=>{const T=new THREE.Vector3(q.x,clamp(_sw.y-0.22,0.85,q.top-0.05),q.z);const d=T.distanceTo(_sw);if(d<reach&&(!best||d<best.d))best={i,T,d};});}
+    else RINGS.forEach(r=>{const T=new THREE.Vector3(r.x,1.712,r.z);const d=T.distanceTo(_sw);if(d<reach&&(!best||d<best.d))best={i,T,d};});});
+  p.grip=best;return best;}
+function gripIK(p){const gt=gripTarget(p);if(!gt)return;const arm=p.arms[gt.i];
+  if(p.arm==='strap'){const o=p.arms[1-gt.i];o.sh.rotation.set(0.04,0,o.sd*0.07);o.el.rotation.set(-0.14,0,0);}
+  p.g.updateMatrixWorld(true);_ik.copy(gt.T);p.spine.worldToLocal(_ik);_ik.sub(arm.sh.position);
+  const a=0.28,b=0.3;let d=Math.min(_ik.length(),a+b-0.01);d=Math.max(d,0.15);
+  const phi=-(Math.PI-Math.acos(clamp((a*a+b*b-d*d)/(2*a*b),-1,1)));arm.el.rotation.set(phi,0,0);
+  _ie.set(0,-a-b*Math.cos(phi),-b*Math.sin(phi)).normalize();_iq.setFromUnitVectors(_ie,_ik.normalize());arm.sh.quaternion.copy(_iq);}
 /* trolley geometry: wheels at local (±0.15, 0.07, -0.05), handle bar at (0, 1.02, -0.13); local -z faces whoever pulls it */
 const _th=new THREE.Vector3();
 function wheelLift(a){return 0.07-(0.07*Math.cos(a)-0.05*Math.sin(a));}
@@ -948,7 +1007,7 @@ function doActions(){
   if(S.actions.has('seat')){
     setTimeout(()=>{say('後生仔','（除低耳機）「吓？呀，唔好意思，頭先冇留意。婆婆你坐啦！」',[]);youth.arm='down';shotPerson(youth,null,1.5);},t+=900);
     setTimeout(()=>{seat.occ=null;youth.seat=null;youth.pose='stand';youth.seatBlob.visible=false;youth.g.position.z=seat.side*0.55;youth.path=[{x:-8.9,z:-0.3}];youth.onArrive=()=>{standAt(youth,null,Math.PI/2);youth.arm='strap';};scene5Shot();},t+=1800);
-    setTimeout(()=>{granny.path=[{x:seat.x,z:-0.55}];granny.onArrive=()=>{sitAt(granny,seat);granny.arm='lap';granny.spine.rotation.x=0.05;granny.neck.rotation.x=-0.05;granny.head.material=anime(0xffffff,{map:faceTex(granny.o.skin,'happy',granny.o.age)},'face');};
+    setTimeout(()=>{granny.path=[{x:seat.x,z:-0.55}];granny.onArrive=()=>{sitAt(granny,seat);granny.arm='lap';granny.spineX=0.05;granny.neckX=-0.05;granny.head.material=granny.faceOpen=anime(0xffffff,{map:faceTex(granny.o.skin,'happy',granny.o.age)},'face');};
       if(!S.actions.has('trolley')){trolley.userData.rest=null;trolley.rotation.set(0,0,0);trolley.position.y=0;}},t+=1500);
     t+=3600;
   }
