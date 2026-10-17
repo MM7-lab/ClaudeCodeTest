@@ -34,6 +34,8 @@
 - 生活感（第二批）：每人有 `act`（phone 低頭睇電話、read 睇書、news 伯伯睇報紙、doze 瞌眼耷頭、music 跟節奏郁頭、chat 轉頭同隔籬傾偈、up 望報站牌、kid 媽媽望住個仔、look 周圍望，有時望向有需要嘅人）；`updateGaze()` 平滑轉頸；`blink()` 用 `faceOpen`／`faceShut` 材質眨眼（換面部材質時要同時更新 `faceOpen`）；呼吸（`spineX` 加細微起伏）、重心慢慢轉移；`swayPerson()` 跟 `trainAcc` 由腳踝向前後傾，再加左右搖；`gripIK()` 兩節反向運動學，令舉高嘅手真係握住 `RINGS` 吊環或者 `POLES` 企柱（包括座位尾擋板支柱，婆婆就係揸住佢），夠唔到就用返原本姿勢；手插袋 `pocket`；坐低有機會拎住摺遮（`umbrella`）
 - 面形：`headGeo(shape)`，`FACE_SHAPES` 有 oval／long／square／round（細路仔用 round），由球體拉長面、削平面頰、收窄下顎（`low` 越大，收窄越集中喺下面，就越有下顎角而唔會變尖下巴）、下巴向前；面部陰影 `CEL.face` 暗位 152，唔好再調淡，否則面形只睇到輪廓、全部變返圓面
 - 頭髮殼放大（1.03×1.13×1.06）同埋頭頂升高，劉海用 `hairMask` 嘅幾個闊圓弧做成一撮撮，唔好用高頻鋸齒
+- 第四輪（跟 Tommy 第二批示意圖）：頭大啲（`neck` 縮放 0.95）、四肢粗約兩成半、身軀厚啲；`mergeGeo()` 自己合併幾何體（r128 冇 BufferGeometryUtils）；`hairClumpGeo(style,len)` 每個髮型一個合併嘅髮束 mesh（男仔頭頂有蓬鬆感、劉海；女仔側邊髮束遮耳、長髮幾條垂喺背後；婆婆 `perm` 係十二嚿細捲），用冇紋理嘅 `hairPlainMat`，唔好再用 HAIRBAND 條紋，否則似曲髮；`handGeo(curl,sd)` 一隻手一個 mesh（手掌＋四指＋手指公），`setCurl()` 握吊環／扶手／拎嘢時換成握拳形狀，連描邊一齊換
+- 顏色校正（同示意圖量度）：示意圖皮膚受光面約 (200,167,155)、背光面 (171,132,112)；而家 `SKINS` 同暖色 `HemisphereLight(0xfff4ea,0x4a4448)` 量到約 (193,170,149)／(173,146,126)；`CEL.skin` 最光 206、`CEL.face` 226，再光向上嘅手臂會變白
 
 ## 約束
 - 介面文字一律用香港繁體中文（廣東話口語）
