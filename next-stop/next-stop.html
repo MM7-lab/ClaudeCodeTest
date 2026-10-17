@@ -418,8 +418,8 @@ function faceTex(skin,mood,age,fem){age=age||0;fem=!!fem;const k=skin+mood+age+(
       // brows: women thinner and arched, men thicker and straighter
       c.strokeStyle=fem?'rgba(70,45,35,.9)':'#2e211b';c.lineWidth=fem?2.4:3.8;c.beginPath();
       if(fem){c.moveTo(x-s*10,y-16);c.quadraticCurveTo(x+s*3,y-23,x+s*13,y-17);}else if(mood==='tired'){c.moveTo(x-s*10,y-17);c.quadraticCurveTo(x,y-20,x+s*11,y-15);}else{c.moveTo(x-s*10,y-18);c.quadraticCurveTo(x+s*2,y-21,x+s*12,y-18);}c.stroke();
-      if(mood==='closed'||mood==='happy'){c.strokeStyle='#241712';c.lineWidth=2.8;c.beginPath();
-        if(mood==='closed'){c.moveTo(x-11,y);c.quadraticCurveTo(x,y+5,x+11,y);}else{c.moveTo(x-11,y+3);c.quadraticCurveTo(x,y-6,x+11,y+3);}c.stroke();
+      if(mood==='closed'||mood==='happy'||mood==='yawn'){c.strokeStyle='#241712';c.lineWidth=2.8;c.beginPath();
+        if(mood==='closed'||mood==='yawn'){c.moveTo(x-11,y);c.quadraticCurveTo(x,y+5,x+11,y);}else{c.moveTo(x-11,y+3);c.quadraticCurveTo(x,y-6,x+11,y+3);}c.stroke();
         if(fem){c.lineWidth=1.4;c.beginPath();c.moveTo(x+s*10,y+(mood==='closed'?0.5:2.5));c.lineTo(x+s*13.5,y+(mood==='closed'?2.5:0));c.stroke();}return;}
       const ry=mood==='tired'?4.6:7.2,top=y-ry*1.5;
       c.save();c.beginPath();c.moveTo(x-12,y+0.5);c.quadraticCurveTo(x-2,top,x+12,y-1);c.quadraticCurveTo(x+1,y+ry*1.05,x-12,y+0.5);c.closePath();c.clip();
@@ -443,13 +443,25 @@ function faceTex(skin,mood,age,fem){age=age||0;fem=!!fem;const k=skin+mood+age+(
     if(age){c.strokeStyle='rgba(110,65,55,.3)';c.lineWidth=1.3;[-1,1].forEach(s=>{c.beginPath();c.moveTo(cx+s*9,ey+18);c.quadraticCurveTo(cx+s*15,ey+28,cx+s*13,ey+37);c.stroke();});
       [ey-36,ey-42].forEach(y=>{c.beginPath();c.moveTo(cx-18,y);c.quadraticCurveTo(cx,y-3,cx+18,y);c.stroke();});}
     // mouth: soft lips for women, a gentle line for men
-    if(mood==='happy'){c.fillStyle='#8a3a3a';c.beginPath();c.moveTo(cx-8,ey+31);c.quadraticCurveTo(cx,ey+39,cx+8,ey+31);c.quadraticCurveTo(cx,ey+33,cx-8,ey+31);c.fill();}
+    if(mood==='yawn'){c.fillStyle='#5a2424';c.beginPath();c.ellipse(cx,ey+36,6.5,9,0,0,7);c.fill();c.fillStyle='#c86a6a';c.beginPath();c.ellipse(cx,ey+41,4,3,0,0,7);c.fill();c.strokeStyle='#7a3a36';c.lineWidth=1.6;c.beginPath();c.ellipse(cx,ey+36,6.5,9,0,0,7);c.stroke();}
+    else if(mood==='happy'){c.fillStyle='#8a3a3a';c.beginPath();c.moveTo(cx-8,ey+31);c.quadraticCurveTo(cx,ey+39,cx+8,ey+31);c.quadraticCurveTo(cx,ey+33,cx-8,ey+31);c.fill();}
     else{const mw=fem?6.5:6,my=ey+32+(mood==='tired'?1:0);
       if(fem){c.fillStyle='rgba(205,95,100,.55)';c.beginPath();c.moveTo(cx-mw,my);c.quadraticCurveTo(cx,my+5.5,cx+mw,my);c.quadraticCurveTo(cx,my+1.2,cx-mw,my);c.fill();
         c.fillStyle='rgba(190,85,90,.5)';c.beginPath();c.moveTo(cx-mw,my);c.quadraticCurveTo(cx-3,my-2.6,cx,my-1.2);c.quadraticCurveTo(cx+3,my-2.6,cx+mw,my);c.quadraticCurveTo(cx,my+0.8,cx-mw,my);c.fill();}
       c.strokeStyle=fem?'#9a4a4a':'#8c4a42';c.lineWidth=1.7;c.beginPath();if(mood==='tired'){c.moveTo(cx-mw,my+1);c.quadraticCurveTo(cx,my-1,cx+mw,my+1);}else{c.moveTo(cx-mw,my);c.quadraticCurveTo(cx,my+1.6,cx+mw,my);}c.stroke();
       if(!fem){c.fillStyle='rgba(150,80,70,.2)';c.beginPath();c.ellipse(cx,my+4,4.5,1.4,0,0,7);c.fill();}}
   });faceCache[k]=t;return t;}
+/* outfit textures for the six extra passengers */
+const OUTFIT={
+  vest:textTex(256,128,(c,w,h)=>{c.fillStyle='#3d8a55';c.fillRect(0,0,w,h);c.fillStyle='#c9473a';c.fillRect(0,h*0.2,w,h*0.5);c.fillStyle='#f2f2ee';c.fillRect(0,h*0.24,w,h*0.05);c.fillRect(0,h*0.32,w,h*0.04);c.fillStyle='#3d8a55';c.fillRect(0,h*0.7,w,h*0.3);}),
+  rainbow:textTex(256,128,(c,w,h)=>{const cols=['#d9534f','#e8883a','#f0c44c','#7fb069','#4f8fc0','#8a63b8','#d9534f'];for(let i=0;i<7;i++){c.fillStyle=cols[i];c.fillRect(i*w/7,0,w/7+1,h);}
+    for(let i=0;i<40;i++){c.fillStyle=pick(cols)+'cc';c.beginPath();c.ellipse(Math.random()*w,Math.random()*h,rand(6,18),rand(4,10),Math.random()*3,0,7);c.fill();}}),
+  neon:textTex(256,128,(c,w,h)=>{c.fillStyle='#d8f23a';c.fillRect(0,0,w,h);c.fillStyle='#b9bcbf';c.fillRect(0,h*0.52,w,h*0.08);c.fillStyle='#2a2d33';c.fillRect(0,h*0.88,w,h*0.12);}),
+  camo:textTex(128,128,(c,w,h)=>{c.fillStyle='#7d7a5a';c.fillRect(0,0,w,h);['#5a5a3c','#9a9470','#4a4a32'].forEach(col=>{for(let i=0;i<14;i++){c.fillStyle=col;c.beginPath();c.ellipse(Math.random()*w,Math.random()*h,rand(6,16),rand(4,10),Math.random()*3,0,7);c.fill();}});}),
+  paint:textTex(128,128,(c,w,h)=>{c.fillStyle='#5f7fa6';c.fillRect(0,0,w,h);['#d9534f','#f0c44c','#7fb069','#8a63b8','#e8883a'].forEach(col=>{for(let i=0;i<5;i++){c.fillStyle=col;c.beginPath();c.arc(Math.random()*w,Math.random()*h,rand(2,6),0,7);c.fill();}});}),
+  map:textTex(64,128,(c,w,h)=>{c.fillStyle='#eef1e6';c.fillRect(0,0,w,h);c.strokeStyle='#cfd6c4';c.lineWidth=3;for(let i=0;i<6;i++){c.beginPath();c.moveTo(0,i*24);c.lineTo(w,i*24+18);c.stroke();}c.strokeStyle='#e0473a';c.lineWidth=4;c.beginPath();c.moveTo(14,118);c.quadraticCurveTo(50,80,20,50);c.lineTo(44,12);c.stroke();c.fillStyle='#2b6cc4';c.beginPath();c.arc(44,12,5,0,7);c.fill();})
+};
+Object.values(OUTFIT).forEach(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;});
 /* cel shading for people: 2-step ramps (clothes darker shadow, skin/face lighter) + normal-extruded outlines */
 function celRamp(lo,hi){hi=hi||255;const m=Math.round((lo+hi)/2)+10,d=new Uint8Array([lo,lo,lo+8,255,m,m,m+6,255,hi,hi,hi,255]);const t=new THREE.DataTexture(d,3,1,THREE.RGBAFormat);t.minFilter=t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;t.needsUpdate=true;return t;}
 const CEL={cloth:celRamp(128),skin:celRamp(150,206),face:celRamp(152,226)},AM={};
@@ -579,8 +591,8 @@ function makePerson(o){
   const hips=new THREE.Group();hips.position.y=0.88;root.add(hips);
   const toon=(c,q)=>anime(c,q,'cloth'),cloth=(c,k)=>k==='hair'?hairMat(c):anime(c,null,'cloth');
   const skinM=anime(o.skin,null,'skin'),topM=cloth(o.top,'knit'),botM=cloth(o.bottom,DENIM.indexOf(o.bottom)>=0?'denim':'knit'),shoeM=toon(o.shoe||0x2a2a3a,{roughness:0.5});
-  const sleeveM=o.coat||o.jacket?cloth(o.coat||o.jacket,'knit'):topM,build=o.build||1;
-  const pel=mesh(lathe('pelvis',[[0,-0.11],[0.09,-0.105],[0.14,-0.07],[0.153,-0.02],[0.15,0.04],[0.13,0.07],[0,0.075]],18,18),o.skirt?cloth(o.skirt,'knit'):botM);pel.scale.set(build,1,0.74*build);hips.add(pel);
+  const sleeveM=o.jacketMap?anime(o.jacket,{map:o.jacketMap}):o.coat||o.jacket?cloth(o.coat||o.jacket,'knit'):topM,build=o.build||1;
+  const pel=mesh(lathe('pelvis',[[0,-0.11],[0.09,-0.105],[0.14,-0.07],[0.153,-0.02],[0.15,0.04],[0.13,0.07],[0,0.075]],18,18),o.skirt?cloth(o.skirt,'knit'):o.botMap?anime(o.bottom,{map:o.botMap}):botM);pel.scale.set(build,1,0.74*build);hips.add(pel);
   if(o.skirt){const sk=mesh(lathe('skirt',[[0.27,-0.36],[0.235,-0.2],[0.18,-0.04],[0.158,0.04],[0,0.06]],16,20),cloth(o.skirt,'knit'));sk.scale.z=0.82;hips.add(sk);}
   const bare=o.skirt||o.shorts,legs=[];
   [-1,1].forEach(sd=>{
@@ -596,7 +608,7 @@ function makePerson(o){
   const spine=new THREE.Group();hips.add(spine);
   const torso=mesh(o.belly?bellyTorsoGeo():lathe(fem?'torsoF':'torsoM',fem?TORSO_F:TORSO_M,40,24),topM);torso.scale.set(build*1.05,1,(fem?0.7:0.68)*build);spine.add(torso);
   if(o.belly)spine.rotation.x=-0.07;
-  if(o.jacket){const jk=mesh(drapeCoatGeo(true),toon(o.jacket,{side:THREE.DoubleSide}));jk.scale.set(build*1.04,1,0.82*build);jk.position.y=0.235;spine.add(jk);}
+  if(o.jacket){const jk=mesh(drapeCoatGeo(true),anime(o.jacket,{side:THREE.DoubleSide,map:o.jacketMap}));jk.scale.set(build*1.04,1,0.82*build);jk.position.y=0.235;spine.add(jk);}
   if(o.tie){const tie=mesh(bgeo(0.032,0.2,0.01),toon(o.tie));tie.position.set(0,0.42,0.096*build);tie.rotation.x=-0.12;tie.userData.noOutline=true;spine.add(tie);const kn=mesh(bgeo(0.036,0.03,0.014),toon(o.tie));kn.position.set(0,0.525,0.075);kn.userData.noOutline=true;spine.add(kn);}
   if(!o.coat){const col=mesh(G('collar',()=>new THREE.TorusGeometry(0.056,0.011,8,24)),topM);col.rotation.x=Math.PI/2;col.scale.y=0.8;col.position.y=0.552;spine.add(col);}
   let coat=null;if(o.coat){coat=mesh(drapeCoatGeo(),toon(o.coat,{side:THREE.DoubleSide,roughness:0.9}));coat.scale.z=0.8;coat.position.y=0.055;spine.add(coat);}
@@ -643,14 +655,37 @@ function makePerson(o){
   if(o.glasses){const gm=toon(0x1d1d22,{roughness:0.35,metalness:0.4});[-1,1].forEach(sd=>{const r=mesh(G('gl2',()=>new THREE.TorusGeometry(0.021,0.0032,6,18)),gm);r.scale.set(1.15,0.85,1);r.position.set(sd*0.044,0.149,0.143);neck.add(r);});
     const br=mesh(cgeo(0.0025,0.0025,0.03,6),gm);br.rotation.z=Math.PI/2;br.position.set(0,0.152,0.146);neck.add(br);}
   if(o.book){const bk=mesh(bgeo(0.15,0.2,0.025),toon(pick([0x7a2e2e,0x2e4a7a,0xd8cfb8])));bk.position.set(-0.03,-0.06,0.08);bk.rotation.x=-1.05;bk.userData.noOutline=true;arms[1].hand.add(bk);}
-  else if(o.arm==='phone'||o.phone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
+  else if((o.arm==='phone'||o.phone)&&!o.mapPhone){const ph=mesh(bgeo(0.05,0.1,0.012),basic(0x9fe0ff));ph.position.set(0,-0.04,0.06);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
+  if(o.vest){const v=mesh(drapeCoatGeo(true),anime(0xffffff,{side:THREE.DoubleSide,map:OUTFIT.vest}));v.scale.set(build*1.05,1,0.84*build);v.position.y=0.235;spine.add(v);
+    const tag=mesh(bgeo(0.05,0.018,0.006),basic(0xf4f4f0));tag.position.set(0.08,0.42,0.12*build);tag.userData.noOutline=true;spine.add(tag);}
+  if(o.bib){const bm=anime(o.bottom,{map:o.botMap});const bb=mesh(bgeo(0.19,0.2,0.02),bm);bb.position.set(0,0.27,0.104*build);bb.userData.noOutline=true;spine.add(bb);
+    [-1,1].forEach(sd=>{const st=mesh(bgeo(0.03,0.2,0.012),bm);st.position.set(sd*0.075,0.43,0.098*build);st.rotation.x=-0.25;st.userData.noOutline=true;spine.add(st);});}
+  if(o.hood){const hd=mesh(G('hood',()=>new THREE.SphereGeometry(0.12,14,10,0,Math.PI*2,0,Math.PI*0.6)),anime(o.hood));hd.scale.set(1.1,0.55,0.75);hd.position.set(0,0.56,-0.1);hd.rotation.x=-0.5;spine.add(hd);}
+  if(o.collarUp){const cu=mesh(cgeo(0.066,0.07,0.05,14),anime(o.top));cu.position.y=0.57;spine.add(cu);}
+  if(o.lanyard){const lm=basic(0x2b5fb3);[-1,1].forEach(sd=>{const l=mesh(bgeo(0.008,0.2,0.004),lm);l.position.set(sd*0.035,0.47,0.103*build);l.rotation.z=sd*0.2;l.userData.noOutline=true;spine.add(l);});
+    const card=mesh(bgeo(0.045,0.065,0.006),basic(0xf2f4f6));card.position.set(0,0.35,0.112*build);card.userData.noOutline=true;spine.add(card);}
+  if(o.thermal){const tm=anime(0xe0702a);const tb=mesh(bgeo(0.42,0.44,0.27),tm);tb.position.set(0,0.3,-0.25*build);spine.add(tb);const lid=mesh(bgeo(0.43,0.05,0.28),anime(0x2a2d33));lid.position.set(0,0.53,-0.25*build);lid.userData.noOutline=true;spine.add(lid);
+    [-1,1].forEach(sd=>{const st=mesh(bgeo(0.028,0.22,0.012),anime(0x2a2d33));st.position.set(sd*0.118*build,0.43,0.07*build);st.rotation.set(-0.35,0,sd*0.12);st.userData.noOutline=true;spine.add(st);});}
+  if(o.neckphones){const hm=anime(0x20243a);const band=mesh(G('nphb',()=>new THREE.TorusGeometry(0.085,0.012,6,20,Math.PI)),hm);band.rotation.set(Math.PI/2,0,Math.PI);band.position.set(0,0.005,0.0);neck.add(band);
+    [-1,1].forEach(sd=>{const cup=mesh(sgeo(0.042,10,8),hm);cup.scale.set(0.55,1,1);cup.position.set(sd*0.085,-0.015,0.03);neck.add(cup);});}
+  if(o.cap){const cm=anime(0xffffff,{map:OUTFIT.camo});const cap=mesh(G('capdome',()=>new THREE.SphereGeometry(0.172,24,12,0,Math.PI*2,0,Math.PI*0.5)),cm);cap.scale.set(1,0.78,1.05);cap.position.set(0,0.2,-0.005);neck.add(cap);
+    const brim=mesh(G('capbrim',()=>new THREE.CylinderGeometry(0.1,0.1,0.012,20,1,false,-Math.PI/2,Math.PI)),cm);brim.scale.set(1.15,1,1.2);brim.position.set(0,0.205,0.135);brim.rotation.x=0.12;neck.add(brim);}
+  const prop=(hand,kind)=>{let m;const H=arms[hand].hand;arms[hand].hold=true;
+    if(kind==='briefcase'){m=new THREE.Group();const b=mesh(bgeo(0.09,0.27,0.36),anime(0x2b2420));b.position.y=-0.2;m.add(b);const hd=mesh(G('bch',()=>new THREE.TorusGeometry(0.04,0.008,6,12,Math.PI)),anime(0x1a1512));hd.rotation.y=Math.PI/2;hd.position.y=-0.065;m.add(hd);}
+    else if(kind==='umbrella'){m=new THREE.Group();const um=anime(0x1d2a44);const sh=mesh(cgeo(0.035,0.012,0.72,10),um);sh.position.y=-0.42;m.add(sh);const tip=mesh(cgeo(0.005,0.005,0.08,6),M.steel);tip.position.y=-0.82;m.add(tip);const hk=mesh(G('umbh2',()=>new THREE.TorusGeometry(0.035,0.009,6,12,Math.PI)),anime(0x5a3a22));hk.position.set(0,-0.02,0.03);hk.rotation.y=Math.PI/2;m.add(hk);}
+    else if(kind==='tote'){m=new THREE.Group();const b=mesh(bgeo(0.08,0.3,0.28),anime(0xd8c8a6));b.position.y=-0.24;m.add(b);const sk=mesh(bgeo(0.012,0.2,0.16),anime(0x6a5040));sk.position.set(0,-0.08,0.04);sk.rotation.x=0.2;m.add(sk);}
+    else if(kind==='lunch'){m=mesh(bgeo(0.1,0.14,0.18),anime(0x7f9a6a));m.position.y=-0.1;}
+    else if(kind==='bags'){m=new THREE.Group();const b=mesh(sgeo(0.13,12,10),new THREE.MeshToonMaterial({color:0xf2f2ee,transparent:true,opacity:0.82,gradientMap:CEL.face}));b.scale.set(0.8,1.15,1);b.position.y=-0.2;m.add(b);const f=mesh(bgeo(0.1,0.1,0.14),anime(0xd9a066));f.position.y=-0.22;m.add(f);}
+    if(m){m.traverse(q=>{if(q.isMesh)q.userData.noOutline=true;});H.add(m);}};
+  if(o.propL)prop(0,o.propL);if(o.propR)prop(1,o.propR);
+  if(o.mapPhone){const ph=mesh(bgeo(0.055,0.11,0.01),new THREE.MeshBasicMaterial({map:OUTFIT.map}));ph.position.set(0,-0.04,0.065);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
   neck.rotation.order='YXZ';if(o.book||o.arm==='phone'||o.phone||o.news)arms[1].hold=true;if(o.news)arms[0].hold=true;arms.forEach(a=>{if(a.hold){a.curl=true;a.hm.geometry=handGeo(true,a.sd);}});
   let bandage=null;if(o.bandage){bandage=outline(mesh(cgeo(0.06,0.06,0.1,12),toon(0xffffff)),0.007);bandage.position.y=-0.36;legs[1].knee.add(bandage);legs[1].shoe.rotation.x=0.2;}
   const p={id:o.id||('p'+(pid++)),g,root,hips,spine,neck,head,torso,legs,arms,coat,belly,badge,bandage,o,
     label:o.label,clues:o.clues||[],need:!!o.need,feedback:o.feedback||'',focus:o.focus||'head',
     pose:'stand',arm:o.arm||'down',path:[],phase:Math.random()*10,lean:rand(-0.04,0.04),act:o.act||'look',spineX:spine.rotation.x,neckX:neck.rotation.x,gy:0,gp:0,gr:0,gT:rand(0.5,3),bT:rand(1,5),bOff:0,chatDir:pick([-1,1]),seat:null,judged:null,s,spawned:true,occ:false};
   addOutlines(p);
-  p.faceOpen=head.material;p.faceShut=(o.mood==='closed'||o.act==='doze')?null:anime(0xffffff,{map:faceTex(o.skin,'closed',o.age,fem)},'face');
+  p.faceOpen=head.material;if(o.yawns){p.faceYawn=anime(0xffffff,{map:faceTex(o.skin,'yawn',o.age,fem)},'face');p.yT=rand(2,8);p.yawning=0;}p.faceShut=(o.mood==='closed'||o.act==='doze')?null:anime(0xffffff,{map:faceTex(o.skin,'closed',o.age,fem)},'face');
   p.seatBlob=mesh(G('sblobg',()=>new THREE.PlaneGeometry(0.5,0.45)),BLOB);p.seatBlob.rotation.x=-Math.PI/2;p.seatBlob.position.set(0,0.488,0.1);p.seatBlob.visible=false;g.add(p.seatBlob);
   const blob=mesh(G('blobg',()=>new THREE.PlaneGeometry(0.8,0.8)),BLOB);blob.rotation.x=-Math.PI/2;blob.position.y=0.004;g.add(blob);
   g.traverse(m=>{m.userData.person=p;});
@@ -683,6 +718,7 @@ function sitAt(p,seat){seat.occ=p;p.seat=seat;p.pose='sit';if(p.seatBlob)p.seatB
     const shaft=mesh(cgeo(0.03,0.012,0.62,10),um);shaft.position.y=0.36;u.add(shaft);const tip=mesh(cgeo(0.006,0.006,0.08,6),M.steel);tip.position.y=0.03;u.add(tip);
     const hd=mesh(G('umbh',()=>new THREE.TorusGeometry(0.035,0.01,6,12,Math.PI)),toon(0x2a1c18));hd.position.set(0,0.69,-0.035);hd.rotation.y=Math.PI/2;u.add(hd);
     u.position.set(0.05,0,0.5);u.rotation.x=-0.2;p.g.add(u);u.traverse(m=>m.userData.person=p);p.umb=u;}
+  if(p.o.floorTote&&!p.ftote){const t=new THREE.Group();const b=mesh(bgeo(0.28,0.32,0.09),anime(0xd8c8a6));b.position.y=0.16;t.add(b);const sk=mesh(bgeo(0.16,0.22,0.012),anime(0x6a5040));sk.position.set(0.02,0.36,0);sk.rotation.z=0.25;t.add(sk);t.position.set(0.3,0,0.42);p.g.add(t);t.traverse(m=>m.userData.person=p);p.ftote=t;}
   if(p.o.news&&!p.paper){const t=textTex(256,180,(c,w,h)=>{c.fillStyle='#ece8de';c.fillRect(0,0,w,h);c.fillStyle='#2a2a2a';c.font='900 26px '+FONT;c.fillText('東灣日報',12,30);
       c.fillStyle='rgba(40,40,40,.55)';for(let y=46;y<h-8;y+=9)for(let x=12;x<w-12;x+=62)c.fillRect(x,y,50,3);c.fillStyle='#8a8a8a';c.fillRect(138,46,104,60);});
     const pp=mesh(new THREE.PlaneGeometry(0.5,0.35),new THREE.MeshToonMaterial({map:t,side:THREE.DoubleSide,gradientMap:CEL.face}));pp.position.set(0,0.86,0.47);pp.rotation.x=-0.25;p.g.add(pp);pp.userData.person=p;p.paper=pp;}}
@@ -760,6 +796,21 @@ function setTask(html){const t=$('#task');if(!html){t.hidden=true;return;}t.hidd
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 /* ---------- crowd ---------- */
+/* six everyday passengers from Tommy's character sheets; none of them needs help, but each looks tired or busy */
+const EXTRAS=[
+ {id:'xA',label:'攰到耷晒頭嘅上班族',clues:['著住西裝，一手拎公事包，一手拎遮','企喺度不時耷低頭，好似隨時瞓著'],feedback:'佢做完嘢好攰，但企得穩，冇即時需要幫助。可以體諒佢，唔使打擾佢。',
+  top:0xf3f3ef,jacket:0x26304a,tie:0x22283c,bottom:0x26304a,shoe:0x2b2420,hair:0x1d1915,hairStyle:'short',hairCut:'Mside',faceShape:'long',mood:'tired',arm:'hold',act:'doze',propR:'briefcase',propL:'umbrella',build:1.02},
+ {id:'xB',g:'f',label:'藝術系學生',clues:['著住沾滿顏料嘅吊帶褲，腳邊放住畫具袋','頸掛耳筒，專心碌緊手機'],feedback:'佢冇明顯困難，只係專心睇手機。',
+  top:0xf3e7d3,jacket:0xffffff,jacketMap:OUTFIT.rainbow,bottom:0x5f7fa6,botMap:OUTFIT.paint,bib:true,hair:0x5a3a26,hairStyle:'bun',hairCut:'Fpart',faceShape:'round',glasses:true,neckphones:true,arm:'phone',act:'phone',sit:true,floorTote:true,shoe:0xb08a5a},
+ {id:'xC',g:'f',label:'夜班醫護',clues:['著住醫院制服，頸掛職員證','望一望手錶，準備趕返夜班'],feedback:'佢要趕返工，但冇即時需要幫助。',
+  top:0x2d4f86,bottom:0x2d4f86,jacket:0x1d1f24,hood:0x1d1f24,lanyard:true,hair:0x2a2019,hairStyle:'bun',hairCut:'Fpart',faceShape:'oval',arm:'lap',act:'watch',sit:true,propR:'lunch',backpack:true,backpackColor:0x2b2e36,shoe:0x9a9a9e},
+ {id:'xD',g:'m',label:'便利店職員',clues:['制服背心外面加件連帽衫，兩隻手各拎一袋嘢','不停打喊路，睇落好攰'],feedback:'佢只係做完夜更好攰，企得穩，冇即時需要幫助。',
+  top:0x2a3140,hood:0x2a3140,longSleeve:true,vest:true,bottom:0x2a3140,shoe:0x6a5a44,hair:0x2a2019,hairStyle:'short',hairCut:'Mshort',faceShape:'square',mood:'tired',yawns:true,arm:'hold',propL:'bags',propR:'bags',act:'look'},
+ {id:'xE',g:'f',label:'外賣員',clues:['揹住一個大保溫袋，戴住迷彩帽','專心睇住手機地圖，諗緊下一單點去'],feedback:'佢趕住送外賣，冇即時需要幫助。',
+  top:0xd8f23a,jacket:0xffffff,jacketMap:OUTFIT.neon,bottom:0x2a2d33,shoe:0x2a3b66,hair:0x4a3022,hairStyle:'pony',hairCut:'Fpart',faceShape:'oval',cap:true,thermal:true,mapPhone:true,arm:'phone',act:'phone'},
+ {id:'xF',g:'m',label:'溫緊書嘅夜校生',clues:['戴住耳筒，揹住書包','捧住生字簿溫緊書'],feedback:'佢專心溫書，冇明顯困難。',
+  top:0x1d1f24,longSleeve:true,collarUp:true,bottom:0x1d1f24,shoe:0x2b2420,hair:0x17130f,hairStyle:'short',hairCut:'Mside',faceShape:'oval',headphones:true,backpack:true,backpackColor:0x2b3a5c,book:true,arm:'phone',act:'read',scale:0.97}
+];
 function populate(){
   const prio=seats.filter(s=>s.prio).sort((a,b)=>b.x-a.x);
   const youth=makePerson({id:'youth',act:'phone',skin:SKINS[1],top:0x2a2f45,bottom:0x3a3f58,hair:0x231a1a,hairStyle:'short',headphones:true,arm:'phone',
@@ -779,6 +830,12 @@ function populate(){
   const hurt=makePerson({id:'hurt',need:true,skin:SKINS[2],top:0xfaf7f0,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',bandage:true,shorts:true,focus:'legs',mood:'tired',
     label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳','右腳踭包住紗布，鞋踭冇穿好'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
   standAt(hurt,{x:-2.2,z:0.4,occ:null},-Math.PI*0.6);reserve(-2.2,0.4,hurt);hurt.arm='strap';hurt.injured=true;
+  // keep the boarding spots of the pregnant woman and the granny clear
+  reserve(-3.35,-0.3,{});reserve(-5.3,-0.4,{});reserve(-4.3,0.85,{});
+  const near=(lo,hi)=>s=>!s.occ&&s.x>lo&&s.x<hi;
+  EXTRAS.forEach(e=>{const o=Object.assign({skin:pick(SKINS)},e);const p=makePerson(o);
+    if(e.sit){const st=pick(seats.filter(near(-9.2,1.2)))||freeSeat();sitAt(p,st);}
+    else{const f=SPOTS.filter(s=>!s.occ&&!inDoor(s.x)&&s.x>-9.2&&s.x<1.2);const sp=f.length?pick(f):freeSpot();standAt(p,sp);if(e.arm)p.arm=e.arm;}});
   const free=seats.filter(s=>!s.occ);free.sort(()=>Math.random()-.5);
   free.forEach(s=>{const p=makePerson(randomLook());sitAt(p,s);});
   for(let i=0;i<7;i++){const sp=freeSpot();if(!sp)break;const p=makePerson(randomLook());standAt(p,sp);}
@@ -874,14 +931,19 @@ function updateGaze(p,dt,t){let y=0,x=0,r=0;
     case'music':x=0.06+Math.max(0,Math.sin(t*7.4+p.phase))*0.08;y=Math.sin(t*0.4+p.phase)*0.25;break;
     case'chat':y=0.75*p.chatDir+Math.sin(t*0.9+p.phase)*0.08;x=0.05+Math.sin(t*2.3+p.phase)*0.03;break;
     case'up':y=0.5*p.chatDir;x=-0.22;break;
+    case'watch':x=0.45;y=-0.35*p.chatDir;break;
     case'kid':{const k=people.find(q=>q.id==='kid');if(k&&lookAtPerson(p,k)){y=p.ty;x=p.tp;}break;}
     default:
       p.gT-=dt;if(p.gT<=0){p.gT=rand(1.4,4.2);p.ty=rand(-0.3,0.3);p.tp=rand(-0.05,0.15);
         if(Math.random()<0.55){const near=people.filter(q=>q!==p&&q.spawned&&Math.hypot(q.g.position.x-p.g.position.x,q.g.position.z-p.g.position.z)<2.6);
           const vip=near.filter(q=>q.need);const q=vip.length&&Math.random()<0.3?pick(vip):near.length?pick(near):null;if(q)lookAtPerson(p,q);}}
       y=p.ty||0;x=p.tp||0;}
+  if(p.yawning>0)x-=0.28;
   const k=Math.min(1,dt*3.5);p.gy+=(y-p.gy)*k;p.gp+=(x-p.gp)*k;p.gr+=(r-p.gr)*k;p.neck.rotation.set(p.neckX+p.gp,p.gy,p.gr);}
-function blink(p,dt){if(!p.faceShut)return;p.bT-=dt;
+function blink(p,dt){
+  if(p.faceYawn){p.yT-=dt;if(p.yawning>0){p.yawning-=dt;if(p.yawning<=0){p.head.material=p.faceOpen;p.yT=rand(8,14);}return;}
+    if(p.yT<=0&&p.head.material===p.faceOpen){p.head.material=p.faceYawn;p.yawning=2.3;return;}}
+  if(!p.faceShut)return;p.bT-=dt;
   if(p.bOff>0){p.bOff-=dt;if(p.bOff<=0)p.head.material=p.faceOpen;}
   else if(p.bT<=0){p.bT=rand(2,6);if(p.head.material===p.faceOpen){p.head.material=p.faceShut;p.bOff=0.13;}}}
 /* two-bone IK so a raised hand actually closes on a strap ring or a pole instead of passing through */
@@ -936,7 +998,8 @@ function buildCast(){
   const need=CAST_SIZE-named.length,pool=people.filter(p=>CORE.indexOf(p.id)<0&&p.spawned).sort(()=>Math.random()-.5);
   const near=p=>p.g.position.x>-9.5&&p.g.position.x<1.5;
   const labels=new Set(named.map(p=>p.label)),extras=[];
-  pool.filter(near).concat(pool.filter(p=>!near(p))).forEach(p=>{if(extras.length<need&&!labels.has(p.label)){labels.add(p.label);extras.push(p);}});
+  const isX=p=>/^x[A-F]$/.test(p.id);
+  pool.filter(p=>isX(p)&&near(p)).concat(pool.filter(p=>!isX(p)&&near(p)),pool.filter(p=>!near(p))).forEach(p=>{if(extras.length<need&&!labels.has(p.label)){labels.add(p.label);extras.push(p);}});
   const all=named.concat(extras);
   all.sort((a,b)=>a.g.position.x-b.g.position.x);
   if(all[0]&&all[0].id==='granny')all.push(all.shift());
