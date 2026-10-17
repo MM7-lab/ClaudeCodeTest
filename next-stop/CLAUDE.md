@@ -20,7 +20,7 @@
 - 風格跟參考圖：**環境寫實、人物係柔和上色嘅風格化 3D**（跟 Tommy 畀嘅示意圖，唔係動漫大眼）。環境用 MeshStandardMaterial（PBR）、ACES 色調映射（曝光 0.75）、用 PMREMGenerator 由自製燈箱場景生成反射環境（不銹鋼扶手同長櫈會反光）；冇描邊；每個人腳下有一塊柔和陰影（`BLOB`）
 - 人物用程式砌成，頭身比約 1:6.5（`neck` 群組縮細 0.84）：身軀、盆骨、四肢用 LatheGeometry 曲線（`latheGeo`／`limbGeo`／`tubeGeo`，接縫喺背後）；有手掌同手指公、鞋底、耳仔、下巴收窄嘅頭（`headGeo`）；短袖衫袖去到上臂一半；衫褲係平塗卡通色（`makePerson` 入面 `cloth`／`toon` 已改成指向 `anime()`，布紋 `FAB` 唔再用喺人物）
 - 人物上色：`anime()`（MeshToonMaterial，3 格線性過渡嘅柔和明暗，衫 `cloth`／皮膚 `skin`／面 `face` 三種深淺，皮膚同面最光只到 232 免得變白），色碼要 `convertSRGBToLinear()`；`addOutlines()` 幼描邊（0.0042），只畫喺離鏡頭 5 米內嘅人；頭髮係一整塊球殼（`hairShellMat`），用 `hairMask(style)` 透明遮罩剪出髮線同面部（女：Fbang 齊陰／Fpart 中分；男：Mside 側分／Mshort），長髮後面再加 `STRANDS` 剪尖嘅髮片
-- 人臉：`faceTex(skin,mood,age)` 畫示意圖風格五官：正常大細嘅杏仁眼、深色瞳孔加一點反光、粗眉、細鼻（立體鼻戴口罩就唔加）、細嘴；`age:1`（婆婆、伯伯）加額紋、魚尾紋、法令紋；唔好再改返動漫大眼
+- 人臉：`faceTex(skin,mood,age,fem)`（女仔有睫毛、幼弧眉、唇色同較明顯腮紅；男仔粗直眉；鼻係細小立體鼻加鼻底陰影） 畫示意圖風格五官：正常大細嘅杏仁眼、深色瞳孔加一點反光、粗眉、細鼻（立體鼻戴口罩就唔加）、細嘴；`age:1`（婆婆、伯伯）加額紋、魚尾紋、法令紋；唔好再改返動漫大眼
 - 車廂：淺灰牆身、有少少反光嘅斑點膠地板、白色 LED 燈條、不銹鋼長櫈、座位尾玻璃擋板，關愛座係紅色；車門頂有橙色 LED 報站牌（`setLED()`）
 - 婆婆手推車：上車時婆婆左手拉住車柄（`pullTrolley()`），架車斜住喺佢身後碌；到位後放手，架車斜斜哋卡喺車門邊（`settleTrolley()`）
 - 固定電影式鏡頭：`overview()`、`shotPerson()`、`setShot()`；`updateOccluders()` 會隱藏擋住鏡頭嘅乘客（身體或者頭部接近視線，或者離鏡頭 0.85m 以內）
@@ -32,7 +32,7 @@
 
 - 人物類型：`uniform` 學生（白恤衫、領呔、深藍裙或灰褲、書包，冇真實學校校徽）、`jacket` 短外套、`sling` 斜孭袋、`build` 肥瘦；婆婆洋紅色冷衫、駝背（spine 0.3、neck -0.3）、有皺紋；孕婦身體向後挨少少；坐低嘅人座位上有接觸陰影（`seatBlob`）
 - 生活感（第二批）：每人有 `act`（phone 低頭睇電話、read 睇書、news 伯伯睇報紙、doze 瞌眼耷頭、music 跟節奏郁頭、chat 轉頭同隔籬傾偈、up 望報站牌、kid 媽媽望住個仔、look 周圍望，有時望向有需要嘅人）；`updateGaze()` 平滑轉頸；`blink()` 用 `faceOpen`／`faceShut` 材質眨眼（換面部材質時要同時更新 `faceOpen`）；呼吸（`spineX` 加細微起伏）、重心慢慢轉移；`swayPerson()` 跟 `trainAcc` 由腳踝向前後傾，再加左右搖；`gripIK()` 兩節反向運動學，令舉高嘅手真係握住 `RINGS` 吊環或者 `POLES` 企柱（包括座位尾擋板支柱，婆婆就係揸住佢），夠唔到就用返原本姿勢；手插袋 `pocket`；坐低有機會拎住摺遮（`umbrella`）
-- 面形：`headGeo(shape)`，`FACE_SHAPES` 有 oval／long／square／round（細路仔用 round），由球體拉長面、削平面頰、收窄下顎（`low` 越大，收窄越集中喺下面，就越有下顎角而唔會變尖下巴）、下巴向前；面部陰影 `CEL.face` 暗位 152，唔好再調淡，否則面形只睇到輪廓、全部變返圓面
+- 面形：`headGeo(shape)`，`FACE_SHAPES` 有 oval／long／square／round（細路仔用 round）。下顎只係溫和收窄（jaw 0.06–0.12，收到一半就停），下巴底再壓平少少，所以冇尖下巴；Tommy 明確講過唔要尖面，唔好再加大 jaw；面部陰影 `CEL.face` 暗位 152
 - 頭髮殼放大（1.03×1.13×1.06）同埋頭頂升高，劉海用 `hairMask` 嘅幾個闊圓弧做成一撮撮，唔好用高頻鋸齒
 - 第四輪（跟 Tommy 第二批示意圖）：頭大啲（`neck` 縮放 0.95）、四肢粗約兩成半、身軀厚啲；`mergeGeo()` 自己合併幾何體（r128 冇 BufferGeometryUtils）；`hairClumpGeo(style,len)` 每個髮型一個合併嘅髮束 mesh（男仔頭頂有蓬鬆感、劉海；女仔側邊髮束遮耳、長髮幾條垂喺背後；婆婆 `perm` 係十二嚿細捲），用冇紋理嘅 `hairPlainMat`，唔好再用 HAIRBAND 條紋，否則似曲髮；`handGeo(curl,sd)` 一隻手一個 mesh（手掌＋四指＋手指公），`setCurl()` 握吊環／扶手／拎嘢時換成握拳形狀，連描邊一齊換
 - 顏色校正（同示意圖量度）：示意圖皮膚受光面約 (200,167,155)、背光面 (171,132,112)；而家 `SKINS` 同暖色 `HemisphereLight(0xfff4ea,0x4a4448)` 量到約 (193,170,149)／(173,146,126)；`CEL.skin` 最光 206、`CEL.face` 226，再光向上嘅手臂會變白
