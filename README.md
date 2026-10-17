@@ -58,6 +58,7 @@ python3 floor-planner/build_pages.py
 | `cat-animation/bear-figure/index.html` | 熊仔衫人仔 Q 版 3D 公仔（WebGPU，toon 三級光影＋粗描邊）：發呆（眨眼、推眼鏡）、瞓覺、食杯麵、用手提電腦做嘢；撳肚上隻熊仔會出心心 |
 | `cat-animation/bear-2d/index.html` | 熊仔衫人仔 2D 版（直接用原圖做底，貼足原畫；WebGL 網格令頭、耳仔、眼鏡、尾巴、腳板、熊掌郁得）：發呆（眨眼、望兩邊、歪頭、耳仔郁、推眼鏡、搖尾）、瞓覺（Zzz＋鼻涕泡）、食杯麵（夾麵吸麵）、做嘢（手提電腦＋螢幕光）；撳肚上隻熊仔會出心心 |
 | `cat-animation/bear-2d-standing/index.html` | 熊仔衫人仔 2D 企起身版：上半身保留原圖（剪走背景同盤住嘅腳），下半身、腳板同尾巴用同款粗線重畫；動作同 2D 版一樣，再加踮腳、企住瞌眼眉搖下搖下、撳肚熊仔會跳 |
+| `cat-animation/bear-rig/index.html` | 熊仔衫人仔骨架動畫：頭用原圖，身同四肢改做有骨架（IK）嘅向量木偶，身形收窄。頭、身、左右手、左右腳各有一組獨立動作可以逐個試（揮手、舉手、推眼鏡、叉腰、踏步、踢腳、跳等），亦有發呆、踏步、揮手、食杯麵、做嘢、瞓覺六套全身動作，轉換時順滑過渡 |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
