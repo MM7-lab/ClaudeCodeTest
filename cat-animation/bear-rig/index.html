@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>熊仔衫人仔骨架動畫</title>
+<title>熊仔衫人仔桌面寵物</title>
 <style>
-  /* Paper-and-ink look taken from the original drawing. Stage on the left (top on phones), the animation library on the right (below on phones). */
+  /* Paper-and-ink look taken from the original drawing. A wide stage with a floor on top, the controls underneath. */
   :root {
     --paper: #f7f7f3;
     --card: #ffffff;
@@ -18,49 +18,38 @@
   }
   [hidden] { display: none !important; }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { margin: 0; }
   body { background: var(--paper); color: var(--ink); font-family: var(--font); }
-  .app { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
-  .stageCol { position: sticky; top: 0; height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); padding: 16px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding: 16px 16px 10px; }
   .label { display: grid; gap: 2px; }
   .label small { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--muted); }
   .label strong { font-size: 1.25rem; font-weight: 800; }
-  .frame { position: relative; min-height: 0; }
+  #status { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+  .stage { position: relative; height: min(66vh, 720px); min-height: 300px; margin: 0 16px; border: 1.5px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--paper); }
   #back, #gl, #front { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #front { touch-action: manipulation; }
-  .panel { padding: 16px 16px 28px; border-left: 1.5px solid var(--line); display: grid; align-content: start; gap: 18px; background: var(--paper); }
-  .panel h2 { margin: 0 0 8px; font-size: 0.95rem; font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .panel h2 span { font-size: 0.72rem; font-weight: 500; color: var(--muted); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips button, .tools button {
-    font: 600 0.85rem var(--font); color: var(--ink); background: var(--card);
-    border: 2px solid var(--ink); border-radius: 999px; padding: 6px 12px; cursor: pointer; box-shadow: 0 2px 0 var(--ink);
+  #front { cursor: grab; touch-action: none; }
+  #front.dragging { cursor: grabbing; }
+  .panel { padding: 14px 16px 28px; display: grid; gap: 12px; max-width: 1000px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row > b { font-size: 0.85rem; margin-right: 4px; }
+  button {
+    font: 600 0.88rem var(--font); color: var(--ink); background: var(--card);
+    border: 2px solid var(--ink); border-radius: 999px; padding: 7px 13px; cursor: pointer; box-shadow: 0 2px 0 var(--ink);
   }
-  .chips button[aria-pressed="true"], .tools button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-  .chips button:focus-visible, .tools button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .chips button:active, .tools button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
-  .part { display: grid; grid-template-columns: 3.2em 1fr; gap: 8px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
-  .part:first-of-type { border-top: 0; }
-  .part > b { font-size: 0.85rem; padding-top: 7px; }
-  .part .chips button { font-size: 0.8rem; padding: 5px 10px; border-width: 1.5px; box-shadow: 0 1.5px 0 var(--ink); }
-  .part .chips button.auto { border-style: dashed; }
-  .tools { display: flex; flex-wrap: wrap; gap: 6px; }
-  .hint { margin: 0; font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
-  #belly { cursor: pointer; }
-  @media (max-width: 820px) {
-    .app { grid-template-columns: 1fr; }
-    .stageCol { height: 52vh; height: 52dvh; padding-bottom: 4px; z-index: 1; background: var(--paper); border-bottom: 1.5px solid var(--line); }
-    .panel { border-left: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) { .chips button:active, .tools button:active { transform: none; } }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+  .hint { margin: 0; font-size: 0.78rem; color: var(--muted); line-height: 1.55; }
+  @media (max-width: 640px) { .stage { height: 52vh; margin: 0 8px; } .top { padding: 12px 12px 8px; } .panel { padding: 12px 12px 24px; } }
+  @media (prefers-reduced-motion: reduce) { button:active { transform: none; } }
 </style>
 </head>
 <body>
-<div class="app">
-<section class="stageCol">
-  <header class="label"><small>Q 版 2D · 骨架動畫</small><strong>熊仔衫人仔</strong></header>
-  <div class="frame" id="frame">
-    <!-- behind the head: shadow, pillow, tail, legs, arms (behind the body), torso, crossed legs -->
+<header class="top">
+  <div class="label"><small>Q 版 2D · 桌面寵物動畫</small><strong>熊仔衫人仔</strong></div>
+  <div id="status" aria-live="polite">而家：企定</div>
+</header>
+<div class="stage" id="stage">
     <svg id="back" viewBox="0 40 912 1080" aria-hidden="true">
       <defs>
         <filter id="fur" x="-10%" y="-10%" width="120%" height="120%">
@@ -71,6 +60,7 @@
         <clipPath id="torsoClip"><use href="#torsoShape"/></clipPath>
         <path id="heartShape" d="M0,7 C-3,4 -11,-1 -11,-6 C-11,-11 -5,-13 0,-8 C5,-13 11,-11 11,-6 C11,-1 3,4 0,7 Z"/>
       </defs>
+      <rect id="floor" x="0" y="1086" width="912" height="80" fill="#efece4"/>
       <ellipse id="shadow" cx="496" cy="1090" rx="190" ry="16" fill="#e3dbcd"/>
       <g id="pillow" transform="scale(0)">
         <path d="M-130,-6 C-132,-38 -70,-44 0,-44 C70,-44 132,-38 130,-6 C132,22 70,30 0,30 C-70,30 -132,22 -130,-6 Z" fill="#fbf6ea" stroke="#141210" stroke-width="7" stroke-linejoin="round"/>
@@ -111,8 +101,7 @@
 
     <canvas id="gl" aria-hidden="true"></canvas>
 
-    <!-- in front of the head: face overlays, props, and the arms again, faded out near the shoulder so they come out from behind the body -->
-    <svg id="front" viewBox="0 40 912 1080" role="img" aria-label="Cartoon man in a white polar-bear onesie with animated arms and legs">
+    <svg id="front" viewBox="0 40 912 1080" role="img" aria-label="Cartoon man in a white polar-bear onesie, moving about on his own">
       <defs>
         <clipPath id="lenses"><rect x="349" y="338" width="83" height="62" rx="9"/><rect x="456" y="340" width="73" height="61" rx="9"/></clipPath>
         <clipPath id="faceClip"><ellipse cx="438" cy="405" rx="100" ry="82"/></clipPath>
@@ -203,39 +192,30 @@
         <use id="z0" href="#zShape"/><use id="z1" href="#zShape"/><use id="z2" href="#zShape"/>
       </g>
       <g id="floatHearts"><use id="fh0" href="#heartShape2" fill="#e8505b" stroke="#000" stroke-width="2.5"/><use id="fh1" href="#heartShape2" fill="#f4a6a0" stroke="#000" stroke-width="2.5"/><use id="fh2" href="#heartShape2" fill="#e8505b" stroke="#000" stroke-width="2.5"/></g>
-      <circle id="belly" cx="467" cy="705" r="70" fill="transparent"/>
     </svg>
-  </div>
-</section>
-
-<aside class="panel">
-  <div>
-    <h2>全套動作 <span>企住或者坐低，四肢同身一齊郁</span></h2>
-    <div id="actions"></div>
-  </div>
-  <div>
-    <h2>逐個部位試 <span>揀一個動作，只郁嗰個部位</span></h2>
-    <div id="parts"></div>
-  </div>
-  <div class="tools">
-    <button id="reset" type="button">重設（跟返全套動作）</button>
-    <button id="slow" type="button" aria-pressed="false">慢鏡 0.4×</button>
-    <button id="auto" type="button" aria-pressed="false">自動輪流</button>
-  </div>
-  <p class="hint">撳佢肚上隻熊仔會出心心。頭同面係原圖；身、手、腳係跟原圖筆觸重畫嘅骨架，每個部位可以獨立郁，轉動作時會順滑過渡。</p>
-</aside>
 </div>
+<section class="panel">
+  <div class="row"><b>動作</b><span id="actions" class="row" role="group" aria-label="動作"></span></div>
+  <div class="row">
+    <button id="auto" type="button" aria-pressed="true">自動模式（自己決定做乜）</button>
+    <button id="slow" type="button" aria-pressed="false">慢鏡 0.4×</button>
+  </div>
+  <p class="hint">自動模式就係將來桌面寵物嘅樣：佢會自己行嚟行去、坐低、食杯麵、做嘢、瞓覺。用滑鼠或者手指可以將佢拎起、掟落地；撳一下佢會揮手。頭同面係原圖，身同手腳係跟原圖筆觸做嘅骨架。</p>
+</section>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
 const SVGNS = "http://www.w3.org/2000/svg";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const VB = [0, 40, 912, 1080];
+let VB = [0, 40, 912, 1080];   // the stage's viewBox; widened to the stage's shape so he has room to walk
 
 // ---------- small maths ----------
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const ease = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const easeIn = (x) => { x = clamp(x, 0, 1); return x * x; };
+const easeOut = (x) => { x = clamp(x, 0, 1); return 1 - (1 - x) * (1 - x); };
+const backOut = (x) => { x = clamp(x, 0, 1); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 const win = (t, a0, a1, b0, b1) => ease((t - a0) / (a1 - a0)) * (1 - ease((t - b0) / (b1 - b0)));
 const lerp = (a, b, k) => a + (b - a) * k;
 const lerp2 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
@@ -244,8 +224,6 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 const scl = (a, k) => [a[0] * k, a[1] * k];
 const len = (a) => Math.hypot(a[0], a[1]);
 const rot = (v, deg) => { const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; };
-const twitch = (u) => (u > 0 && u < 0.8 ? Math.sin(u * 28) * Math.exp(-u * 5) : 0);
-const I = [1, 0, 0, 1, 0, 0];
 const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
 const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2], a = m[3] / d, b = -m[1] / d, c = -m[2] / d, e = m[0] / d; return [a, b, c, e, -(a * m[4] + c * m[5]), -(b * m[4] + e * m[5])]; };
 const rotAbout = (deg, cx, cy, tx = 0, ty = 0) => { const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); return [c, s, -s, c, cx + tx - c * cx + s * cy, cy + ty - s * cx - c * cy]; };
@@ -255,17 +233,125 @@ const svgM = (m) => `matrix(${m.map((v) => +v.toFixed(4)).join(",")})`;
 const f1 = (v) => v.toFixed(1);
 const pt = (p) => `${f1(p[0])},${f1(p[1])}`;
 const show = (el, on) => el.setAttribute("visibility", on ? "visible" : "hidden");
+const rand = (a, b) => a + Math.random() * (b - a);
+function weighted(list) { let sum = 0; for (const [w] of list) sum += w; let r = Math.random() * sum; for (const [w, v] of list) { if ((r -= w) <= 0) return v; } return list[list.length - 1][1]; }
 // keyframes: [[time, value], ...] eased between neighbours; value is a number or [x, y]
 function kf(t, keys) {
   if (t <= keys[0][0]) return keys[0][1];
   for (let i = 1; i < keys.length; i++) {
+    if (t <= keys[i][0]) { const [t0, a] = keys[i - 1], [t1, b] = keys[i], k = ease((t - t0) / (t1 - t0 || 1)); return Array.isArray(a) ? lerp2(a, b, k) : lerp(a, b, k); }
+  }
+  return keys[keys.length - 1][1];
+}
+// the same for paths, but bowing upward on the way, so hands travel in arcs rather than straight lines
+function kfArc(t, keys, bend = 0.16) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
     if (t <= keys[i][0]) {
       const [t0, a] = keys[i - 1], [t1, b] = keys[i], k = ease((t - t0) / (t1 - t0 || 1));
-      return Array.isArray(a) ? lerp2(a, b, k) : lerp(a, b, k);
+      const d = sub(b, a), L = len(d);
+      if (L < 2) return lerp2(a, b, k);
+      let n = [-d[1] / L, d[0] / L]; if (n[1] > 0) n = scl(n, -1);
+      return add(lerp2(a, b, k), scl(n, Math.sin(Math.PI * k) * L * bend));
     }
   }
   return keys[keys.length - 1][1];
 }
+
+// ---------- springs: every part chases its target pose, which gives easing, overlap and follow-through ----------
+// second-order dynamics: f = speed (Hz), z = damping (below 1 overshoots), r = how eagerly it starts
+function sod(f, z, r = 0) { return { k1: z / (Math.PI * f), k2: 1 / ((2 * Math.PI * f) ** 2), k3: (r * z) / (2 * Math.PI * f) }; }
+const SP = {
+  body: sod(3.4, 0.72), squash: sod(4.5, 0.3), hang: sod(1.5, 0.32),
+  head: sod(2.6, 0.55), eye: sod(9, 1), arm: sod(3.1, 0.74, 0.1), leg: sod(5.5, 0.85),
+  ear: sod(3.8, 0.22), tail: sod(2.6, 0.18),
+};
+const springs = new Map();
+function spring(key, x, p, dt) {
+  let s = springs.get(key);
+  if (!s) { s = { xp: x, y: x, yd: 0 }; springs.set(key, s); return x; }
+  if (dt <= 0) return s.y;
+  const xd = (x - s.xp) / dt; s.xp = x;
+  const k2 = Math.max(p.k2, (dt * dt) / 2 + (dt * p.k1) / 2, dt * p.k1);
+  s.y += dt * s.yd;
+  s.yd += (dt * (x + p.k3 * xd - s.y - p.k1 * s.yd)) / k2;
+  return s.y;
+}
+const spring2 = (key, v, p, dt) => [spring(key + "x", v[0], p, dt), spring(key + "y", v[1], p, dt)];
+// followers: every joint chases its target with a top speed and a top acceleration, so moves ease in and out
+// and nothing can jump. The target's own speed is fed forward, so smooth paths are followed without lag.
+const FP = {
+  pos: { k: 8, v: 900, a: 6000 }, ang: { k: 8, v: 160, a: 1200 }, sc: { k: 8, v: 1.2, a: 8 },
+  head: { k: 7, v: 500, a: 3000 }, headAng: { k: 7, v: 110, a: 800 }, eye: { k: 25, v: 160, a: 3000 },
+  arm: { k: 11, v: 1000, a: 7000 }, armTh: { k: 9, v: 300, a: 2400 }, armR: { k: 16, v: 1400, a: 12000 }, pole: { k: 10, v: 3000, a: 30000 }, frac: { k: 10, v: 4, a: 40 }, armAng: { k: 10, v: 300, a: 3000 },
+  leg: { k: 14, v: 1000, a: 9000 }, legAng: { k: 14, v: 300, a: 3000 }, side: { k: 14, v: 7, a: 70 },
+};
+const followers = new Map();
+function follow(key, x, P, dt) {
+  let s = followers.get(key);
+  if (!s) { s = { y: x, v: 0, xp: x }; followers.set(key, s); return x; }
+  if (dt <= 0) return s.y;
+  const xd = clamp((x - s.xp) / dt, -P.v, P.v); s.xp = x;
+  const vDes = clamp(xd + (x - s.y) * P.k, -P.v, P.v);
+  s.v += clamp(vDes - s.v, -P.a * dt, P.a * dt);
+  s.y += s.v * dt;
+  return s.y;
+}
+function follow2(key, X, P, dt) {
+  let s = followers.get(key);
+  if (!s) { s = { y: X.slice(), v: [0, 0], xp: X.slice() }; followers.set(key, s); return X.slice(); }
+  if (dt <= 0) return s.y.slice();
+  let xd = scl(sub(X, s.xp), 1 / dt); s.xp = X.slice();
+  const cap = (v, m) => { const l = len(v); return l > m ? scl(v, m / l) : v; };
+  xd = cap(xd, P.v);
+  const vd = cap(add(xd, scl(sub(X, s.y), P.k)), P.v);
+  s.v = add(s.v, cap(sub(vd, s.v), P.a * dt));
+  s.y = add(s.y, scl(s.v, dt));
+  return s.y.slice();
+}
+// arms swing about the shoulder: the wrist target is followed as an angle and a reach, so it travels in an arc
+// (never in a straight line through the shoulder). Angles: 0 = straight out to his side, 90 = down,
+// 180 = across his body. The seam is straight up, so hands go up the outside to wave or stretch, and come up
+// in front of him to reach his face.
+function followArm(key, S, s, X, dt) {
+  const v = sub(X, S), r = Math.max(len(v), 90);
+  let th = Math.atan2(v[1], v[0] * s) * 180 / Math.PI;
+  if (th < -90) th += 360;
+  let q = followers.get(key);
+  if (!q) { q = { th, r, vth: 0, vr: 0, thp: th, rp: r }; followers.set(key, q); }
+  else if (dt > 0) {
+    const thTarget = th;
+    const thd = clamp((th - q.thp) / dt, -FP.armTh.v, FP.armTh.v); q.thp = th;
+    const rd = clamp((r - q.rp) / dt, -FP.armR.v, FP.armR.v); q.rp = r;
+    const vth = clamp(thd + (thTarget - q.th) * FP.armTh.k, -FP.armTh.v, FP.armTh.v), vr = clamp(rd + (r - q.r) * FP.armR.k, -FP.armR.v, FP.armR.v);
+    q.vth += clamp(vth - q.vth, -FP.armTh.a * dt, FP.armTh.a * dt); q.vr += clamp(vr - q.vr, -FP.armR.a * dt, FP.armR.a * dt);
+    q.th += q.vth * dt; q.r += q.vr * dt;
+  }
+  const a = q.th * Math.PI / 180;
+  return add(S, [s * q.r * Math.cos(a), q.r * Math.sin(a)]);
+}
+// keyframed arm paths, interpolated the same way (an angle about the shoulder and a reach)
+function toPolar(S, s, X) { const v = sub(X, S); let th = Math.atan2(v[1], v[0] * s) * 180 / Math.PI; if (th < -90) th += 360; return [th, len(v)]; }
+function fromPolar(S, s, q) { const a = q[0] * Math.PI / 180; return add(S, [s * q[1] * Math.cos(a), q[1] * Math.sin(a)]); }
+function kfArm(t, keys, side, s) { const S = R0.shoulder[side]; return fromPolar(S, s, kf(t, keys.map(([tt, X]) => [tt, toPolar(S, s, X)]))); }
+function pin(key, x) { followers.set(key, Array.isArray(x) ? { y: x.slice(), v: [0, 0], xp: x.slice() } : { y: x, v: 0, xp: x }); }
+// blend two whole poses (used for the big, slow changes: lying down, sitting back up)
+function poseLerp(a, b, k) {
+  if (Array.isArray(a) && Array.isArray(b)) return lerp2(a, b, k);
+  if (typeof a === "number" && typeof b === "number") return lerp(a, b, k);
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const o = {};
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const x = a[key], y = b[key];
+      if (x === undefined) o[key] = k < 0.5 ? (typeof y === "number" ? lerp(DEFAULTS[key] || 0, y, k) : y) : y;
+      else if (y === undefined) o[key] = typeof x === "number" ? lerp(x, DEFAULTS[key] || 0, k) : (k < 0.5 ? x : undefined);
+      else o[key] = poseLerp(x, y, k);
+    }
+    return o;
+  }
+  return k < 0.5 ? a : b;
+}
+const DEFAULTS = { sc: 1, sqY: 1, fa: 1 };
 
 // ---------- the skeleton at rest (coordinates of the original drawing) ----------
 const R0 = {
@@ -276,221 +362,185 @@ const R0 = {
   ground: [496, 1090],
 };
 const ARM = { a: 140, b: 128, wU: 80, wF: 72 };
-const LEG = { wT: 96, wS: 90 };
-const PAW_C = 14;   // wrist to the middle of the paw
-const HEADPT = { glasses: [444, 372], mouth: [437.5, 441], zzz: [690, 262] };
-// left/right below are the character's own: his right arm is on the viewer's left ("L" drawing side)
+const LEG = { a: 96.4, b: 96.4, wT: 96, wS: 90 };
+const PAW_C = 14;
+const HEADPT = { glasses: [444, 372], mouth: [437.5, 441], zzz: [690, 262], eyeL: [395, 364], eyeR: [476.5, 365] };
+let HANG = [466, 200];        // where he hangs from when picked up: the spot under the pointer
+const PIV = [490, 1040];      // pivot for lying down
+// left/right are the character's own: his right arm is on the viewer's left ("L" drawing side)
 const ARMS = [["armL", "R", 1], ["armR", "L", -1]];
 const LEGS = [["legL", "R", 1], ["legR", "L", -1]];
-const POLE_OUT = (s) => [s * 240, 60];     // elbows out to the side
-const POLE_IN = (s) => [-s * 60, 320];    // elbow low and in front, for reaching up to the face
-// reaching up to the face the elbow comes toward us; "fa" shortens the upper arm to show that (foreshortening)
+const POLE_OUT = (s) => [s * 240, 60];
+const POLE_IN = (s) => [-s * 60, 320];
+// reaching up to the face the elbow comes toward us; "fa" shortens the upper arm to show that
 const toFace = (k) => ({ pole: (s) => lerp2(POLE_OUT(s), POLE_IN(s), ease(k / 0.25)), fa: lerp(1, 0.5, k) });
 
-// body matrices from the torso's numbers; scenes use them too, to turn floor points into arm targets
-const PIV = [490, 1040];
+// local body matrices from the torso's numbers ("local" = the character's own space, before he is placed on the stage)
 function makeTM(tp) {
-  const sc = tp.sc === undefined ? 1 : tp.sc;
-  const lean = tp.lean || 0, bob = tp.bob || 0, br = tp.br || 0, sway = tp.sway || 0, shift = tp.shift || 0, jump = tp.jump || 0, rotL = tp.rot || 0, px = tp.px || 0, py = tp.py || 0;
-  const root = mul(tr(shift + px, py - jump), mul(rotAbout(sway, R0.ground[0], R0.ground[1]), mul(rotAbout(rotL, PIV[0], PIV[1]), [sc, 0, 0, sc, PIV[0] * (1 - sc), PIV[1] * (1 - sc)])));
+  const sc = tp.sc === undefined ? 1 : tp.sc, sqY = tp.sqY === undefined ? 1 : tp.sqY, sqX = 1 + (1 - sqY) * 0.7;
+  const lean = tp.lean || 0, bob = tp.bob || 0, br = tp.br || 0, sway = tp.sway || 0, shift = tp.shift || 0, jump = tp.jump || 0;
+  const rotL = tp.rot || 0, px = tp.px || 0, py = tp.py || 0, hang = tp.hang || 0;
+  const G = R0.ground;
+  const root = mul(tr(shift + px, py - jump), mul(rotAbout(hang, HANG[0], HANG[1]), mul(rotAbout(sway, G[0], G[1]), mul(rotAbout(rotL, PIV[0], PIV[1]),
+    mul([sc, 0, 0, sc, PIV[0] * (1 - sc), PIV[1] * (1 - sc)], [sqX, 0, 0, sqY, G[0] * (1 - sqX), G[1] * (1 - sqY)])))));
   const TM = mul(root, mul(tr(0, bob), mul(rotAbout(lean, R0.pelvis[0], R0.pelvis[1]), [1 - br * 0.3, 0, 0, 1 + br, R0.pelvis[0] * br * 0.3, -R0.pelvis[1] * br])));
-  return { root, TM, sc, rootAng: sway + rotL };
+  return { root, TM, sc, rootAng: sway + rotL + hang };
 }
 const headLocal = (h) => (p) => ap(rotAbout(h.tilt || 0, R0.neck[0], R0.neck[1], h.hx || 0, h.hy || 0), p);
-function tools(o) {
-  const { TM } = makeTM(o.torso), iTM = inv(TM);
-  return { toRest: (p) => ap(iTM, p), toWorld: (p) => ap(TM, p) };
-}
+function tools(o) { const { TM } = makeTM(o.torso), iTM = inv(TM); return { toRest: (p) => ap(iTM, p), toWorld: (p) => ap(TM, p) }; }
 
-// two-bone IK; the elbow (or knee) goes to the side of the line where the pole point is
-function ik2(S, T, a, b, P) {
+// two-bone IK. The pole point says which side of the line the elbow (or knee) belongs on; "side" is a smoothed
+// -1..1 version of that, so when the elbow has to change sides it swings through the middle (pointing at us)
+// instead of flipping across in one frame.
+function poleSide(S, T, P) { const d = sub(T, S); return (P[0] - S[0]) * -d[1] + (P[1] - S[1]) * d[0] >= 0 ? 1 : -1; }
+function ik2(S, T, a, b, side) {
   const d = sub(T, S), dist = len(d) || 1e-6;
-  const dd = clamp(dist, Math.abs(a - b) + 2, a + b - 0.5);
+  const dd = clamp(dist, Math.max(Math.abs(a - b) + 2, 0.32 * (a + b)), a + b - 0.5);   // a folded limb never closes up completely
   const dir = [d[0] / dist, d[1] / dist], W = add(S, scl(dir, dd));
   const cosA = clamp((a * a + dd * dd - b * b) / (2 * a * dd), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
   const perp = [-dir[1], dir[0]];
-  const side = (P[0] - S[0]) * perp[0] + (P[1] - S[1]) * perp[1] >= 0 ? 1 : -1;
   return { S, W, E: add(S, add(scl(dir, a * cosA), scl(perp, a * sinA * side))) };
 }
 
-// ---------- clips: each part is a set of looping animations ----------
-// arm clips return the wrist target (rest space), a pole (where the elbow points, relative to the shoulder) and a paw turn
-const hangW = (T, s, S) => add(S, [s * (58 + 4 * Math.sin(T * 1.1 + s)), 246]);
-const ARM_CLIPS = {
-  hang:    { label: "垂手", f: (T, s, S) => ({ w: hangW(T, s, S), pole: POLE_OUT(s), pr: -s * 4 }) },
-  swing:   { label: "擺手", f: (T, s, S) => { const k = 0.5 + 0.5 * Math.sin(T * 2 * Math.PI / 1.1 + (s > 0 ? 0 : Math.PI)); return { w: add(S, [s * (66 - 30 * k), 244 - 34 * k]), pole: POLE_OUT(s), pr: -s * 10 * k }; } },
-  wave:    { label: "揮手", f: (T, s, S) => ({ w: add(S, [s * (118 + 20 * Math.sin(T * 8)), -148 + 8 * Math.cos(T * 8)]), pole: [s * 240, 160], pr: s * 16 * Math.sin(T * 8) }) },
-  raise:   { label: "舉手", f: (T, s, S) => ({ w: add(S, [s * 40, -252 + 10 * Math.sin(T * 3)]), pole: [s * 240, 0] }) },
-  stretch: { label: "伸懶腰", f: (T, s, S) => { const k = win(T % 4, 0.3, 1.1, 2.6, 3.4); return { w: lerp2(hangW(T, s, S), add(S, [s * 74, -238]), k), pole: POLE_OUT(s), pr: s * 10 * k }; } },
-  glasses: { label: "推眼鏡", f: (T, s, S, ctx) => glassesArm(T % 3.4, s, S, ctx) },
-  scratch: { label: "搲頭", f: (T, s, S, ctx) => { const k = win(T % 3.4, 0.2, 0.8, 2.4, 3.0); const at = add(ctx.head([466 + s * 130, 300]), [s * 30, 44]); return { w: add(lerp2(hangW(T, s, S), at, k), [s * 6 * Math.sin(T * 16) * k, 5 * Math.cos(T * 16) * k]), pole: lerp2(POLE_OUT(s), [s * 260, -120], k), pr: -s * 10 * k }; } },
-  mouth:   { label: "放埋口", f: (T, s, S, ctx) => { const k = win(T % 2.6, 0.2, 0.9, 1.5, 2.2); const m = add(ctx.head(HEADPT.mouth), [s * 34, 58]); const f = toFace(k); return { w: lerp2(hangW(T, s, S), m, k), pole: f.pole(s), fa: f.fa, pr: -s * 12 * k }; } },
-  hip:     { label: "叉腰", f: (T, s) => ({ w: [s > 0 ? 642 : 346, 798 + 3 * Math.sin(T * 2)], pole: [s * 300, -40], pr: s * 70 }) },
-  pat:     { label: "拍肚", f: (T, s) => ({ w: [467 + s * 50, 712 + 14 * Math.max(0, Math.sin(T * 7 + (s > 0 ? 0 : 1.5)))], pole: POLE_OUT(s), fa: 0.8, pr: -s * 50 }) },
-  type:    { label: "打字", f: (T, s) => ({ w: [467 + s * 72, 806 - 9 * Math.max(0, Math.sin(T * 13 + (s > 0 ? 0 : 1.7)))], pole: POLE_OUT(s), pr: -s * 35 }) },
-  dangle:  { label: "吊吊下", f: (T, s, S) => ({ w: add(S, rot([s * 30, 264], 5 * Math.sin(T * 1.2 + s))), pole: POLE_OUT(s) }) },
-  idleR:   { f: (T, s, S, ctx) => (T % 12 > 7 && T % 12 < 10.6 ? glassesArm((T % 12) - 7, s, S, ctx) : ARM_CLIPS.hang.f(T, s, S)) },
-};
-function glassesArm(u, s, S, ctx) {
-  const at = add(ctx.head(HEADPT.glasses), [s * 26, 50]);
-  const reach = win(u, 0.1, 0.8, 2.1, 2.9);
-  const push = win(u, 0.9, 1.1, 1.5, 1.8);
-  ctx.glassesPush = Math.min(ctx.glassesPush, -9 * push);
-  const f = toFace(reach);
-  return { w: add(lerp2(hangW(u, s, S), at, reach), [0, -9 * push]), pole: f.pole(s), fa: f.fa, pr: -s * 10 * reach };
+// ---------- base poses ----------
+const breath = (T, amp = 0.007, per = 3.4) => amp * Math.sin(T * 2 * Math.PI / per);
+const hangW = (side, s) => add(R0.shoulder[side], [s * 58, 246]);
+function standPose(T) {
+  const o = { torso: { br: breath(T) }, head: {}, props: {}, add: {} };
+  for (const [part, side, s] of ARMS) o[part] = { w: hangW(side, s), pole: POLE_OUT(s), fa: 1, pr: -s * 4 };
+  for (const [part, side, s] of LEGS) o[part] = { d: [0, 0], a: 0, kp: [s * 200, 20] };
+  return o;
 }
-
-const LEG_CLIPS = {
-  stand: { label: "企定", f: () => ({ d: [0, 0], a: 0 }) },
-  march: { label: "踏步", f: (T, s) => { const k = Math.max(0, Math.sin(T * 2 * Math.PI / 1.1 + (s < 0 ? 0 : Math.PI))); return { d: [0, -46 * k], a: -s * 4 * k }; } },
-  tap:   { label: "拍腳", f: (T, s) => { const k = Math.max(0, Math.sin(T * 9)) * win(T % 3, 0.2, 0.4, 1.8, 2.1); return { d: [0, -8 * k], a: -s * 12 * k }; } },
-  kick:  { label: "踢腳", f: (T, s) => { const k = win(T % 1.8, 0.2, 0.55, 0.85, 1.3); return { d: [s * 70 * k, -60 * k], a: s * 26 * k }; } },
-  step:  { label: "側踏", f: (T, s) => { const c = 0.5 - 0.5 * Math.cos(T * 2.6); return { d: [s * 40 * c, -26 * Math.max(0, Math.sin(T * 2.6))], a: 0 }; } },
-  shake: { label: "抖腳", f: (T) => ({ d: [0, -4 * Math.abs(Math.sin(T * 26))], a: 3 * Math.sin(T * 26) }) },
-};
-
-const TORSO_CLIPS = {
-  breathe: { label: "呼吸", f: (T) => ({ br: 0.012 * Math.sin(T * 2.2) }) },
-  sway:    { label: "左右擺", f: (T) => ({ br: 0.008 * Math.sin(T * 2.2), sway: 2.2 * Math.sin(T * 0.9), shift: 5 * Math.sin(T * 0.9) }) },
-  bounce:  { label: "彈下彈下", f: (T) => ({ bob: 12 * Math.abs(Math.sin(T * 5)), br: 0.006 * Math.sin(T * 2) }) },
-  wiggle:  { label: "扭腰", f: (T) => ({ lean: 6 * Math.sin(T * 7), shift: 6 * Math.sin(T * 7) }) },
-  bend:    { label: "側彎", f: (T) => ({ lean: 10 * Math.sin(T * 1.3), br: 0.006 * Math.sin(T * 2) }) },
-  jump:    { label: "跳", f: (T) => { const u = T % 1.3; const air = u > 0.3 && u < 0.85 ? Math.sin(Math.PI * (u - 0.3) / 0.55) : 0; return { bob: 20 * win(u, 0, 0.18, 0.24, 0.3) + 16 * win(u, 0.85, 0.92, 1.0, 1.2), jump: 72 * air }; } },
-  slouch:  { label: "垂低", f: (T) => ({ bob: 8, lean: 3, br: 0.018 * Math.sin(T * 1.5), sway: 1.2 * Math.sin(T * 0.5) }) },
-  marchBob:{ f: (T) => ({ bob: 6 * Math.abs(Math.sin(T * Math.PI / 1.1)), br: 0.006 * Math.sin(T * 2), shift: 4 * Math.sin(T * Math.PI / 1.1) }) },
-  hop:     { f: (T) => ({ jump: 26 * Math.abs(Math.sin(T * 7)), lean: 4 * Math.sin(T * 8) }) },
-};
-
-const HEAD_CLIPS = {
-  still: { label: "定", f: () => ({}) },
-  look:  { label: "望左望右", f: (T) => { const g = clamp(2 * Math.sin(T * 0.7), -1, 1); return { tilt: 2.5 * Math.sin(T * 0.7), look: 4 * g }; } },
-  tilt:  { label: "歪頭", f: (T) => ({ tilt: 8 * Math.sin(T * 1.1), hy: -2 }) },
-  nod:   { label: "點頭", f: (T) => ({ hy: 7 * Math.max(0, Math.sin(T * Math.PI / 0.55)), tilt: 1 }) },
-  doze:  { label: "釣魚", f: (T) => { const n = win(T % 6, 2, 3.6, 3.7, 3.95); return { tilt: 6 + 2 * n, hx: 4 + 3 * n, hy: 10 + 12 * n, closed: 1, sleeping: 1 }; } },
-  yawn:  { label: "打喊露", f: (T) => { const k = win(T % 4, 0.3, 1.0, 2.4, 3.0); return { hy: -6 * k, tilt: -3 * k, mouth: k, closed: k > 0.4 ? 1 : 0 }; } },
-  down:  { label: "望低", f: () => ({ hy: 8, tilt: -2, lookY: 4 }) },
-  happy: { f: (T) => ({ tilt: 6 + 2 * Math.sin(T * 8), hy: -2 }) },
-};
-
-// ---------- scenes: sitting down, then a little story ----------
 // sitting cross-legged like the original drawing: knees out to the sides, shins crossed in front
 const SEAT = {
   bob: 188,
-  knee: { L: [302, 1046], R: [686, 1040] },    // world
-  ankle: { L: [546, 1070], R: [434, 1062] },   // world
+  knee: { L: [302, 1046], R: [686, 1040] },
+  ankle: { L: [546, 1070], R: [434, 1062] },
   paw: { L: [314, 792], R: [672, 786] },       // rest space: paws resting on the knees
 };
-const knee = (side, T, ph = 0) => add(SEAT.paw[side], [0, 3 * Math.sin(T * 1.6 + ph)]);
-function seatBase(at, T) {
-  const k = clamp(at / 1.4, 0, 1), e = ease(k);
-  const o = {
-    torso: { bob: SEAT.bob * e, br: 0.01 * Math.sin(T * 2), sway: 0.6 * Math.sin(T * 0.7) * e },
-    head: { tilt: 2 * Math.sin(T * 0.6) * e },
-  };
-  for (const [part, side, s] of LEGS) {
-    o[part] = { d: lerp2([0, 0], sub(SEAT.ankle[side], R0.foot[side]), e), a: -s * 22 * e, front: e > 0.5 ? 1 : 0, sole: ease((k - 0.55) / 0.45), knee: SEAT.knee[side], kneeW: ease((k - 0.1) / 0.8) };
-  }
-  for (const [part, side, s] of ARMS) {
-    const S = R0.shoulder[side], bal = add(S, [s * 120, 150]);
-    o[part] = { w: k < 0.5 ? lerp2(hangW(T, s, S), bal, ease(k / 0.5)) : lerp2(bal, knee(side, T, s), ease((k - 0.5) / 0.5)), pole: POLE_OUT(s), pr: -s * 10 * e };
-  }
+const seatLeg = (side, s) => ({ d: sub(SEAT.ankle[side], R0.foot[side]), a: -s * 22, front: 1, sole: 1, knee: SEAT.knee[side], kneeW: 1, kp: [s * 200, 20] });
+function seatPose(T) {
+  const o = { torso: { bob: SEAT.bob, br: breath(T, 0.008) }, head: {}, props: {}, add: {} };
+  for (const [part, side, s] of LEGS) o[part] = seatLeg(side, s);
+  for (const [part, side, s] of ARMS) o[part] = { w: add(SEAT.paw[side], [0, 2 * Math.sin(T * 1.8 + s)]), pole: POLE_OUT(s), fa: 1, pr: -s * 10 };
   return o;
 }
-
-// 坐低: sits, looks around, stretches with a yawn, wiggles his toes, scratches his head
-function seqSit(at, T) {
-  const o = seatBase(at, T);
-  if (at < 1.4) return o;
-  const u = (at - 1.4) % 14, h = o.head;
-  const sk = win(u, 4.8, 5.8, 7.4, 8.4);
-  const scr = win(u, 11, 11.6, 13, 13.6);
-  h.tilt += 7 * win(u, 1.5, 2.0, 3.2, 3.7) - 5 * scr;
-  h.look = 4 * clamp(2 * Math.sin((at - 1.4) * 0.8), -1, 1) * (1 - win(u, 4.6, 5, 8, 8.4));
-  h.hy = -6 * sk; h.mouth = win(u, 5.4, 5.9, 7.0, 7.5); h.closed = h.mouth > 0.4 ? 1 : 0;
-  o.torso.br += 0.02 * sk;
-  o.torso.lean = 3 * Math.sin((at - 1.4) * 0.9) * (1 - sk);
-  for (const [part, side, s] of ARMS) o[part].w = lerp2(o[part].w, add(R0.shoulder[side], [s * 74, -236]), sk);
-  const wig = win(u, 9, 9.2, 10.4, 10.6);
-  o.legL.a += 16 * Math.sin(u * 11) * wig; o.legR.a -= 16 * Math.sin(u * 11 + 1) * wig;
-  const tgt = add(headLocal(h)([596, 300]), [30, 46]);
-  o.armL.w = add(lerp2(o.armL.w, tgt, scr), [6 * Math.sin(T * 16) * scr, 5 * Math.cos(T * 16) * scr]);
-  o.armL.pole = lerp2(o.armL.pole, [260, -120], scr);
-  return o;
-}
-
-// 瞓覺: sits, yawns and stretches, a pillow appears, lies down on his side, sleeps
+// lying on his side, head on the pillow: the body is the standing pose turned and scaled
+const LIE = { rot: -80, sc: 0.8, px: 230, py: -56 };
 const PILLOW = [238, 1066];
-const LIE = { rot: -80, sc: 0.8, px: 230, py: -56 };   // feet on the floor, head resting on the pillow
-function seqSleep(at, T) {
-  const o = seatBase(at, T);
-  const P = { pillow: 0 };
-  o.props = P;
-  if (at < 1.4) return o;
-  const h = o.head;
-  const yawn = win(at, 1.6, 2.4, 3.2, 3.8);
-  for (const [part, side, s] of ARMS) o[part].w = lerp2(o[part].w, add(R0.shoulder[side], [s * 74, -236]), yawn);
-  h.hy = -6 * yawn; h.mouth = win(at, 1.9, 2.3, 3.0, 3.5); h.closed = at > 1.9 ? 1 : 0;
-  P.pillow = ease((at - 3.3) / 0.35);
-  // lies down: straightens out and turns onto his side, head on the pillow
-  const lie = ease((at - 3.8) / 1.6);
-  Object.assign(o.torso, { bob: lerp(o.torso.bob, 0, lie), rot: LIE.rot * lie, sc: lerp(1, LIE.sc, lie), px: LIE.px * lie, py: LIE.py * lie, sway: o.torso.sway * (1 - lie) });
-  for (const [part, side] of LEGS) {
-    const L = o[part];
-    L.d = lerp2(L.d, side === "R" ? [-30, -40] : [-6, 0], lie);   // the top leg drawn up a little
-    L.kneeW *= 1 - lie; L.sole *= 1 - lie; L.a = lerp(L.a, side === "R" ? -10 : 0, lie);
-    if (lie > 0.5) L.front = 0;
-  }
-  const hl = headLocal(h);
-  o.armR.w = lerp2(o.armR.w, hl([372, 484]), lie); o.armR.pole = lerp2(o.armR.pole, [220, 20], lie); o.armR.fa = lerp(1, 0.6, lie);   // bottom paw tucked under his chin
-  o.armL.w = lerp2(o.armL.w, [552, 770], lie);                                                            // top paw on his tummy
-  h.tilt = lerp(h.tilt, 3, lie);
-  if (at > 5.4) {
-    const v = (at - 5.4) % 9;
-    o.torso.br = 0.024 * Math.sin(T * 1.4);
-    o.legL.d = add(o.legL.d, scl([24, -18], win(v, 6, 6.2, 6.6, 7.0)));       // a dream kick
-    o.armL.w = add(o.armL.w, [0, 10 * Math.max(0, Math.sin(T * 9)) * win(v, 2, 2.3, 3.6, 3.9)]);   // scratches his tummy in his sleep
-    h.sleeping = 1;
-  }
+function liePose(T) {
+  const o = standPose(T);
+  Object.assign(o.torso, { rot: LIE.rot, sc: LIE.sc, px: LIE.px, py: LIE.py, br: breath(T, 0.022, 4.2) });
+  o.legL.d = [-30, -40]; o.legL.a = -10; o.legR.d = [-6, 0];   // the top leg drawn up a little
+  const hl = headLocal({ tilt: 3 });
+  o.armR = { w: hl([402, 492]), pole: [220, 20], fa: 0.6, pr: 0 };       // bottom paw tucked under his chin
+  o.armL = { w: [552, 770], pole: POLE_OUT(1), fa: 1, pr: -10 };        // top paw on his tummy
+  o.head = { tilt: 3, closed: 1 };
   return o;
 }
 
-// 攞杯麵出嚟食: a cup noodle and chopsticks wait on the floor. He picks up the cup, peels the lid,
-// waits for it, fetches the chopsticks, eats three mouthfuls, drinks the soup, puts it down, pats his belly.
-const CUP_FLOOR = [196, 986];        // world, top centre of the cup on the floor
-const STICKS_FLOOR = [722, 1080];    // world, middle of the chopsticks on the floor
-const CUP_IN_PAW = { L: [40, -42], R: [-40, -42] };   // cup rim centre from the middle of the holding paw
-function seqNoodles(at, T, ctx) {
-  const o = seatBase(at, T);
-  const P = { cup: { show: 1, hold: 0, side: "L", floorAt: CUP_FLOOR, lid: "on", steam: 0, tilt: 0 }, sticks: { show: 1, mode: "floor", floorAt: STICKS_FLOOR }, hearts: 0 };
+// ---------- small actions ("beats") played inside the idle states, with stillness in between ----------
+function glassesArm(u, s, S, ctx) {
+  const at = add(ctx.head(HEADPT.glasses), [s * 26, 50]);
+  const reach = u > 0.12 && u < 2.0 ? 1 : 0;           // step targets: the springs do the in-betweens
+  const push = u > 0.95 && u < 1.35 ? 1 : 0;
+  ctx.glassesPush = Math.min(ctx.glassesPush, -9 * push);
+  const f = toFace(reach);
+  return { w: reach ? add(at, [0, -9 * push]) : hangW(s > 0 ? "R" : "L", s), pole: f.pole(s), fa: f.fa, pr: -s * 10 * reach };
+}
+function scratchArm(o, t, T, ctx, part, side, s, from) {
+  const on = t > 0.15 && t < 2.5;
+  if (on) {
+    const at = add(ctx.head([466 + s * 132, 298]), [s * 28, 46]);
+    const rub = t > 0.6 ? [7 * Math.sin(T * 17), 5 * Math.cos(T * 17)] : [0, 0];
+    Object.assign(o[part], { w: at, pole: [s * 260, -120], fa: 1, pr: -s * 10 });
+    o.add[part] = { w: rub };
+  }
+  o.head.tilt = (o.head.tilt || 0) - s * 5 * (on ? 1 : 0);
+  o.head.closed = on && t > 0.7 ? 1 : o.head.closed;
+  return t > 3.2;
+}
+function stretchArms(o, t, T) {
+  const up = t > 0.2 && t < 2.3;
+  for (const [part, side, s] of ARMS) if (up) Object.assign(o[part], { w: add(R0.shoulder[side], [s * 78, -236]), pole: POLE_OUT(s), fa: 1, pr: s * 10 });
+  o.head.mouth = win(t, 0.5, 0.9, 1.8, 2.2); o.head.closed = o.head.mouth > 0.35 ? 1 : 0; o.head.hy = up ? -6 : 0;
+  o.add.torso = Object.assign(o.add.torso || {}, { br: 0.02 * win(t, 0.3, 0.9, 1.8, 2.3) });
+  return t > 3.2;
+}
+function rubEyes(o, t, T, ctx) {
+  const on = t > 0.2 && t < 2.0;
+  if (on) for (const [part, side, s] of ARMS) {
+    const eye = ctx.head(s > 0 ? HEADPT.eyeR : HEADPT.eyeL), f = toFace(1);
+    Object.assign(o[part], { w: add(eye, [-s * 8, 56]), pole: f.pole(s), fa: f.fa, pr: -s * 8 });
+    o.add[part] = { w: t > 0.6 ? [6 * Math.sin(T * 14 + s), 4 * Math.cos(T * 14 + s)] : [0, 0] };
+  }
+  o.head.closed = on ? 1 : 0;
+  return t > 2.6;
+}
+const STAND_BEATS = [
+  [3, function look(o, t) { const L = t < 0.3 ? 0 : t < 1.8 ? -4 : t < 3.4 ? 4 : 0; o.head.look = L; o.head.tilt = 0.6 * L; o.torso.lean = -0.3 * L; return t > 3.9; }],
+  [3, function shift(o, t, T, b) {
+    const on = t > 0.2 && t < 4.4, sd = b.side;
+    if (on) {
+      o.torso.shift = sd * 11; o.torso.sway = sd * 1.4;
+      const free = sd > 0 ? o.legR : o.legL, fs = sd > 0 ? -1 : 1;   // the other leg relaxes, knee in
+      free.d = [-fs * 8, -6]; free.kp = [-fs * 200, 40];
+      o.head.tilt = -sd * 1.5;
+    }
+    return t > 5;
+  }],
+  [2, function glasses(o, t, T, b, ctx) { Object.assign(o.armR, glassesArm(t, -1, R0.shoulder.L, ctx)); return t > 3.1; }],
+  [2, function scratch(o, t, T, b, ctx) { return scratchArm(o, t, T, ctx, "armL", "R", 1); }],
+  [1.5, function stretch(o, t, T) { return stretchArms(o, t, T); }],
+  [1.5, function tap(o, t) { const on = t > 0.2 && t < 1.9, k = on ? Math.max(0, Math.sin((t - 0.2) * 9.5)) : 0; o.add.legR = { a: 14 * k, d: [0, -5 * k] }; o.head.lookY = on ? 2 : 0; return t > 2.3; }],
+  [1, function hop(o, t) {
+    if (t < 0.22) { o.torso.bob = 14; for (const [part, side, s] of ARMS) o[part].w = add(hangW(side, s), [s * 6, -6]); }
+    else if (t < 0.62) { o.add.torso = { jump: 48 * Math.sin(Math.PI * (t - 0.22) / 0.4) }; for (const [part, side, s] of ARMS) o[part].w = add(R0.shoulder[side], [s * 120, 120]); }
+    else if (t < 0.7) { o.torso.sqY = 0.86; o.torso.bob = 10; }
+    return t > 1.3;
+  }],
+];
+const SEAT_BEATS = [
+  [3, STAND_BEATS[0][1]],
+  [2, function toes(o, t) { const on = t > 0.2 && t < 1.7; o.add.legL = { a: on ? 14 * Math.sin(t * 11) : 0 }; o.add.legR = { a: on ? -14 * Math.sin(t * 11 + 1) : 0 }; o.head.lookY = on ? 3 : 0; return t > 2.1; }],
+  [2, function rock(o, t) { const on = t < 3.0; o.add.torso = { sway: on ? 2.2 * Math.sin(t * Math.PI * 2 / 1.5) : 0 }; o.head.tilt = on ? -1.2 * Math.sin(t * Math.PI * 2 / 1.5) : 0; return t > 3.2; }],
+  [1.5, function scratch(o, t, T, b, ctx) { return scratchArm(o, t, T, ctx, "armL", "R", 1); }],
+  [1, function stretch(o, t, T) { return stretchArms(o, t, T); }],
+  [1, function rub(o, t, T, b, ctx) { return rubEyes(o, t, T, ctx); }],
+];
+
+// ---------- scenes ----------
+// 攞杯麵出嚟食: a cup noodle and chopsticks appear on the floor. He picks up the cup, peels the lid, waits,
+// fetches the chopsticks, eats three mouthfuls, drinks the soup, puts it down, pats his belly.
+const CUP_FLOOR = [196, 986];        // local, top centre of the cup on the floor
+const STICKS_FLOOR = [722, 1080];    // local, middle of the chopsticks on the floor
+const CUP_IN_PAW = { L: [40, -42], R: [-40, -42] };
+const NOODLE_LOOP = 23.6;
+function noodleScene(u, T, ctx, pop) {
+  const o = seatPose(T);
+  const P = { cup: { show: pop, hold: 0, side: "L", floorAt: CUP_FLOOR, lid: "on", steam: 0, tilt: 0 }, sticks: { show: pop, mode: "floor", floorAt: STICKS_FLOOR }, hearts: 0 };
   o.props = P;
-  if (at < 1.5) return o;
-  const LOOP = 23.6, u = 1.5 + ((at - 1.5) % LOOP), h = o.head;
+  const h = o.head;
   const eating = u >= 8.6 && u < 19.4;
   const v = eating ? (u - 8.6) % 3.6 : 0, k = eating ? win(v, 0.6, 1.2, 2.5, 3.1) : 0;
-  // the body: leans out to reach the floor, in toward the cup while eating
   o.torso.lean = kf(u, [[1.6, 0], [2.3, -17], [2.6, -17], [3.3, 0], [7.0, 0], [7.6, 15], [7.9, 15], [8.5, 0], [20.9, 0], [21.5, -17], [21.8, -17], [22.4, 0]]) - 3 * k;
-  // the head: peeks into the cup, follows the food, tips back to drink
   const drinkK = win(u, 19.9, 20.4, 20.9, 21.2);
   h.lookY = 4 * win(u, 3.6, 4.0, 6.8, 7.2) + 3 * (1 - k) * (eating ? 1 : 0);
-  if (eating) { const chewing = v > 1.4 && v < 3.2 ? 1 : 0; h.hy = 6 + 4 * k + 3 * chewing * Math.abs(Math.sin(T * 12)); h.tilt = -3 + 2 * k; }
-  h.hy = (h.hy || 0) - 8 * drinkK; h.tilt -= 6 * drinkK;
+  if (eating) { const chewing = v > 1.4 && v < 3.2 ? 1 : 0; h.hy = 6 + 4 * k; h.tilt = -3 + 2 * k; o.add.head = { hy: 3 * chewing * Math.abs(Math.sin(T * 12)) }; }
+  h.hy = (h.hy || 0) - 8 * drinkK; h.tilt = (h.tilt || 0) - 6 * drinkK;
   const { toRest, toWorld } = tools(o);
   const mouthW = toWorld(headLocal(h)(HEADPT.mouth));
-  const KL = knee("L", T), KR = knee("R", T, 1);
+  const KL = SEAT.paw.L, KR = SEAT.paw.R;
   // his right paw (viewer's left) holds the cup
-  const hold = add([400, 772], [0, 3 * Math.sin(T * 2)]);
-  const grabCup = toRest(add(CUP_FLOOR, [-50, 30]));
-  const drink = toRest(add(mouthW, [-86, 44]));
-  o.armR.w = kf(u, [[1.6, KL], [2.45, grabCup], [2.6, grabCup], [3.4, hold], [19.9, hold], [20.4, drink], [20.9, drink], [21.2, hold], [21.6, grabCup], [21.85, grabCup], [22.6, KL]]);
-  o.armR.pole = toFace(drinkK).pole(-1); o.armR.fa = toFace(drinkK).fa;
-  o.armR.pr = 6;
+  const hold = [400, 772], grabCup = toRest(add(CUP_FLOOR, [-50, 30])), drink = toRest(add(mouthW, [-44, 58]));
+  o.armR.w = kfArm(u, [[1.6, KL], [2.45, grabCup], [2.6, grabCup], [3.4, hold], [19.9, hold], [20.4, drink], [20.9, drink], [21.2, hold], [21.6, grabCup], [21.85, grabCup], [22.6, KL]], "L", -1);
+  o.armR.pole = toFace(drinkK).pole(-1); o.armR.fa = toFace(drinkK).fa; o.armR.pr = 6;
   P.cup.hold = u < 2.6 ? ease((u - 2.45) / 0.15) : u < 21.7 ? 1 : 1 - ease((u - 21.7) / 0.15);
   P.cup.tilt = 34 * drinkK;
-  // the cup rim, roughly, for the other paw to aim at (the real one follows the paw that holds it)
   const cupW = add(toWorld(hold), [40, -28]);
   // his left paw (viewer's right): lid, waiting, chopsticks, eating
   const lidEdge = toRest(add(cupW, [56, 4])), peel = [652, 642];
-  let wL = kf(u, [[3.6, KR], [4.2, lidEdge], [4.4, lidEdge], [5.0, peel], [5.5, KR]]);
+  let wL = kfArm(u, [[3.6, KR], [4.2, lidEdge], [4.4, lidEdge], [5.0, peel], [5.5, KR]], "R", 1);
   P.cup.lid = u < 4.4 ? "on" : u < 5.9 ? "fly" : "off";
   if (u >= 4.4 && u < 5.9) {
     const pawAt = (p) => add(toWorld(p), [-38, 10]);
@@ -498,172 +548,446 @@ function seqNoodles(at, T, ctx) {
     else { const q = (u - 5.0) / 0.9; P.cup.lidAt = add(pawAt(peel), [230 * q, -110 * q + 420 * q * q]); P.cup.lidSpin = -25 + 420 * q; P.cup.lidFade = 1 - ease((q - 0.45) / 0.55); }
   }
   P.cup.steam = ease((u - 4.9) / 0.6) * (1 - ease((u - 19.4) / 0.5));
-  const wait = win(u, 5.5, 5.7, 6.8, 7.0);
-  wL = add(wL, [0, -12 * Math.abs(Math.sin(T * 12)) * wait]);   // drums on his knee
-  o.legL.a += 12 * Math.sin(T * 10) * wait;
+  const wait = u > 5.6 && u < 6.9;
+  if (wait) o.add.armL = { w: [0, -12 * Math.abs(Math.sin(T * 12))] };   // drums on his knee
   const grabSticks = toRest(add(STICKS_FLOOR, [-6, -26])), ready = [568, 700];
-  if (u >= 7.0 && u < 8.6) wL = kf(u, [[7.0, KR], [7.75, grabSticks], [7.9, grabSticks], [8.6, ready]]);
+  if (u >= 7.0 && u < 8.6) wL = kfArm(u, [[7.0, KR], [7.75, grabSticks], [7.9, grabSticks], [8.6, ready]], "R", 1);
   P.sticks.mode = u < 7.85 ? "floor" : u < 19.7 ? "paw" : "cup";
   o.armL.pole = POLE_OUT(1);
   if (eating) {
     const tip = lerp2(add(cupW, [4, 8]), add(mouthW, [2, 6]), k);
     ctx.chop = { aim: tip, u: v, k };
     wL = toRest(add(tip, [66 - 6 * k, 78 - 12 * k]));
-    o.armL.pole = toFace(0.4 + 0.6 * k).pole(1); o.armL.fa = toFace(0.4 + 0.6 * k).fa;
-    o.legL.a += 8 * Math.sin(T * 7) * k; o.legR.a -= 8 * Math.sin(T * 7 + 1) * k;
+    const f = toFace(0.4 + 0.6 * k); o.armL.pole = f.pole(1); o.armL.fa = f.fa;
+    o.add.legL = { a: 8 * Math.sin(T * 7) * k }; o.add.legR = { a: -8 * Math.sin(T * 7 + 1) * k };
   }
-  // done: chopsticks into the cup, the other paw steadies the cup while he drinks
   if (u >= 19.4 && u < 21.6) {
     const into = toRest(add(cupW, [70, -56])), steady = toRest(add(toWorld(drink), [96, 6]));
-    wL = kf(u, [[19.4, toRest(add(cupW, [96, 40]))], [19.7, into], [19.9, into], [20.3, steady], [20.9, steady], [21.3, KR]]);
-    o.armL.pole = toFace(drinkK).pole(1); o.armL.fa = toFace(drinkK).fa;
+    wL = kfArm(u, [[19.4, toRest(add(cupW, [96, 40]))], [19.7, into], [19.9, into], [20.3, steady], [20.9, steady], [21.3, KR]], "R", 1);
+    const f = toFace(drinkK); o.armL.pole = f.pole(1); o.armL.fa = f.fa;
   }
   o.armL.w = wL;
-  // full: pats his belly with both paws, the belly bear goes heart-eyed
   const pat = win(u, 22.5, 22.8, 23.7, 24.0);
   if (pat > 0) {
-    o.armL.w = lerp2(o.armL.w, [520, 714 + 14 * Math.max(0, Math.sin(T * 7))], pat);
-    o.armR.w = lerp2(o.armR.w, [414, 714 + 14 * Math.max(0, Math.sin(T * 7 + 1.5))], pat);
-    o.armL.pr = -40 * pat; o.armR.pr = 40 * pat;
-    h.tilt += 6 * pat;
+    o.armL.w = lerp2(o.armL.w, [520, 714], pat); o.armR.w = lerp2(o.armR.w, [414, 714], pat);
+    o.add.armL = { w: [0, 14 * Math.max(0, Math.sin(T * 7)) * pat] }; o.add.armR = { w: [0, 14 * Math.max(0, Math.sin(T * 7 + 1.5)) * pat] };
+    o.armL.pr = -40 * pat; o.armR.pr = 40 * pat; h.tilt = (h.tilt || 0) + 6 * pat;
   }
   P.hearts = win(u, 22.7, 22.9, 23.8, 24.1);
-  // a fresh cup for the next round
-  if (u > 23.9) {
-    const out = ease((u - 23.9) / 0.3), back = ease((u - 24.3) / 0.4);
-    P.cup.show = u < 24.3 ? 1 - out : back;
-    P.sticks.show = P.cup.show;
-    if (u >= 24.3) { P.cup.lid = "on"; P.sticks.mode = "floor"; P.cup.steam = 0; }
-  }
+  if (u > 23.9) { P.cup.show = pop * (1 - ease((u - 23.9) / 0.3)); P.sticks.show = P.cup.show; }
   return o;
 }
 
-// 攞電腦出嚟做嘢: a laptop waits on the floor. He picks it up, puts it on his lap, opens it, types,
-// thinks with his chin on his paw, pushes his glasses, stretches, types more, closes it and puts it back.
-const LAP_FLOOR = [752, 1076];   // world, middle of the closed laptop on the floor
-const LAP_REST = [467, 826];     // rest space, on his lap
-const LAP_IN_PAW = [124, 18];    // laptop middle from the paw holding its left end
-function seqLaptop(at, T, ctx) {
-  const o = seatBase(at, T);
-  const P = { lap: { show: 1, wf: 1, wp: 0, wl: 0, floorAt: LAP_FLOOR, open: 0 } };
+// 攞電腦出嚟做嘢: a laptop appears on the floor. He picks it up, puts it on his lap, opens it, types, thinks,
+// pushes his glasses, stretches, types more, closes it and puts it back.
+const LAP_FLOOR = [752, 1076];
+const LAP_REST = [467, 826];
+const LAP_IN_PAW = [124, 18];
+const LAPTOP_LOOP = 21.8;
+function laptopScene(u, T, ctx, pop) {
+  const o = seatPose(T);
+  const P = { lap: { show: pop, wf: 1, wp: 0, wl: 0, floorAt: LAP_FLOOR, open: 0 } };
   o.props = P;
-  if (at < 1.5) return o;
-  const LOOP = 21.8, u = 1.5 + ((at - 1.5) % LOOP), h = o.head;
+  const h = o.head;
   o.torso.lean = kf(u, [[1.6, 0], [2.3, 16], [2.6, 16], [3.3, 0], [20.2, 0], [20.8, 16], [21.1, 16], [21.7, 0]]);
   const open = kf(u, [[3.6, 0], [4.4, 1], [19.4, 1], [20.0, 0]]);
   P.lap.open = open;
-  const think = win(u, 9, 9.5, 10.2, 10.6), sk = win(u, 13.9, 14.6, 15.2, 15.8), fast = u > 10.6 && u < 12.4;
+  const think = u > 9.0 && u < 10.5 ? 1 : 0, sk = win(u, 13.9, 14.3, 15.3, 15.7), fast = u > 10.6 && u < 12.4;
   h.lookY = 4 * open * (1 - think); h.hy = 8 * open - 10 * sk; h.tilt = -2 * open + 7 * think; h.look = -4 * think;
   h.mouth = win(u, 14.2, 14.6, 15.0, 15.5); h.closed = h.mouth > 0.4 ? 1 : 0;
   const { toRest, toWorld } = tools(o);
   const lapW = toWorld(LAP_REST);
-  // where the laptop is: floor, hanging from his paw, on his lap
   const wp = u < 2.5 ? 0 : u < 2.65 ? ease((u - 2.5) / 0.15) : u < 2.9 ? 1 : u < 3.4 ? 1 - ease((u - 2.9) / 0.5) : u < 20.3 ? 0 : u < 20.6 ? ease((u - 20.3) / 0.3) : u < 21.05 ? 1 : 1 - ease((u - 21.05) / 0.15);
   const wl = u >= 2.9 && u < 20.6 ? (u < 3.4 ? ease((u - 2.9) / 0.5) : u < 20.3 ? 1 : 1 - ease((u - 20.3) / 0.3)) : 0;
   Object.assign(P.lap, { wp, wl, wf: Math.max(0, 1 - wp - wl) });
-  const typeW = (s, ph) => [467 + s * 74, 808 - 9 * Math.max(0, Math.sin(T * (fast ? 19 : 13) + ph))];
-  const typing = u > 4.7 && u < 19.2 && think < 0.05 && sk < 0.05 && !(u > 12.4 && u < 13.9);
-  const KL = knee("L", T), KR = knee("R", T, 1);
-  // his left paw (viewer's right): fetches it, lifts the lid, types, pushes his glasses, closes it, puts it back
+  const typeW = (s) => [467 + s * 74, 808];
+  const typing = u > 4.7 && u < 19.2 && !think && sk < 0.05 && !(u > 12.4 && u < 13.9);
+  const KL = SEAT.paw.L, KR = SEAT.paw.R;
   const grab = toRest(add(LAP_FLOOR, [-124, -32])), carry = [612, 742];
   const lidTop = toRest(add(lapW, [96, -150 * open]));
   let wL;
-  if (u < 3.6) wL = kf(u, [[1.6, KR], [2.45, grab], [2.6, grab], [2.9, carry], [3.4, typeW(1, 0)]]);
-  else if (u < 4.7) wL = kf(u, [[3.6, typeW(1, 0)], [3.75, lidTop], [4.4, lidTop], [4.7, typeW(1, 0)]]);
-  else if (u < 19.2) wL = typeW(1, 0);
-  else if (u < 20.3) wL = kf(u, [[19.2, typeW(1, 0)], [19.4, lidTop], [20.0, lidTop], [20.3, typeW(1, 0)]]);
-  else wL = kf(u, [[20.3, typeW(1, 0)], [20.6, carry], [21.0, grab], [21.15, grab], [21.8, KR]]);
+  if (u < 3.6) wL = kfArm(u, [[1.6, KR], [2.45, grab], [2.6, grab], [2.9, carry], [3.4, typeW(1)]], "R", 1);
+  else if (u < 4.7) wL = kf(u, [[3.6, typeW(1)], [3.75, lidTop], [4.4, lidTop], [4.7, typeW(1)]]);
+  else if (u < 19.2) wL = typeW(1);
+  else if (u < 20.3) wL = kf(u, [[19.2, typeW(1)], [19.4, lidTop], [20.0, lidTop], [20.3, typeW(1)]]);
+  else wL = kfArm(u, [[20.3, typeW(1)], [20.6, carry], [21.0, grab], [21.15, grab], [21.8, KR]], "R", 1);
   if (u > 3.65 && u < 4.45 || u > 19.35 && u < 20.05) wL = lidTop;
-  // his right paw (viewer's left): helps carry, types, holds his chin while thinking
-  let wR = u < 2.9 ? KL : u < 3.4 ? lerp2(KL, typeW(-1, 1.7), ease((u - 2.9) / 0.5)) : u < 20.3 ? typeW(-1, 1.7) : lerp2(typeW(-1, 1.7), KL, ease((u - 20.3) / 0.5));
-  const chin = add(headLocal(h)(HEADPT.mouth), [-24, 78]);
-  wR = lerp2(wR, chin, think);
-  o.armR.pole = toFace(think).pole(-1); o.armR.fa = toFace(think).fa;
+  let wR = u < 2.9 ? KL : u < 3.4 ? lerp2(KL, typeW(-1), ease((u - 2.9) / 0.5)) : u < 20.3 ? typeW(-1) : lerp2(typeW(-1), KL, ease((u - 20.3) / 0.5));
+  if (think) wR = add(headLocal(h)(HEADPT.mouth), [-24, 78]);
+  const ft = toFace(think); o.armR.pole = ft.pole(-1); o.armR.fa = ft.fa;
   o.armL.pole = POLE_OUT(1);
   if (u > 12.4 && u < 13.9) {
-    const g = glassesArm(u - 12.4 + 0.1, 1, R0.shoulder.R, Object.assign(ctx, { head: headLocal(h) }));
-    const gk = win(u, 12.4, 12.6, 13.6, 13.9);
-    wL = lerp2(wL, g.w, gk); o.armL.pole = lerp2(o.armL.pole, g.pole, gk); o.armL.fa = lerp(1, g.fa, gk);
+    const g = glassesArm(u - 12.4, 1, R0.shoulder.R, Object.assign(ctx, { head: headLocal(h) }));
+    wL = g.w; o.armL.pole = g.pole; o.armL.fa = g.fa;
   }
-  for (const [part, side, s] of ARMS) { const w = part === "armL" ? wL : wR; o[part].w = lerp2(w, add(R0.shoulder[side], [s * 74, -236]), sk); }
+  for (const [part, side, s] of ARMS) { const w = part === "armL" ? wL : wR; o[part].w = sk > 0.5 ? add(R0.shoulder[side], [s * 78, -236]) : w; }
   o.armL.pr = -30; o.armR.pr = 30;
-  o.legL.a += 10 * Math.sin(T * 14) * (fast ? 1 : 0);
+  if (typing) {   // the taps ride on top of the springs so they stay crisp
+    const f = fast ? 19 : 13;
+    o.add.armL = { w: [0, -9 * Math.max(0, Math.sin(T * f))] }; o.add.armR = { w: [0, -9 * Math.max(0, Math.sin(T * f + 1.7))] };
+  }
+  if (fast) o.add.legL = { a: 10 * Math.sin(T * 14) };
   P.lap.typing = typing; P.lap.fast = fast;
+  if (u > 21.3) P.lap.show = pop * (1 - ease((u - 21.3) / 0.4));
   return o;
 }
 
-const PARTS = [
-  { key: "head", name: "頭", clips: HEAD_CLIPS, list: ["still", "look", "tilt", "nod", "doze", "yawn", "down"] },
-  { key: "torso", name: "身軀", clips: TORSO_CLIPS, list: ["breathe", "sway", "bounce", "wiggle", "bend", "jump", "slouch"] },
-  { key: "armL", name: "左手", clips: ARM_CLIPS, list: ["hang", "swing", "wave", "raise", "stretch", "glasses", "scratch", "mouth", "hip", "pat", "type", "dangle"] },
-  { key: "armR", name: "右手", clips: ARM_CLIPS, list: ["hang", "swing", "wave", "raise", "stretch", "glasses", "scratch", "mouth", "hip", "pat", "type", "dangle"] },
-  { key: "legL", name: "左腳", clips: LEG_CLIPS, list: ["stand", "march", "tap", "kick", "step", "shake"] },
-  { key: "legR", name: "右腳", clips: LEG_CLIPS, list: ["stand", "march", "tap", "kick", "step", "shake"] },
-];
-const SIDE = { armL: { side: "R", s: 1 }, armR: { side: "L", s: -1 }, legL: { side: "R", s: 1 }, legR: { side: "L", s: -1 } };
-// a scene drives every part through one "seq" clip; the scene being left keeps playing through "seqOld" while it fades out
-for (const C of [ARM_CLIPS, LEG_CLIPS, TORSO_CLIPS, HEAD_CLIPS]) {
-  C.seq = { f: (...args) => { const ctx = args[args.length - 1]; return (ctx.seq && ctx.seq[ctx.part]) || {}; } };
-  C.seqOld = { f: (...args) => { const ctx = args[args.length - 1]; return (ctx.seqOld && ctx.seqOld[ctx.part]) || {}; } };
+// ---------- the pet: where he is on the stage, what he is doing, what comes next ----------
+const Pet = { posX: 0, posY: 0, dir: 1, sx: 1, posture: "stand", state: null, queue: [], auto: true, manual: "idle", ptr: null, hearts: 0, heartT: 9 };
+// dir 1 = as drawn (turned a little to the viewer's left); -1 = mirrored. sx follows dir through a quick turn.
+const place = () => mul(tr(Pet.posX, Pet.posY), [Pet.sx, 0, 0, 1, (1 - Pet.sx) * R0.pelvis[0], 0]);
+function posRange(margin = 0) {   // keep his whole body (and his props) on the stage
+  return [VB[0] - 270 + margin, VB[0] + VB[2] - 720 - margin];
+}
+const STATE_NAME = { idle: "企定", walk: "行緊路", wave: "揮手", sitDown: "坐低緊", seatIdle: "坐緊", standUp: "企返起身", noodles: "食杯麵", laptop: "做嘢", sleep: "瞓緊覺", wakeUp: "起身", held: "俾你拎住", fall: "跌緊落嚟", land: "着地" };
+
+function Idle(dur = Infinity) {
+  let t = 0, beat = null, wait = rand(1.0, 2.0);
+  return { name: "idle", update(dt, T, ctx) {
+    t += dt;
+    const o = standPose(T);
+    if (!beat && (wait -= dt) <= 0) beat = { def: weighted(STAND_BEATS.map((b) => [b[0], b[1]])), t: 0, side: Math.random() < 0.5 ? -1 : 1 };
+    if (beat) { beat.t += dt; if (beat.def(o, beat.t, T, beat, ctx)) { beat = null; wait = rand(2.0, 4.0); } }
+    if (t > dur && !beat) this.done = true;
+    return o;
+  } };
+}
+function SeatIdle(dur = Infinity) {
+  let t = 0, beat = null, wait = rand(1.0, 2.0);
+  return { name: "seatIdle", update(dt, T, ctx) {
+    t += dt;
+    const o = seatPose(T);
+    if (!beat && (wait -= dt) <= 0) beat = { def: weighted(SEAT_BEATS.map((b) => [b[0], b[1]])), t: 0, side: 1 };
+    if (beat) { beat.t += dt; if (beat.def(o, beat.t, T, beat, ctx)) { beat = null; wait = rand(2.0, 4.0); } }
+    if (t > dur && !beat) this.done = true;
+    return o;
+  } };
+}
+function Wave() {
+  let t = 0;
+  return { name: "wave", update(dt, T) {
+    t += dt;
+    const o = standPose(T), S = R0.shoulder.R;
+    if (t > 0.1 && t < 0.25) o.armL.w = add(S, [48, 258]);                 // a little dip first
+    else if (t >= 0.25 && t < 2.5) {
+      Object.assign(o.armL, { w: add(S, [118, -150]), pole: [240, 160], fa: 1 });
+      const k = t > 0.55 ? Math.sin((t - 0.55) * Math.PI * 2 * 1.7) : 0;   // three waves, crisp
+      o.add.armL = { w: [24 * k, 5 * Math.abs(k)], pr: 18 * k };
+      o.head.tilt = 6; o.torso.lean = 1.5; o.head.look = 1;
+    }
+    if (t > 3.0) this.done = true;
+    return o;
+  } };
+}
+function SitDown() {
+  let t = 0;
+  return { name: "sitDown", update(dt, T) {
+    t += dt;
+    let o;
+    if (t < 0.22) { o = standPose(T); o.torso.bob = -8; for (const [part, side, s] of ARMS) o[part].w = add(hangW(side, s), [s * 8, -6]); }
+    else if (t < 0.85) {
+      o = standPose(T);
+      const k = (t - 0.22) / 0.63, es = ease(k);
+      o.torso.bob = lerp(-8, 198, easeIn(k));                 // dropping down speeds up, like gravity
+      for (const [part, side, s] of LEGS) { const L = seatLeg(side, s); Object.assign(o[part], { d: lerp2([0, 0], L.d, es), a: L.a * es, front: k > 0.6 ? 1 : 0, sole: ease((k - 0.7) / 0.3), knee: L.knee, kneeW: ease((k - 0.15) / 0.7) }); }
+      for (const [part, side, s] of ARMS) o[part].w = add(R0.shoulder[side], [s * 125, 135]);   // out for balance
+    } else {
+      o = seatPose(T);
+      if (t < 0.95) o.torso.sqY = 0.955;                      // a little landing squash
+      if (t < 1.05) for (const [part, side, s] of ARMS) o[part].w = add(R0.shoulder[side], [s * 125, 150]);
+    }
+    if (t > 1.6) { this.done = true; Pet.posture = "seat"; }
+    return o;
+  } };
+}
+function StandUp() {
+  let t = 0;
+  return { name: "standUp", update(dt, T) {
+    t += dt;
+    let o;
+    if (t < 0.4) { o = seatPose(T); o.torso.bob = SEAT.bob + 12; o.head.hy = 6; for (const [part, side] of ARMS) o[part].w = add(SEAT.paw[side], [0, 22]); }
+    else if (t < 1.0) {
+      o = standPose(T);
+      const k = (t - 0.4) / 0.6;
+      o.torso.bob = lerp(SEAT.bob + 12, -10, easeOut(k));
+      for (const [part, side, s] of LEGS) { const L = seatLeg(side, s); Object.assign(o[part], { d: lerp2(L.d, [0, 0], ease(k)), a: L.a * (1 - ease(k)), front: k < 0.5 ? 1 : 0, sole: 1 - ease(k / 0.4), knee: L.knee, kneeW: 1 - ease(k / 0.7) }); }
+      for (const [part, side, s] of ARMS) o[part].w = add(R0.shoulder[side], [s * 95, 175]);
+    } else o = standPose(T);
+    if (t > 1.6) { this.done = true; Pet.posture = "stand"; }
+    return o;
+  } };
+}
+function Noodles(loop) {
+  let t = 0;
+  return { name: "noodles", update(dt, T, ctx) {
+    t += dt;
+    const u = 1.5 + (loop ? t % NOODLE_LOOP : Math.min(t, NOODLE_LOOP));
+    if (!loop && t > NOODLE_LOOP) this.done = true;
+    return noodleScene(u, T, ctx, backOut(t / 0.4) * (loop || t < NOODLE_LOOP ? 1 : 0));
+  } };
+}
+function Laptop(loop) {
+  let t = 0;
+  return { name: "laptop", update(dt, T, ctx) {
+    t += dt;
+    const u = 1.5 + (loop ? t % LAPTOP_LOOP : Math.min(t, LAPTOP_LOOP));
+    if (!loop && t > LAPTOP_LOOP) this.done = true;
+    return laptopScene(u, T, ctx, backOut(t / 0.4));
+  } };
+}
+function Sleep(dur = Infinity) {
+  let t = 0;
+  return { name: "sleep", update(dt, T, ctx) {
+    t += dt;
+    const P = { pillow: backOut((t - 1.5) / 0.35) };
+    let o;
+    if (t < 2.0) {          // a big yawn and stretch first
+      o = seatPose(T); stretchArms(o, t, T); o.head.closed = t > 0.4 ? 1 : 0;
+    } else {                // leans over, a paw down by the pillow, then lies down onto it (slowly)
+      const lean = seatPose(T); lean.torso.lean = -16; lean.head.closed = 1; lean.head.tilt = -4;
+      const { toRest } = tools(lean);
+      lean.armR.w = toRest([300, 1010]); lean.armR.pole = POLE_OUT(-1);
+      o = t < 3.0 ? lean : poseLerp(lean, liePose(T), ease((t - 3.0) / 1.5));
+      if (t > 4.2) {
+        const v = (t - 4.2) % 9;
+        o.add.legL = { d: scl([24, -18], win(v, 6, 6.2, 6.6, 7.0)) };                                    // a dream kick
+        o.add.armL = { w: [0, 10 * Math.max(0, Math.sin(T * 9)) * win(v, 2, 2.3, 3.4, 3.7)] };       // scratches his tummy in his sleep
+        o.head.sleeping = 1;
+      }
+    }
+    o.props = P;
+    Pet.posture = t > 3.8 ? "lie" : "seat";
+    if (t > dur) this.done = true;
+    return o;
+  } };
+}
+function WakeUp() {
+  let t = 0;
+  return { name: "wakeUp", update(dt, T, ctx) {
+    t += dt;
+    let o;
+    if (t < 0.9) { o = liePose(T); o.head.closed = t < 0.35 || (t > 0.55 && t < 0.65) ? 1 : 0; }   // opens his eyes, blinks
+    else if (t < 2.1) { const up = seatPose(T); up.torso.lean = -10; up.head.tilt = -3; const lp = liePose(T); lp.head.closed = 0; o = poseLerp(lp, up, ease((t - 0.9) / 1.2)); }   // sits back up, slowly
+    else { o = seatPose(T); rubEyes(o, t - 2.1, T, ctx); }
+    o.props = { pillow: 1 - ease((t - 2.0) / 0.35) };
+    Pet.posture = t > 1.0 ? "seat" : "lie";
+    if (t > 4.6) { this.done = true; Pet.posture = "seat"; }
+    return o;
+  } };
+}
+// walking: a little side-to-side waddle; each foot is planted on the floor and only moves when it steps
+const WALK = { v: 120, P: 1.0, lift: 34 };
+function Walk(targetX, patrol) {
+  let t = 0, phase = -1e-6, stopping = false, amp = 0, dirW = 1;
+  const feet = {};
+  return { name: "walk",
+    enter() {
+      const r = posRange(20); targetX = clamp(targetX, r[0], r[1]);
+      dirW = Math.sign(targetX - Pet.posX) || 1;
+      Pet.dir = dirW < 0 ? 1 : -1;   // turn to face the way he goes
+    },
+    update(dt, T) {
+      const o = standPose(T);
+      if (Math.abs(Pet.sx - Pet.dir) > 1e-3) return o;   // finish turning around first
+      if (!feet.L) { const pl = place(); for (const [part, side] of LEGS) feet[side] = { x: ap(pl, R0.foot[side])[0], s: -1, from: 0, to: 0, lift: WALK.lift, dur: WALK.P / 2 }; }
+      t += dt;
+      const remaining = (targetX - Pet.posX) * dirW;
+      if (!stopping && remaining <= 1) stopping = true;
+      const v = stopping ? 0 : WALK.v * Math.min(1, t / 0.3);
+      Pet.posX += dirW * Math.min(v * dt, Math.max(0, remaining));
+      const pl = place(), restX = (side) => ap(pl, R0.foot[side])[0];
+      const p0 = phase; phase += dt / WALK.P;
+      const crossed = (m) => Math.floor(p0 - m) !== Math.floor(phase - m);
+      const startSwing = (side, to, lift, dur) => { const f = feet[side]; Object.assign(f, { s: 0, from: f.x, to, lift, dur }); };
+      if (!stopping) {
+        if (crossed(0)) startSwing("L", null, WALK.lift, WALK.P / 2);   // the leading foot (side of travel) first
+        if (crossed(0.5)) startSwing("R", null, WALK.lift, WALK.P / 2);
+      }
+      let swinging = false;
+      for (const [part, side, s] of LEGS) {
+        const f = feet[side];
+        let x = f.x, lift = 0;
+        if (f.s >= 0) {
+          swinging = true;
+          f.s = Math.min(1, f.s + dt / f.dur);
+          const to = f.to !== null ? f.to : restX(side) + dirW * v * (1 - f.s) * f.dur;   // lands right under him, so the feet never cross
+          x = lerp(f.from, to, ease(f.s)); lift = f.lift * Math.sin(Math.PI * f.s);
+          if (f.s >= 1) { f.x = to; f.s = -1; x = to; lift = 0; }
+        }
+        const local = ap(inv(pl), [x, ap(pl, R0.foot[side])[1] - lift]);
+        Object.assign(o[part], { d: sub(local, R0.foot[side]), a: -s * 8 * Math.sin(Math.PI * Math.max(0, f.s)), exact: true });
+      }
+      // once stopped, bring each foot back under him with a small step
+      if (stopping && !swinging) {
+        let settled = true;
+        for (const [part, side] of LEGS) if (Math.abs(feet[side].x - restX(side)) > 3) { startSwing(side, restX(side), 18, 0.28); settled = false; break; }
+        if (settled) this.done = true;
+      }
+      amp = lerp(amp, stopping ? 0 : 1, Math.min(1, dt * 6));
+      const c = Math.sin(phase * 2 * Math.PI);
+      o.add.torso = { bob: 5 * Math.cos(phase * 4 * Math.PI) * amp, sway: 2.4 * c * amp, shift: 7 * c * amp };
+      o.torso.lean = -2.5 * amp;
+      o.add.armL = { w: [-12 * c * amp, -4 * Math.abs(c) * amp] }; o.add.armR = { w: [-12 * c * amp, -4 * Math.abs(c) * amp] };
+      o.head.look = -3 * amp; o.add.head = { tilt: -1.4 * c * amp };
+      if (this.done && patrol) { const r = posRange(20); this.next = [Walk(dirW > 0 ? r[0] + rand(0, 120) : r[1] - rand(0, 120), true)]; }
+      return o;
+    } };
+}
+// picked up with the mouse: hangs from the top of his hood and swings
+function Held(grabLocal) {
+  return { name: "held",
+    enter() { Pet.posture = "air"; HANG = grabLocal; },
+    update(dt, T) {
+      const o = standPose(T), p = Pet.ptr;
+      const G = grabLocal;
+      const y = Math.max(p.y, VB[1] + G[1] - 100);   // keep his head on the stage
+      Pet.posX = p.x - (Pet.dir === 1 ? G[0] : 2 * R0.pelvis[0] - G[0]); Pet.posY = y - G[1];
+      const th = clamp(0.02 * p.vx * Pet.dir, -22, 22);   // swings the other way from the pull, then settles
+      o.torso.hang = th;
+      for (const [part, side, s] of LEGS) { const hip = R0.hip[side]; o[part].d = sub(add(hip, rot([-s * 8, 190], -th * 0.8)), R0.foot[side]); }
+      o.add.legL = { d: [0, -12 * Math.max(0, Math.sin(T * 8))] }; o.add.legR = { d: [0, -12 * Math.max(0, Math.sin(T * 8 + Math.PI))] };
+      for (const [part, side, s] of ARMS) { o[part].w = add(R0.shoulder[side], [s * 116, 40]); o.add[part] = { w: [0, 18 * Math.sin(T * 9 + s)] }; }
+      o.head.lookY = 4; o.head.mouth = 0.22;
+      return o;
+    } };
+}
+function Fall(vx, vy) {
+  return { name: "fall", update(dt, T) {
+    vy += 2800 * dt; Pet.posY += vy * dt; Pet.posX += vx * dt; vx *= Math.exp(-1.5 * dt);
+    const r = posRange(); if (Pet.posX < r[0] || Pet.posX > r[1]) { Pet.posX = clamp(Pet.posX, r[0], r[1]); vx = -vx * 0.3; }
+    const o = standPose(T);
+    for (const [part, side, s] of ARMS) { o[part].w = add(R0.shoulder[side], [s * 80, -190]); o.add[part] = { w: [s * 10 * Math.sin(T * 14), 0] }; }
+    for (const [part, side, s] of LEGS) o[part].d = [s * 14, -10];
+    o.head.mouth = 0.3; o.head.lookY = -2;
+    if (Pet.posY >= 0) { Pet.posY = 0; this.done = true; this.next = [Land(vy)]; }
+    return o;
+  } };
+}
+function Land(vy) {
+  let t = 0;
+  const hard = clamp(vy / 2200, 0.3, 1);
+  return { name: "land", update(dt, T) {
+    t += dt;
+    const o = standPose(T);
+    if (t < 0.09) { o.torso.sqY = 1 - 0.24 * hard; o.torso.bob = 26 * hard; }
+    else if (t < 0.35) o.torso.bob = 12 * hard;
+    o.head.closed = t < 0.3 ? 1 : 0;
+    if (t > 1.0) { this.done = true; Pet.posture = "stand"; }
+    return o;
+  } };
 }
 
+// ---------- what to do next ----------
+function setStates(list) { Pet.queue = list.slice(1); Pet.state = list[0]; if (Pet.state.enter) Pet.state.enter(); }
+function toPosture(want) {   // the steps to get from how he is now to standing / sitting
+  const p = Pet.posture;
+  if (want === "stand") return p === "seat" ? [StandUp()] : p === "lie" ? [WakeUp(), StandUp()] : [];
+  if (want === "seat") return p === "stand" ? [SitDown()] : p === "lie" ? [WakeUp()] : [];
+  return [];
+}
 const ACTIONS = {
-  idle:    { label: "發呆", head: "look", torso: "sway", armL: "hang", armR: "idleR", legL: "tap", legR: "stand" },
-  march:   { label: "踏步", head: "nod", torso: "marchBob", armL: "swing", armR: "swing", legL: "march", legR: "march" },
-  wave:    { label: "揮手", head: "tilt", torso: "sway", armL: "wave", armR: "hang", legL: "stand", legR: "tap" },
-  doze:    { label: "企住瞌", head: "doze", torso: "slouch", armL: "dangle", armR: "dangle", legL: "stand", legR: "stand" },
-  sit:     { label: "坐低", seq: seqSit },
-  sleep:   { label: "瞓覺", seq: seqSleep },
-  noodles: { label: "攞杯麵出嚟食", seq: seqNoodles },
-  laptop:  { label: "攞電腦出嚟做嘢", seq: seqLaptop },
+  idle:    { label: "企定", run: () => [...toPosture("stand"), Idle()] },
+  walk:    { label: "行嚟行去", run: () => { const r = posRange(20); return [...toPosture("stand"), Walk(Pet.posX > (r[0] + r[1]) / 2 ? r[0] + 40 : r[1] - 40, true)]; } },
+  wave:    { label: "揮手", run: () => [...toPosture("stand"), Wave(), Idle()] },
+  sit:     { label: "坐低", run: () => [...toPosture("seat"), SeatIdle()] },
+  noodles: { label: "攞杯麵出嚟食", run: () => [...toPosture("seat"), Noodles(true)] },
+  laptop:  { label: "攞電腦出嚟做嘢", run: () => [...toPosture("seat"), Laptop(true)] },
+  sleep:   { label: "瞓覺", run: () => [...toPosture("seat"), Sleep()] },
 };
-const ACTION_GROUPS = [["企住", ["idle", "march", "wave", "doze"]], ["坐低", ["sit", "sleep", "noodles", "laptop"]]];
-const ACTION_ORDER = ["idle", "march", "wave", "sit", "noodles", "laptop", "sleep", "doze"];
-
-// ---------- state ----------
-const st = { action: "idle", at: 0, prevAction: null, prevAt: 0, auto: false, autoT: 0, slow: false, hearts: 0, heartT: 0, parts: {}, overrides: {} };
-function setClip(part, clip, dur, force) {
-  const p = st.parts[part];
-  if (p && p.clip === clip && !force) return;
-  let prev = p ? p.clip : clip;
-  if (prev === "seq") prev = "seqOld";
-  st.parts[part] = { clip, prev, k: p ? 0 : 1, dur };
+const ACTION_ORDER = ["idle", "walk", "wave", "sit", "noodles", "laptop", "sleep"];
+function autoNext() {
+  const p = Pet.posture;
+  if (p === "stand") {
+    const r = posRange(20);
+    const c = weighted([[4, "walk"], [3, "idle"], [2, "sit"], [1, "wave"]]);
+    if (c === "walk") { let x = rand(r[0], r[1]); if (Math.abs(x - Pet.posX) < 260) x = Pet.posX > (r[0] + r[1]) / 2 ? r[0] + rand(0, 200) : r[1] - rand(0, 200); return [Walk(x)]; }
+    if (c === "idle") return [Idle(rand(4, 8))];
+    if (c === "sit") return [SitDown(), SeatIdle(rand(4, 7))];
+    return [Wave(), Idle(rand(2, 4))];
+  }
+  if (p === "seat") {
+    const c = weighted([[3, "noodles"], [3, "laptop"], [2, "sleep"], [2, "seat"], [3, "stand"]]);
+    if (c === "noodles") return [Noodles(false), SeatIdle(rand(2, 4))];
+    if (c === "laptop") return [Laptop(false), SeatIdle(rand(2, 4))];
+    if (c === "sleep") return [Sleep(rand(14, 22)), WakeUp(), SeatIdle(rand(2, 4))];
+    if (c === "seat") return [SeatIdle(rand(5, 8))];
+    return [StandUp(), Idle(rand(2, 4))];
+  }
+  if (p === "lie") return [WakeUp(), SeatIdle(3)];
+  return [Idle(3)];
 }
-function setAction(a, fromAuto) {
-  const wasSeq = !!(ACTIONS[st.action] && ACTIONS[st.action].seq), isSeq = !!ACTIONS[a].seq;
-  st.prevAction = st.action; st.prevAt = st.at;
-  st.action = a; st.at = 0; st.overrides = {};
-  if (!fromAuto) { st.auto = false; $("auto").setAttribute("aria-pressed", "false"); }
-  const dur = wasSeq ? 1.0 : 0.45;
-  for (const P of PARTS) setClip(P.key, isSeq ? "seq" : ACTIONS[a][P.key], dur, wasSeq && isSeq);
+function advance() {
+  const s = Pet.state;
+  if (!s || !s.done) return;
+  if (s.next) Pet.queue = [...s.next, ...Pet.queue];
+  if (Pet.queue.length) { setStates(Pet.queue); return; }
+  if (Pet.auto) setStates(autoNext());
+  else setStates(ACTIONS[Pet.manual].run());
+}
+function doAction(a) {
+  Pet.manual = a; Pet.auto = false;
+  setStates(ACTIONS[a].run());
   refreshUI();
-}
-function setOverride(part, clip) {
-  st.overrides[part] = clip; st.auto = false; $("auto").setAttribute("aria-pressed", "false");
-  setClip(part, clip, 0.45); refreshUI();
 }
 
 // ---------- UI ----------
 function chip(label, onClick) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", "false"); b.addEventListener("click", onClick); return b; }
-function row(name, parent) {
-  const r = document.createElement("div"); r.className = "part";
-  const b = document.createElement("b"); b.textContent = name;
-  const chips = document.createElement("div"); chips.className = "chips"; chips.setAttribute("role", "group"); chips.setAttribute("aria-label", name);
-  r.append(b, chips); parent.append(r); return chips;
-}
 const actionBtns = {};
-for (const [name, list] of ACTION_GROUPS) { const c = row(name, $("actions")); for (const a of list) { actionBtns[a] = chip(ACTIONS[a].label, () => setAction(a)); c.append(actionBtns[a]); } }
-const partBtns = {};
-for (const P of PARTS) { const c = row(P.name, $("parts")); partBtns[P.key] = {}; for (const k of P.list) { const b = chip(P.clips[k].label, () => setOverride(P.key, k)); partBtns[P.key][k] = b; c.append(b); } }
+for (const a of ACTION_ORDER) { actionBtns[a] = chip(ACTIONS[a].label, () => doAction(a)); $("actions").append(actionBtns[a]); }
 function refreshUI() {
-  const custom = Object.keys(st.overrides).length > 0;
-  for (const a of ACTION_ORDER) actionBtns[a].setAttribute("aria-pressed", String(a === st.action && !custom));
-  for (const P of PARTS) for (const c in partBtns[P.key]) partBtns[P.key][c].setAttribute("aria-pressed", String(st.parts[P.key] && st.parts[P.key].clip === c && st.overrides[P.key] === c));
+  for (const a of ACTION_ORDER) actionBtns[a].setAttribute("aria-pressed", String(!Pet.auto && Pet.manual === a));
+  $("auto").setAttribute("aria-pressed", String(Pet.auto));
 }
-$("reset").addEventListener("click", () => setAction(st.action));
-$("slow").addEventListener("click", () => { st.slow = !st.slow; $("slow").setAttribute("aria-pressed", String(st.slow)); });
-$("auto").addEventListener("click", () => { st.auto = !st.auto; st.autoT = 0; $("auto").setAttribute("aria-pressed", String(st.auto)); if (st.auto) setAction(st.action, true); });
-$("belly").addEventListener("click", () => { st.hearts = 2.6; st.heartT = 0; });
+$("auto").addEventListener("click", () => {
+  Pet.auto = !Pet.auto; refreshUI();
+  // looping states end so the autopilot can take over; one-off moves (sitting down, standing up...) finish first
+  if (Pet.auto && Pet.state && ["idle", "seatIdle", "noodles", "laptop", "sleep", "walk"].includes(Pet.state.name)) Pet.state.done = true;
+});
+let slow = false;
+$("slow").addEventListener("click", () => { slow = !slow; $("slow").setAttribute("aria-pressed", String(slow)); });
+
+// ---------- picking him up with the mouse or a finger ----------
+const front = $("front");
+let press = null;
+function toWorld(e) { const m = front.getScreenCTM().inverse(); return [m.a * e.clientX + m.c * e.clientY + m.e, m.b * e.clientX + m.d * e.clientY + m.f]; }
+function hitTest(p) {   // inside his body, measured in his own rest pose (works sitting or lying too)
+  if (Math.abs(Pet.sx) < 0.2) return false;
+  const r = ap(inv(mul(place(), lastTM)), p);
+  return r[0] > 270 && r[0] < 720 && r[1] > 120 && r[1] < 1110;
+}
+front.addEventListener("pointerdown", (e) => {
+  const p = toWorld(e);
+  if (!hitTest(p)) return;
+  press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: performance.now(), p, last: p, lt: performance.now(), vx: 0, vy: 0, dragging: false };
+  front.setPointerCapture(e.pointerId);
+});
+front.addEventListener("pointermove", (e) => {
+  if (!press || e.pointerId !== press.id) return;
+  const p = toWorld(e), now = performance.now(), dtm = Math.max(1, now - press.lt) / 1000;
+  press.vx = lerp(press.vx, (p[0] - press.last[0]) / dtm, 0.5); press.vy = lerp(press.vy, (p[1] - press.last[1]) / dtm, 0.5);
+  press.last = p; press.lt = now;
+  if (!press.dragging && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > 8) {
+    press.dragging = true; front.classList.add("dragging");
+    const grab = ap(inv(place()), press.p);
+    Pet.ptr = { x: p[0], y: Math.max(p[1], VB[1] + 100), vx: 0 };
+    setStates([Held([clamp(grab[0], 360, 620), clamp(grab[1], 150, 700)])]);
+    $("status").textContent = "而家：" + STATE_NAME.held;
+  }
+  if (press.dragging) Pet.ptr = { x: clamp(p[0], VB[0] + 60, VB[0] + VB[2] - 60), y: clamp(p[1], VB[1] + 100, 1000), vx: press.vx };
+});
+function release(e) {
+  if (!press || e.pointerId !== press.id) return;
+  front.classList.remove("dragging");
+  if (press.dragging) setStates([Fall(clamp(press.vx * 0.5, -900, 900), clamp(press.vy * 0.4, -900, 600))]);
+  else {   // a tap: he waves (or wakes up), and the bear on his belly gets heart eyes
+    Pet.hearts = 2.4; Pet.heartT = 0;
+    if (Pet.posture === "stand") setStates(Pet.auto ? [Wave(), Idle(2)] : [Wave(), ...ACTIONS[Pet.manual].run()]);
+    else if (Pet.posture === "lie") setStates([WakeUp(), SeatIdle(Pet.auto ? 3 : Infinity)]);
+  }
+  press = null;
+}
+front.addEventListener("pointerup", release);
+front.addEventListener("pointercancel", release);
 
 // ---------- limbs: two segments (upper/lower) with a round joint, outlines first so the joint stays clean ----------
 function el(tag, attrs, parent) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.append(e); return e; }
@@ -684,8 +1008,7 @@ function makeLimb(parent, wA, wB, maskId, kind) {
     el("path", { d: FOOT, fill: "#fcf8ed", stroke: "#141210", "stroke-width": 7.5, "stroke-linejoin": "round" }, L.end);
     el("path", { d: "M-50,18 C-30,32 30,34 52,18", fill: "none", stroke: "#e3dbcd", "stroke-width": 8, "stroke-linecap": "round" }, L.end);
     el("path", { d: "M-15,38 l1,-16 M17,38 l-1,-16", fill: "none", stroke: "#141210", "stroke-width": 6, "stroke-linecap": "round" }, L.end);
-    // the sole with toe beans, shown when he sits (like the original drawing)
-    L.sole = el("g", { opacity: 0 }, L.end);
+    L.sole = el("g", { opacity: 0 }, L.end);   // the sole with toe beans, seen when he sits (like the original drawing)
     el("ellipse", { cx: 0, cy: 4, rx: 58, ry: 30, fill: "#fcf8ed", stroke: "#141210", "stroke-width": 7 }, L.sole);
     el("ellipse", { cx: 0, cy: 12, rx: 26, ry: 14, fill: "none", stroke: "#141210", "stroke-width": 5 }, L.sole);
     for (const [x, y] of [[-30, -10], [-10, -17], [12, -17], [32, -10]]) el("circle", { cx: x, cy: y, r: 6.5, fill: "#141210" }, L.sole);
@@ -693,7 +1016,7 @@ function makeLimb(parent, wA, wB, maskId, kind) {
   return L;
 }
 function drawLimb(L, P0, P1, P2, sc) {
-  if (L.sc !== sc) {   // strokes do not scale with the body, so set them when it is scaled (lying down)
+  if (Math.abs(L.sc - sc) > 1e-3) {   // strokes do not scale with the body, so set them when it is scaled (lying down)
     L.sc = sc;
     L.oA.setAttribute("stroke-width", ((L.wA + 15) * sc).toFixed(2)); L.oB.setAttribute("stroke-width", ((L.wB + 15) * sc).toFixed(2));
     L.fA.setAttribute("stroke-width", (L.wA * sc).toFixed(2)); L.fB.setAttribute("stroke-width", (L.wB * sc).toFixed(2));
@@ -701,19 +1024,17 @@ function drawLimb(L, P0, P1, P2, sc) {
   }
   const dA = `M${pt(P0)} L${pt(P1)}`, dB = `M${pt(P1)} L${pt(P2)}`;
   L.oA.setAttribute("d", dA); L.fA.setAttribute("d", dA); L.oB.setAttribute("d", dB); L.fB.setAttribute("d", dB);
-  // fur shading inside each segment, on its right-hand side (the light in the original comes from the left)
-  const shade = (path, a, b, w) => {
+  const shade = (path, a, b, w) => {   // fur shading inside each segment
     const d = sub(b, a), l = len(d) || 1, n = [d[1] / l, -d[0] / l], off = w / 2 - 10 * sc, trim = Math.min(l * 0.3, w * 0.35);
     const a2 = add(add(a, scl(n, off)), scl(d, trim / l)), b2 = add(add(b, scl(n, off)), scl(d, -trim / l));
     path.setAttribute("d", l > 2 * trim ? `M${pt(a2)} L${pt(b2)}` : "");
   };
   shade(L.sA, P0, P1, L.wA * sc); shade(L.sB, P1, P2, L.wB * sc);
 }
-// the arms are drawn twice: once behind the body, once in front of everything but faded out near the shoulder
+// the arms are drawn twice: once behind the body, once in front of everything but faded out along the upper arm
 const legs = { R: makeLimb($("legs"), LEG.wT, LEG.wS, null, "foot"), L: makeLimb($("legs"), LEG.wT, LEG.wS, null, "foot") };
 const armsB = { R: makeLimb($("armsBehind"), ARM.wU, ARM.wF, null, "paw"), L: makeLimb($("armsBehind"), ARM.wU, ARM.wF, null, "paw") };
 const armsF = { R: makeLimb($("armsFront"), ARM.wU, ARM.wF, "maskR", "paw"), L: makeLimb($("armsFront"), ARM.wU, ARM.wF, "maskL", "paw") };
-
 // ---------- head on a WebGL mesh (ears and glasses can bend) ----------
 const HB = [282, 131, 422, 438];
 const Warp = (() => {
@@ -805,145 +1126,150 @@ function noodlePath(a, b, k, phase, wob) {
 }
 function setStick(o, f, a, b) { for (const id of [o, f]) { const e = $(id); e.setAttribute("x1", f1(a[0])); e.setAttribute("y1", f1(a[1])); e.setAttribute("x2", f1(b[0])); e.setAttribute("y2", f1(b[1])); } }
 
-// ---------- the frame loop ----------
-const DEF = { sc: 1, fa: 1, fb: 1 };   // values a clip leaves out that are not zero
-const blendParams = (a, b, k) => {
-  const o = {};
-  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
-    const x = a[key] === undefined && key in DEF ? DEF[key] : a[key], y = b[key] === undefined && key in DEF ? DEF[key] : b[key];
-    if (Array.isArray(x) || Array.isArray(y)) o[key] = lerp2(x || y, y || x, k);
-    else if (typeof x === "string" || typeof y === "string") o[key] = k < 0.5 ? x : y;
-    else o[key] = lerp(x || 0, y || 0, k);
+// ---------- target pose → displayed pose, through the springs ----------
+const DEF_T = { bob: 0, lean: 0, sway: 0, shift: 0, rot: 0, sc: 1, px: 0, py: 0, sqY: 1, hang: 0 };
+const T_FOLLOW = { bob: FP.pos, shift: FP.pos, px: FP.pos, py: FP.pos, lean: FP.ang, sway: FP.ang, rot: FP.ang, sc: FP.sc };
+function springPose(tg, dt) {
+  const o = { torso: {}, head: {}, props: tg.props || {} };
+  for (const k in DEF_T) {
+    const x = tg.torso[k] === undefined ? DEF_T[k] : tg.torso[k];
+    o.torso[k] = k === "sqY" ? spring("t.sqY", x, SP.squash, dt) : k === "hang" ? spring("t.hang", x, SP.hang, dt) : follow("t." + k, x, T_FOLLOW[k], dt);
   }
+  o.torso.br = tg.torso.br || 0; o.torso.jump = tg.torso.jump || 0;
+  const h = tg.head;
+  o.head.tilt = follow("h.tilt", h.tilt || 0, FP.headAng, dt);
+  for (const k of ["hx", "hy"]) o.head[k] = follow("h." + k, h[k] || 0, FP.head, dt);
+  for (const k of ["look", "lookY"]) o.head[k] = follow("h." + k, h[k] || 0, FP.eye, dt);
+  o.head.closed = h.closed || 0; o.head.mouth = h.mouth || 0; o.head.sleeping = h.sleeping || 0;
+  for (const [part, side, s] of ARMS) {
+    const a = tg[part];
+    o[part] = { w: followArm(part + ".w", R0.shoulder[side], s, a.w || hangW(side, s), dt), pole: follow2(part + ".p", a.pole || POLE_OUT(s), FP.pole, dt), fa: follow(part + ".fa", a.fa === undefined ? 1 : a.fa, FP.frac, dt), pr: follow(part + ".pr", a.pr || 0, FP.armAng, dt) };
+  }
+  for (const [part, side, s] of LEGS) {
+    const l = tg[part], dd = l.d || [0, 0];
+    if (l.exact) { pin(part + ".d", dd); pin(part + ".a", l.a || 0); }
+    o[part] = {
+      d: l.exact ? dd : follow2(part + ".d", dd, FP.leg, dt), a: l.exact ? l.a || 0 : follow(part + ".a", l.a || 0, FP.legAng, dt),
+      kneeW: follow(part + ".kw", l.kneeW || 0, FP.frac, dt), knee: follow2(part + ".k", l.knee || SEAT.knee[side], FP.leg, dt),
+      kp: follow2(part + ".kp", l.kp || [s * 200, 20], FP.pole, dt), front: l.front || 0, sole: follow(part + ".so", l.sole || 0, FP.frac, dt),
+    };
+  }
+  // rhythmic overlays (steps, taps, waves, chewing) ride on top of the springs so they stay crisp
+  const A = tg.add || {};
+  for (const g in A) for (const k in A[g]) { const v = A[g][k]; if (!o[g]) continue; if (Array.isArray(v)) o[g][k] = add(o[g][k] || [0, 0], v); else o[g][k] = (o[g][k] || 0) + v; }
   return o;
-};
-function evalPart(part, clips, ctx, ...args) {
-  const p = st.parts[part];
-  ctx.part = part;
-  const now = clips[p.clip].f(...args, ctx);
-  if (p.k >= 1 || p.prev === p.clip) return now;
-  return blendParams(clips[p.prev].f(...args, ctx), now, ease(p.k));
 }
 
-let last = performance.now(), T = 0, life = 0;
-const ears = { l: 0, r: 0 };
-function frame(now) {
-  let dt = clamp((now - last) / 1000, 0, 1 / 20); last = now;
-  dt *= reduce ? 0.5 : (st.slow ? 0.4 : 1);
-  T += dt; life += dt; st.at += dt; st.prevAt += dt;
-  for (const k in st.parts) st.parts[k].k = Math.min(1, st.parts[k].k + dt / (st.parts[k].dur || 0.45));
-  if (st.auto) { st.autoT += dt; if (st.autoT > (ACTIONS[st.action].seq ? 24 : 9)) { st.autoT = 0; setAction(ACTION_ORDER[(ACTION_ORDER.indexOf(st.action) + 1) % ACTION_ORDER.length], true); } }
-  st.hearts = Math.max(0, st.hearts - dt); st.heartT += dt;
-  const scene = ACTIONS[st.action].seq;
+// ---------- drawing one frame ----------
+const I = [1, 0, 0, 1, 0, 0];
+let lastTM = I, lastHead = {};
+const track = {};   // where the main joints ended up this frame (used by the tests)
+const sec = { earL: 0, earR: 0, headAng: 0, neckY: 0, tail: 0, shiftPrev: 0, blinkAt: 2, blinkEnd: 0 };
+function render(d, dt, T, life, ctx) {
+  const PL = place(), dx = Pet.sx, dg = Pet.sx >= 0 ? 1 : -1;   // dx squeezes through a turn; dg is which way he faces
+  const W = (p) => ap(PL, p), vW = (v) => [v[0] * dx, v[1]];
+  const props = d.props;
+  const { root, TM, sc, rootAng } = makeTM(d.torso);
+  lastTM = TM; lastHead = d.head;
+  const hp = d.head;
+  const HM = mul(TM, rotAbout(hp.tilt, R0.neck[0], R0.neck[1], hp.hx, hp.hy)), HMw = mul(PL, HM);
 
-  // a running scene works out every part first; the scene being left keeps going while it fades out
-  const ctx = { glassesPush: 0, head: (p) => p, chop: null, seq: null, seqOld: null, part: null };
-  if (scene) ctx.seq = scene(st.at, T, ctx);
-  if (st.prevAction && ACTIONS[st.prevAction].seq && Object.values(st.parts).some((p) => p.prev === "seqOld" && p.k < 1)) {
-    ctx.seqOld = ACTIONS[st.prevAction].seq(st.prevAt, T, { glassesPush: 0, head: (p) => p });
-  }
-  const props = (ctx.seq && ctx.seq.props) || {};
-  const hk = Math.min(1, st.hearts / 0.4) * ease(st.heartT / 0.25);
-
-  // torso and root
-  let tp = evalPart("torso", TORSO_CLIPS, ctx, T);
-  if (hk > 0 && !scene) tp = blendParams(tp, TORSO_CLIPS.hop.f(T), hk);
-  const { root, TM, sc, rootAng } = makeTM(tp);
-
-  // head (relative to the torso)
-  let hp = evalPart("head", HEAD_CLIPS, ctx, T);
-  if (hk > 0) hp = blendParams(hp, HEAD_CLIPS.happy.f(T), hk * 0.8);
-  ctx.head = headLocal(hp);
-  const HM = mul(TM, rotAbout(hp.tilt || 0, R0.neck[0], R0.neck[1], hp.hx || 0, hp.hy || 0));
-
-  // arms: IK in rest space, then through the torso matrix
+  // arms: IK in rest space, then through the body and onto the stage
   const paw = {};
   for (const [part, side, s] of ARMS) {
-    const S = R0.shoulder[side];
-    const a = evalPart(part, ARM_CLIPS, ctx, T, s, S);
-    const w = a.w || hangW(T, s, S), pole = add(S, a.pole || POLE_OUT(s));
-    const fa = clamp(a.fa === undefined ? 1 : a.fa, 0.3, 1);
-    const j = ik2(S, w, ARM.a * fa, ARM.b * clamp(a.fb === undefined ? 1 : a.fb, 0.3, 1), pole);
-    const Sw = ap(TM, j.S), Ew = ap(TM, j.E), Ww = ap(TM, j.W);
-    const ang = Math.atan2(Ww[1] - Ew[1], Ww[0] - Ew[0]) * 180 / Math.PI - 90 + (a.pr || 0);
+    const S = R0.shoulder[side], a = d[part];
+    const fa = clamp(a.fa, 0.3, 1);
+    const bend = follow(part + ".side", poleSide(S, a.w, add(S, a.pole)), FP.side, dt);
+    const j = ik2(S, a.w, ARM.a * fa, ARM.b, bend);
+    const Sw = W(ap(TM, j.S)), Ew = W(ap(TM, j.E)), Ww = W(ap(TM, j.W));
+    const ang = Math.atan2(Ww[1] - Ew[1], Ww[0] - Ew[0]) * 180 / Math.PI - 90 + a.pr * dg;
     for (const set of [armsB, armsF]) {
       drawLimb(set[side], Sw, Ew, Ww, sc);
-      set[side].end.setAttribute("transform", `translate(${pt(Ww)}) rotate(${ang.toFixed(1)}) scale(${sc.toFixed(3)})`);
+      set[side].end.setAttribute("transform", `translate(${pt(Ww)}) rotate(${ang.toFixed(1)}) scale(${(sc * dx).toFixed(3)},${sc.toFixed(3)})`);
     }
-    const g = $(side === "L" ? "fadeL" : "fadeR");
-    // the front copy fades in along the upper arm, so the forearm is always fully in front
+    const g = $(side === "L" ? "fadeL" : "fadeR");   // the front copy fades in along the upper arm
     g.setAttribute("cx", f1(Sw[0])); g.setAttribute("cy", f1(Sw[1])); g.setAttribute("r", f1((ARM.a * fa * 0.95 + 10) * sc));
     paw[side] = { c: add(Ww, rot([0, PAW_C * sc], ang)), ang };
+    track["paw" + side] = paw[side].c; track["elbow" + side] = Ew;
   }
 
-  // legs: hips ride the torso, ankles stay on the ground; straight when standing, knees out when sitting
+  // legs: straight when standing, knees out when sitting, bending when a foot lifts
   for (const [part, side, s] of LEGS) {
-    const lp = evalPart(part, LEG_CLIPS, ctx, T, s);
-    const H = ap(TM, R0.hip[side]);
-    const A = ap(root, add(R0.foot[side], lp.d || [0, 0]));
-    let K = lerp2(H, A, 0.5);
-    if ((lp.kneeW || 0) > 0 && lp.knee) K = lerp2(K, ap(root, lp.knee), lp.kneeW);
+    const l = d[part];
+    const H = ap(TM, R0.hip[side]), A = ap(root, add(R0.foot[side], l.d));
+    const j = ik2(H, A, LEG.a * sc, LEG.b * sc, follow(part + ".side", poleSide(H, A, add(H, scl(rot(l.kp, rootAng), sc))), FP.side, dt));
+    const K = l.kneeW > 0.001 ? lerp2(j.E, ap(root, l.knee), clamp(l.kneeW, 0, 1)) : j.E;
     const leg = legs[side];
-    drawLimb(leg, H, K, A, sc);
-    leg.end.setAttribute("transform", `translate(${pt(add(A, rot([s * 8 * sc, 20 * sc], rootAng)))}) rotate(${((lp.a || 0) + rootAng).toFixed(1)}) scale(${sc.toFixed(3)})`);
-    leg.sole.setAttribute("opacity", clamp(lp.sole || 0, 0, 1).toFixed(2));
-    const parent = (lp.front || 0) > 0.5 ? $("legsFront") : $("legs");
+    drawLimb(leg, W(H), W(K), W(j.W), sc);
+    track["foot" + side] = W(j.W); track["knee" + side] = W(K);
+    const footAt = W(add(j.W, rot([s * 8 * sc, 20 * sc], rootAng)));
+    leg.end.setAttribute("transform", `translate(${pt(footAt)}) rotate(${((l.a + rootAng) * dg).toFixed(1)}) scale(${(sc * dx).toFixed(3)},${sc.toFixed(3)})`);
+    leg.sole.setAttribute("opacity", clamp(l.sole, 0, 1).toFixed(2));
+    const parent = l.front > 0.5 ? $("legsFront") : $("legs");
     if (leg.g.parentNode !== parent) parent.append(leg.g);
   }
 
   // body, tail, shadow, pillow
-  $("torso").setAttribute("transform", svgM(TM));
-  const lie = clamp(-(tp.rot || 0) / 80, 0, 1);
-  const wag = st.action === "sleep" ? 3 * Math.sin(T) : 12 * Math.sin(T * 6) * ((props.cup && props.cup.steam > 0.5) || hk > 0 ? 1 : win(T % 7, 0, 0.3, 1.6, 2));
-  $("tail").setAttribute("transform", svgM(mul(TM, rotAbout(wag, 648, 790))));
-  const shX = R0.ground[0] + (tp.shift || 0) - 40 * lie;
-  $("shadow").setAttribute("transform", `translate(${f1(shX)},${R0.ground[1]}) scale(${((1 - (tp.jump || 0) / 160) * (1 + 1.1 * lie)).toFixed(3)},1) translate(${-R0.ground[0]},${-R0.ground[1]})`);
-  $("pillow").setAttribute("transform", `translate(${pt(PILLOW)}) scale(${(props.pillow || 0).toFixed(3)})`);
+  $("torso").setAttribute("transform", svgM(mul(PL, TM)));
+  const happy = Pet.hearts > 0 || (props.cup && props.cup.steam > 0.5);
+  const hipV = (d.torso.shift - sec.shiftPrev) / Math.max(dt, 1e-3); sec.shiftPrev = d.torso.shift;
+  sec.tail = spring("tail", (happy ? 14 * Math.sin(T * 7) : 0) - clamp(hipV * 0.5, -20, 20), SP.tail, dt);
+  $("tail").setAttribute("transform", svgM(mul(PL, mul(TM, rotAbout(sec.tail, 648, 790)))));
+  const lie = clamp(-d.torso.rot / 80, 0, 1), air = clamp(-Pet.posY / 500, 0, 1);
+  const shC = W([R0.ground[0] + d.torso.shift - 40 * lie + d.torso.px * 0.2, R0.ground[1]]);
+  $("shadow").setAttribute("transform", `translate(${f1(shC[0])},${R0.ground[1]}) scale(${((1 - air * 0.6) * (1 - d.torso.jump / 160) * (1 + 1.1 * lie)).toFixed(3)},1)`);
+  $("shadow").setAttribute("opacity", (1 - air * 0.5).toFixed(2));
+  const pil = props.pillow || 0;
+  $("pillow").setAttribute("transform", `translate(${pt(W(PILLOW))}) scale(${clamp(pil, 0, 1.2).toFixed(3)})`);
 
-  // head layer
-  const closedK = clamp(hp.closed || 0, 0, 1);
-  const el_ = 10 * twitch((life + 1.3) % 5.3) - 10 * closedK + hk * 9 * Math.sin(T * 16);
-  const er_ = -10 * twitch((life + 3.1) % 6.7) + 10 * closedK - hk * 9 * Math.sin(T * 16 + 1);
-  ears.l = lerp(ears.l, el_, Math.min(1, dt * 14)); ears.r = lerp(ears.r, er_, Math.min(1, dt * 14));
+  // head: ears bounce when the head moves
+  const neck = W(ap(TM, R0.neck)); track.neck = neck; track.headTop = ap(HMw, [490, 140]);
+  const headAng = (rootAng + (d.torso.lean || 0) + hp.tilt) * dg;
+  const angV = (headAng - sec.headAng) / Math.max(dt, 1e-3), vy = (neck[1] - sec.neckY) / Math.max(dt, 1e-3);
+  sec.headAng = headAng; sec.neckY = neck[1];
+  const closedK = clamp(hp.closed, 0, 1), cheer = Pet.hearts > 0 ? 8 * Math.sin(T * 16) : 0;
+  const kick = clamp(-angV * 0.12, -18, 18) * dg, flap = clamp(vy * 0.02, -14, 14);
+  sec.earL = spring("earL", -10 * closedK + cheer + kick + flap, SP.ear, dt);
+  sec.earR = spring("earR", 10 * closedK - cheer + kick - flap, SP.ear, dt);
   const G = [1, 0, 0, 1, 0, ctx.glassesPush];
-  Warp.draw({ H: HM, G, EL: rotAbout(ears.l, 385, 232), ER: rotAbout(ears.r, 590, 232) });
+  Warp.draw({ H: HMw, G, EL: rotAbout(sec.earL, 385, 232), ER: rotAbout(sec.earR, 590, 232) });
   show($("headImg"), !Warp.ready);
-  $("headImg").setAttribute("transform", svgM(HM));
-  $("headOv").setAttribute("transform", svgM(HM));
+  $("headImg").setAttribute("transform", svgM(HMw));
+  $("headOv").setAttribute("transform", svgM(HMw));
   $("glassOv").setAttribute("transform", svgM(G));
 
-  // eyes and mouth
-  const closed = closedK > 0.5, blink = (life % 4.1) < 0.13;
-  const lx = hp.look || 0, ly = hp.lookY || 0;
+  // eyes: blinks at random moments, sometimes twice
+  if (life > sec.blinkAt) { sec.blinkEnd = life + 0.12; sec.blinkAt = life + (Math.random() < 0.2 ? 0.28 : rand(2.2, 5.5)); }
+  const closed = closedK > 0.5, blink = life < sec.blinkEnd;
+  const lx = hp.look * dx, ly = hp.lookY;
   const eyesOv = closed || blink || Math.abs(lx) > 0.3 || Math.abs(ly) > 0.3;
   show($("eyesOv"), eyesOv);
   for (const [e, l, cx, cy] of [["eyeL", "lidL", 395, 364], ["eyeR", "lidR", 476.5, 365]]) {
     show($(e), eyesOv && !(closed || blink)); show($(l), eyesOv && (closed || blink));
-    $(e).setAttribute("cx", cx + lx); $(e).setAttribute("cy", cy + ly); $(e).setAttribute("ry", 11 * (ly > 2 ? 0.88 : 1));
+    $(e).setAttribute("cx", cx + hp.look); $(e).setAttribute("cy", cy + ly); $(e).setAttribute("ry", 11 * (ly > 2 ? 0.88 : 1));
   }
   const gp = (life % 6.5) / 1.1, gx = 330 + gp * 240;
   $("glint").setAttribute("points", gp < 1 && !closed ? `${gx},330 ${gx + 18},330 ${gx - 22},410 ${gx - 40},410` : "0,0 0,0 0,0 0,0");
-  let mouth = hp.mouth || 0;
+  let mouth = hp.mouth;
 
-  // belly hearts (tapped, or full of noodles)
-  const hearts = st.hearts > 0 || (props.hearts || 0) > 0.05;
+  // belly hearts
+  const hearts = Pet.hearts > 0 || (props.hearts || 0) > 0.05;
   show($("bearHearts"), hearts); show($("bearEyes"), !hearts);
   [["fh0", 400, 0], ["fh1", 470, 0.35], ["fh2", 540, 0.7]].forEach(([id, x, dl]) => {
-    const p = (st.heartT - dl) / 1.8, on = st.hearts > 0 && p > 0 && p < 1;
-    const at = ap(TM, [x + Math.sin(p * 9) * 10, 650 - p * 160]);
+    const p = (Pet.heartT - dl) / 1.8, on = Pet.hearts > 0 && p > 0 && p < 1;
+    const at = W(ap(TM, [x + Math.sin(p * 9) * 10, 650 - p * 160]));
     $(id).setAttribute("transform", on ? `translate(${pt(at)}) scale(${(1.3 * (1 - p * 0.4)).toFixed(3)})` : "scale(0)");
     $(id).setAttribute("opacity", on ? String(1 - ease((p - 0.6) / 0.4)) : "0");
   });
-  const bc = ap(TM, [467, 705]); $("belly").setAttribute("cx", f1(bc[0])); $("belly").setAttribute("cy", f1(bc[1]));
 
   // the cup: on the floor or in a paw (blended while it is picked up / put down)
   const C = props.cup;
   let cupTop = null;
   show($("cup"), !!C && C.show > 0.01);
   if (C && C.show > 0.01) {
-    const inPaw = add(paw[C.side].c, scl(CUP_IN_PAW[C.side], sc));
-    cupTop = lerp2(C.floorAt, inPaw, C.hold || 0);
-    $("cup").setAttribute("transform", `translate(${pt(cupTop)}) rotate(${(C.tilt || 0).toFixed(1)}) scale(${(C.show * sc).toFixed(3)})`);
+    const inPaw = add(paw[C.side].c, vW(scl(CUP_IN_PAW[C.side], sc)));
+    cupTop = lerp2(W(C.floorAt), inPaw, C.hold || 0);
+    $("cup").setAttribute("transform", `translate(${pt(cupTop)}) rotate(${((C.tilt || 0) * dg).toFixed(1)}) scale(${(C.show * sc).toFixed(3)})`);
     $("steam").setAttribute("opacity", ((C.steam || 0) * (0.55 + 0.35 * Math.sin(T * 2.3))).toFixed(2));
     $("steam1").setAttribute("transform", `translate(${f1(Math.sin(T * 1.3) * 4)},${f1(-((T * 14) % 16))})`);
     $("steam2").setAttribute("transform", `translate(${f1(Math.sin(T * 1.1 + 2) * 4)},${f1(-(((T + 0.6) * 14) % 16))})`);
@@ -952,7 +1278,7 @@ function frame(now) {
   const flying = C && C.lid === "fly" && C.lidAt;
   show($("lidFly"), !!flying);
   if (flying) {
-    $("lidFly").setAttribute("transform", `translate(${pt(C.lidAt)}) rotate(${(C.lidSpin || 0).toFixed(1)}) scale(${sc.toFixed(3)})`);
+    $("lidFly").setAttribute("transform", `translate(${pt(W(C.lidAt))}) rotate(${((C.lidSpin || 0) * dg).toFixed(1)}) scale(${sc.toFixed(3)})`);
     $("lidFly").setAttribute("opacity", (C.lidFade === undefined ? 1 : C.lidFade).toFixed(2));
   }
 
@@ -961,13 +1287,12 @@ function frame(now) {
   show($("sticks"), !!Sk && Sk.show > 0.01); show($("noodles"), false);
   if (Sk && Sk.show > 0.01) {
     $("sticks").setAttribute("opacity", Math.min(1, Sk.show).toFixed(2));
-    if (Sk.mode === "floor") { const a = add(Sk.floorAt, [-62, 4]), b = add(Sk.floorAt, [62, -6]); setStick("st1o", "st1", a, b); setStick("st2o", "st2", add(a, [0, 9]), add(b, [0, 9])); }
-    else if (Sk.mode === "cup" && cupTop) { setStick("st1o", "st1", add(cupTop, [58, -92]), add(cupTop, [8, 4])); setStick("st2o", "st2", add(cupTop, [68, -86]), add(cupTop, [16, 4])); }
+    if (Sk.mode === "floor") { const c0 = W(Sk.floorAt), a = add(c0, vW([-62, 4])), b = add(c0, vW([62, -6])); setStick("st1o", "st1", a, b); setStick("st2o", "st2", add(a, [0, 9]), add(b, [0, 9])); }
+    else if (Sk.mode === "cup" && cupTop) { setStick("st1o", "st1", add(cupTop, vW([58, -92])), add(cupTop, vW([8, 4]))); setStick("st2o", "st2", add(cupTop, vW([68, -86])), add(cupTop, vW([16, 4]))); }
     else {
       const base = add(paw.R.c, rot([0, 6 * sc], paw.R.ang));
-      const tip = ctx.chop ? ctx.chop.aim : add(base, scl([-66, -96], sc));
+      const tip = ctx.chop ? W(ctx.chop.aim) : add(base, vW(scl([-66, -96], sc)));
       setStick("st1o", "st1", add(base, [-4, 0]), add(tip, [-2, 0])); setStick("st2o", "st2", add(base, [5, 2]), add(tip, [3, 1]));
-      // noodles from the cup up to the tips, then slurped
       if (ctx.chop && cupTop) {
         const u = ctx.chop.u, k = ctx.chop.k, on = k > 0.08 && u < 2.8;
         show($("noodles"), on);
@@ -975,9 +1300,9 @@ function frame(now) {
         if (on) {
           const slurp = ease((u - 1.4) / 1.1);
           for (let i = 0; i < 3; i++) {
-            const from = add(cupTop, [-16 + i * 14, 2]);
-            const d = noodlePath(lerp2(from, tip, slurp), add(tip, [(i - 1) * 4, 0]), (8 - i * 7) * (1 - slurp), T * 5 + i * 2, 6 * (1 - slurp) + 1);
-            $("n" + i + "o").setAttribute("d", d); $("n" + i).setAttribute("d", d);
+            const from = add(cupTop, vW([-16 + i * 14, 2]));
+            const dd = noodlePath(lerp2(from, tip, slurp), add(tip, [(i - 1) * 4, 0]), (8 - i * 7) * (1 - slurp), T * 5 + i * 2, 6 * (1 - slurp) + 1);
+            $("n" + i + "o").setAttribute("d", dd); $("n" + i).setAttribute("d", dd);
           }
         }
       }
@@ -993,16 +1318,16 @@ function frame(now) {
   const open = Lp ? Lp.open || 0 : 0;
   $("faceGlow").setAttribute("opacity", Lp ? (open * (Lp.wl || 0) * (0.85 + 0.15 * Math.sin(T * 3))).toFixed(2) : "0");
   if (Lp && Lp.show > 0.01) {
-    const pos = add(add(scl(Lp.floorAt, Lp.wf), scl(add(paw.R.c, scl(LAP_IN_PAW, sc)), Lp.wp)), scl(ap(TM, LAP_REST), Lp.wl));
-    $("laptop").setAttribute("transform", `translate(${pt(pos)}) rotate(${(((tp.lean || 0) * 0.5 + rootAng) * Lp.wl).toFixed(2)}) scale(${(Lp.show * sc).toFixed(3)})`);
+    const pos = add(add(scl(W(Lp.floorAt), Lp.wf), scl(add(paw.R.c, vW(scl(LAP_IN_PAW, sc))), Lp.wp)), scl(W(ap(TM, LAP_REST)), Lp.wl));
+    $("laptop").setAttribute("transform", `translate(${pt(pos)}) rotate(${(((d.torso.lean || 0) * 0.5 + rootAng) * Lp.wl * dg).toFixed(2)}) scale(${(Lp.show * sc).toFixed(3)})`);
     $("lapLid").setAttribute("transform", `translate(0,-6) scale(1,${Math.max(0.05, open).toFixed(3)}) translate(0,6)`);
-    const taps = Lp.typing, f = Lp.fast ? 19 : 13;
-    show($("tapL"), taps && Math.sin(T * f + 1.7) > 0.3); show($("tapR"), taps && Math.sin(T * f) > 0.3);
+    const f = Lp.fast ? 19 : 13;
+    show($("tapL"), Lp.typing && Math.sin(T * f + 1.7) > 0.3); show($("tapR"), Lp.typing && Math.sin(T * f) > 0.3);
   }
 
   // sleep: Zzz off the hood, a nose bubble
-  const dozing = closed && (hp.sleeping || 0) > 0.5;
-  const zo = ap(HM, HEADPT.zzz);
+  const dozing = closed && hp.sleeping > 0.5;
+  const zo = ap(HMw, HEADPT.zzz);
   [0, 1, 2].forEach((k) => {
     const p = ((T + k * 0.9) % 2.7) / 2.7;
     const vis = dozing ? ease(p / 0.15) * (1 - ease((p - 0.7) / 0.3)) : 0;
@@ -1017,11 +1342,44 @@ function frame(now) {
     $("bub").setAttribute("cx", 452 + r * 0.6); $("bub").setAttribute("cy", 418 - r * 0.15);
     $("bubHi").setAttribute("d", on && r > 9 ? `M${452 + r * 0.6 - r * 0.5},${418 - r * 0.15 - r * 0.2} q${r * 0.2},${-r * 0.4} ${r * 0.55},${-r * 0.5}` : "");
   }
+}
+
+// ---------- the stage: as wide as its box allows, with a floor ----------
+function fitStage() {
+  const r = $("stage").getBoundingClientRect();
+  const Ht = 1320, Wd = clamp(Ht * (r.width / Math.max(1, r.height)), 1000, 3200);
+  VB = [R0.pelvis[0] - Wd / 2, -110, Wd, Ht];   // room above his head (for being picked up) and a strip of floor
+  for (const id of ["back", "front"]) $(id).setAttribute("viewBox", VB.join(" "));
+  $("floor").setAttribute("x", f1(VB[0])); $("floor").setAttribute("width", f1(VB[2])); $("floor").setAttribute("height", f1(VB[1] + VB[3] - 1086));
+  const rr = posRange(); Pet.posX = clamp(Pet.posX, rr[0], rr[1]);
+}
+addEventListener("resize", fitStage);
+fitStage();
+
+// ---------- the loop ----------
+let last = performance.now(), T = 0, life = 0, shown = "";
+setStates([Idle(2.5)]);
+refreshUI();
+const debug = { paused: false };
+function frame(now) {
+  let dt = clamp((now - last) / 1000, 0, 1 / 20); last = now;
+  if (!debug.paused) tick(dt * (reduce ? 0.5 : slow ? 0.4 : 1));
   requestAnimationFrame(frame);
 }
-setAction("idle");
+function tick(dt) {
+  T += dt; life += dt;
+  Pet.hearts = Math.max(0, Pet.hearts - dt); Pet.heartT += dt;
+  if (Pet.sx !== Pet.dir) { Pet.sx += Math.sign(Pet.dir - Pet.sx) * dt / 0.12; if ((Pet.dir - Pet.sx) * Pet.dir <= 0) Pet.sx = Pet.dir; }
+  advance();
+  const ctx = { glassesPush: 0, head: headLocal(lastHead), chop: null };
+  const tg = Pet.state.update(dt, T, ctx);
+  if (Pet.state.name !== shown) { shown = Pet.state.name; $("status").textContent = "而家：" + (STATE_NAME[shown] || shown); }
+  const dp = springPose(tg, dt);
+  debug.tg = tg; debug.dp = dp;
+  render(dp, dt, T, life, ctx);
+}
 requestAnimationFrame(frame);
-window.__bear = { st, setAction, setOverride, Warp, get T() { return T; }, set T(v) { T = v; } };
+window.__bear = { track, debug, tick, standPose, seatPose, STAND_BEATS, SEAT_BEATS, Pet, setStates, doAction, Idle, Walk, SitDown, StandUp, Noodles, Laptop, Sleep, WakeUp, Wave, Held, Fall, Land, SeatIdle, springs, Warp, get T() { return T; } };
 </script>
 </body>
 </html>
