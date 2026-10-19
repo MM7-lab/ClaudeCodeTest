@@ -613,6 +613,8 @@ const store = {
   set(k, v) { try { localStorage.setItem("cozybear." + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
 };
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// front ends (the studio page, the desktop pet) plug in here
+const hooks = { onChange() {} };
 
 // ---------- sound: synthesised, no files ----------
 class CozyAudioEngine {
@@ -907,19 +909,14 @@ function setMode(mode, opts = {}) {
   if (!opts.quietButton) sound.playPop(440);
   if (opts.manual) setAuto(false);
   state.mode = mode; state.exprOverride = null;
-  document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.anim === mode)));
   updateStatus();
 }
 function setAuto(on) {
   autopilot.on = on; store.set("auto", on);
-  $("btn-auto").setAttribute("aria-pressed", String(on));
   if (on) autopilot.until = state.t + 2;
   updateStatus();
 }
-function updateStatus() {
-  $("status-text").textContent = MODES[state.mode].label + (autopilot.on ? " · Auto" : "");
-  $("status-dot").classList.toggle("manual", !autopilot.on);
-}
+function updateStatus() { hooks.onChange(); }
 
 // ---------- one frame ----------
 let lastNow = null;
@@ -1023,7 +1020,7 @@ function tick(real) {
   let mouth = state.exprOverride || MODES[lead].mouth;
   if (yawnK > 0.2 || state.surpriseT > 0) mouth = "o";
   for (const id of ["deadpan", "smile", "cat", "o"]) showEl($("mouth-" + id), id === mouth);
-  document.querySelectorAll(".expr").forEach((btn) => btn.setAttribute("aria-pressed", String(btn.dataset.expr === mouth)));
+  state.mouth = mouth;
 
   // blush: eases toward the modes' blush, flushes on a head pat
   state.blushPulse = Math.max(0, state.blushPulse - real);
@@ -1096,6 +1093,20 @@ tap(rig.legLeft, () => wiggleToes());
 tap(rig.head, headPat);                                                   // the face or hood: a pat
 rig.svg.addEventListener("click", () => { if (state.mode === "sleep") wake(); });   // anywhere else on him wakes him up
 
+// ---------- the studio page's controls ----------
+let shownMouth = "";
+hooks.onChange = () => {
+  $("btn-auto").setAttribute("aria-pressed", String(autopilot.on));
+  $("status-text").textContent = MODES[state.mode].label + (autopilot.on ? " · Auto" : "");
+  $("status-dot").classList.toggle("manual", !autopilot.on);
+  document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.anim === state.mode)));
+};
+// the expression buttons show the mouth he is actually making
+setInterval(() => {
+  if (state.mouth === shownMouth) return;
+  shownMouth = state.mouth;
+  document.querySelectorAll(".expr").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.expr === shownMouth)));
+}, 100);
 $("btn-push-glasses").addEventListener("click", () => triggerGlassesPush());
 $("btn-happy-jump").addEventListener("click", () => wiggleToes());
 $("btn-pet").addEventListener("click", headPat);

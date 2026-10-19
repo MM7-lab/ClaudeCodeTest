@@ -1,0 +1,27 @@
+name: Bear desk pet (Windows)
+
+on:
+  push:
+    paths:
+      - "cat-animation/bear-pet-app/**"
+      - ".github/workflows/bear-pet-app.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cat-animation/bear-pet-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BearPet-windows
+          path: cat-animation/bear-pet-app/dist/*.exe
+          retention-days: 30

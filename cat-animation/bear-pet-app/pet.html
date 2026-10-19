@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>熊仔</title>
+<style>
+  /* desktop pet: no page, no background — only the character on a transparent window */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { user-select: none; -webkit-user-select: none; cursor: default; }
+  .hidden { display: none !important; }
+  #character-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; touch-action: none; }
+  #character-svg.grabbing, #character-svg.grabbing * { cursor: grabbing !important; }
+  #rig-shadow { opacity: 0.55; }
+</style>
+</head>
+<body>
+                <svg id="character-svg" viewBox="0 0 600 630" class="w-full h-auto max-w-[500px] max-h-[500px] z-10 select-none overflow-visible my-auto">
+                    <defs>
+                        <!-- Exact clip path for the inner hood opening so face, neck & hair never bleed across the rim -->
+                        <clipPath id="hood-opening-clip">
+                            <path d="M 301 322 
+                                     C 252 308, 214 276, 211 222 
+                                     C 208 158, 240 128, 304 128 
+                                     C 368 128, 395 162, 391 226 
+                                     C 388 275, 348 310, 301 322 Z" />
+                        </clipPath>
+                    </defs>
+
+                    <!-- 1. GROUND SHADOW -->
+                    <ellipse id="rig-shadow" cx="304" cy="586" rx="186" ry="24" fill="#dfdbd0" class="transition-all duration-300" />
+
+                    <!-- 2. MAIN CHARACTER ROOT GROUP (Pivots at ground contact 304, 586 so squash & stretch never slides) -->
+                    <g id="rig-root" transform="translate(304, 586)">
+                        <g transform="translate(-304, -586)">
+
+                        <!-- 2A. FLUFFY POM-POM TAIL (Pivots at hip base 452, 512) -->
+                        <g id="rig-tail" class="hotspot" transform="translate(452, 512)">
+                            <g transform="translate(-452, -512)">
+                                <path d="M 452 484 C 482 476, 500 496, 492 514 C 500 528, 480 546, 452 536 Z" 
+                                      fill="#faf8f2" stroke="#141210" stroke-width="6.2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M 460 520 C 474 526, 486 518, 488 510 C 492 524, 476 538, 456 532 Z" fill="#e3ded3" />
+                            </g>
+                        </g>
+
+                        <!-- 2B. TORSO & ONESIE BODY GROUP -->
+                        <g id="rig-torso">
+                            <!-- Unified Torso Fill Shape -->
+                            <path d="M 238 298 
+                                     C 198 328, 174 390, 164 470 
+                                     L 215 548 
+                                     L 432 548 
+                                     C 462 522, 470 468, 462 408 
+                                     C 454 348, 432 314, 406 286 Z" 
+                                  fill="#faf8f2" />
+
+                            <!-- Warm Shading along Right Back & Lower Belly -->
+                            <path d="M 406 286 C 432 314, 454 348, 462 408 C 470 468, 462 522, 432 548 L 392 548 C 426 508, 438 442, 428 368 C 422 330, 410 304, 394 290 Z" 
+                                  fill="#e3ded3" />
+                            <path d="M 248 498 C 278 512, 315 516, 345 496 L 335 548 L 245 548 Z" 
+                                  fill="#e3ded3" />
+
+                            <!-- Continuous Outer Right Back Contour -->
+                            <path d="M 406 286 C 436 318, 456 360, 463 420 C 469 472, 462 518, 442 540" 
+                                  fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+
+                            <!-- Breathing Belly Content Group -->
+                            <g id="rig-belly-content" transform="translate(0, 0)">
+                                <!-- Center Zipper Line (Upper & Lower around belly bear) -->
+                                <path d="M 301 324 L 300 374" fill="none" stroke="#141210" stroke-width="4.2" stroke-linecap="round" />
+                                <path d="M 299 432 C 298 462, 291 486, 285 508" fill="none" stroke="#141210" stroke-width="4.2" stroke-linecap="round" />
+                                
+                                <!-- Subtle Fabric Fold Ticks near Bottom of Zipper -->
+                                <path d="M 270 478 Q 284 482 296 476" fill="none" stroke="#c8c2b6" stroke-width="3.6" stroke-linecap="round" />
+                                <path d="M 262 508 Q 280 514 298 504" fill="none" stroke="#141210" stroke-width="4.2" stroke-linecap="round" />
+
+                                <!-- Zipper Pull Teardrop -->
+                                <g id="rig-zipper" transform="translate(301, 322)">
+                                    <path d="M 0 0 L -7 22 C -7 26, 6 26, 6 22 Z" fill="#faf8f2" stroke="#141210" stroke-width="4.8" stroke-linejoin="round" />
+                                </g>
+
+                                <!-- CUTE BELLY BEAR FACE PRINT (Clickable Hotspot!) -->
+                                <g id="rig-belly-bear" class="hotspot" transform="translate(302, 402)">
+                                    <rect x="-70" y="-40" width="140" height="80" fill="transparent" />
+                                    
+                                    <!-- Blush Marks Left (///) -->
+                                    <g stroke="#d98870" stroke-width="3.8" stroke-linecap="round">
+                                        <line x1="-50" y1="-5" x2="-45" y2="3" />
+                                        <line x1="-43" y1="-5" x2="-38" y2="3" />
+                                        <line x1="-36" y1="-5" x2="-31" y2="3" />
+                                    </g>
+                                    <!-- Blush Marks Right (///) -->
+                                    <g stroke="#d98870" stroke-width="3.8" stroke-linecap="round">
+                                        <line x1="35" y1="-5" x2="30" y2="3" />
+                                        <line x1="42" y1="-5" x2="37" y2="3" />
+                                        <line x1="49" y1="-5" x2="44" y2="3" />
+                                    </g>
+
+                                    <!-- Belly Bear Eyes -->
+                                    <g id="belly-eyes-open">
+                                        <circle cx="-31" cy="-15" r="6.5" fill="#141210" />
+                                        <circle cx="31" cy="-15" r="6.5" fill="#141210" />
+                                    </g>
+                                    <g id="belly-eyes-wink" class="hidden" stroke="#141210" stroke-width="4.2" fill="none" stroke-linecap="round">
+                                        <path d="M -38 -14 Q -31 -21 -24 -14" />
+                                        <path d="M 24 -14 Q 31 -21 38 -14" />
+                                    </g>
+
+                                    <!-- Belly Bear Snout Oval -->
+                                    <ellipse cx="0" cy="8" rx="26" ry="22" fill="#fcfbf8" stroke="#b8b1a3" stroke-width="4.2" />
+
+                                    <!-- Belly Bear Nose & W-Mouth -->
+                                    <path d="M -8 -1 C -8 -5, 8 -5, 8 -1 C 8 4, 3 8, 0 8 C -3 8, -8 4, -8 -1 Z" fill="#141210" />
+                                    <path id="belly-mouth" d="M 0 6 L 0 13 M 0 12 C -3 17, -12 16, -13 11 M 0 12 C 3 17, 12 16, 13 11" fill="none" stroke="#141210" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+                                </g>
+                            </g>
+                        </g>
+
+                        <!-- 2C. LEFT LEG & TUCKED LEFT PAW FOOT (Viewer's left) -->
+                        <g id="rig-leg-left" class="hotspot">
+                            <!-- Tucked Left Foot (Pivots cleanly at ankle 176, 566) -->
+                            <g id="rig-foot-left" transform="translate(176, 566)">
+                                <g transform="translate(-24, 0)">
+                                    <path d="M -28 -16 C -38 2, -26 20, 0 20 L 34 18 C 38 4, 28 -14, 8 -16 Z" 
+                                          fill="#faf8f2" stroke="#141210" stroke-width="6" stroke-linejoin="round" />
+                                    <!-- Two clean toe divider lines -->
+                                    <path d="M -12 -6 C -15 4, -13 14, -8 19" fill="none" stroke="#141210" stroke-width="5" stroke-linecap="round" />
+                                    <path d="M 4 -6 C 2 4, 4 14, 8 19" fill="none" stroke="#141210" stroke-width="5" stroke-linecap="round" />
+                                    <!-- Sole dot -->
+                                    <circle cx="-21" cy="4" r="3.8" fill="#141210" />
+                                </g>
+                            </g>
+
+                            <!-- Left Bent Knee Shape -->
+                            <path d="M 168 458 C 104 458, 90 524, 128 556 C 154 574, 212 574, 246 560 L 240 506 C 210 500, 184 482, 168 458 Z" 
+                                  fill="#faf8f2" />
+                            <!-- Left Knee Bottom Shadow -->
+                            <path d="M 114 538 C 142 564, 196 568, 242 554 L 240 566 C 185 576, 134 566, 114 538 Z" 
+                                  fill="#e3ded3" />
+                            <!-- Clean Left Knee Outline -->
+                            <path d="M 166 458 C 104 458, 90 524, 128 556 C 154 574, 204 574, 238 562" 
+                                  fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+                        </g>
+
+                        <!-- 2D. RIGHT LEG & FOREGROUND PAW FOOT (Viewer's right, clickable!) -->
+                        <g id="rig-leg-right" class="hotspot">
+                            <!-- Right Knee & Thigh Sweep -->
+                            <path d="M 336 496 C 408 474, 466 508, 452 554 C 438 590, 342 596, 256 582 L 250 532 C 286 526, 314 512, 336 496 Z" 
+                                  fill="#faf8f2" />
+                            <!-- Warm Shadow along underside of right leg -->
+                            <path d="M 262 566 C 340 580, 420 572, 446 528 C 454 554, 428 590, 336 590 C 300 590, 274 586, 256 582 Z" 
+                                  fill="#e3ded3" />
+                            <!-- Crisp Right Leg Outline -->
+                            <path d="M 330 498 C 390 480, 438 492, 450 524 C 464 558, 428 590, 338 590 C 304 590, 276 586, 254 582" 
+                                  fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+                            <!-- Subtle Inner Knee Crease -->
+                            <path d="M 426 498 C 436 504, 442 511, 446 518" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+
+                            <!-- Stationary Ankle Cuff Rim (Stays locked to leg so rotating the foot never pokes out) -->
+                            <path d="M 188 540 C 202 520, 234 520, 250 536" fill="#faf8f2" stroke="#141210" stroke-width="5.8" stroke-linecap="round" />
+
+                            <!-- Foreground Bear Foot (Pivots smoothly around ankle joint 242, 560) -->
+                            <g id="rig-foot-right" transform="translate(242, 560)">
+                                <g transform="translate(-20, -2)">
+                                    <!-- Main Plump Foot Oval -->
+                                    <path d="M -48 6 C -50 -16, -20 -30, 18 -22 C 34 -18, 40 2, 34 24 C 24 34, -20 36, -38 24 C -45 19, -48 13, -48 6 Z" 
+                                          fill="#faf8f2" />
+                                    <!-- Foot Lower Shading -->
+                                    <path d="M -38 20 C -14 28, 14 26, 34 14 L 32 24 C 16 34, -20 36, -38 24 Z" fill="#e3ded3" />
+                                    <!-- Main Foot Outer Outline -->
+                                    <path d="M -48 6 C -50 -16, -20 -30, 18 -22 C 34 -18, 40 2, 34 24 C 24 34, -20 36, -38 24 C -45 19, -48 13, -48 6 Z" 
+                                          fill="none" stroke="#141210" stroke-width="6.2" stroke-linejoin="round" />
+
+                                    <!-- Sole Divider Curve -->
+                                    <path d="M -18 -21 C -30 -5, -28 16, -16 30" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                    
+                                    <!-- Two Clean Toe Crease Lines -->
+                                    <path d="M -24 -2 C -14 -4, -4 -2, 2 1" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                    <path d="M -24 14 C -14 12, -4 14, 2 17" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+
+                                    <!-- Three Cute Black Sole Dots -->
+                                    <circle cx="-36" cy="-2" r="4" fill="#141210" />
+                                    <circle cx="-38" cy="9" r="4.2" fill="#141210" />
+                                    <circle cx="-31" cy="19" r="3.8" fill="#141210" />
+                                </g>
+                            </g>
+                        </g>
+
+                        <!-- 2E. OPTIONAL LAPTOP PROP (3/4 perspective: screen on left facing character, keyboard deck under both paws) -->
+                        <g id="prop-laptop" class="hidden">
+                            <!-- Keyboard Base Deck (Rests flat on lap beneath both paws) -->
+                            <path d="M 196 496 L 330 504 L 302 536 L 166 526 Z" 
+                                  fill="#e4e4e7" stroke="#141210" stroke-width="5.2" stroke-linejoin="round" />
+                            <!-- Keyboard Base Front Thickness Lip -->
+                            <path d="M 166 526 L 302 536 L 302 545 L 166 535 Z" 
+                                  fill="#a1a1aa" stroke="#141210" stroke-width="5" stroke-linejoin="round" />
+                            <!-- Crisp Keyboard Key Rows & Trackpad (Directly under left & right paws) -->
+                            <polygon points="202,502 312,509 294,527 186,519" fill="#27272a" stroke="#141210" stroke-width="3.2" stroke-linejoin="round" />
+                            <line x1="195" y1="510" x2="304" y2="517" stroke="#71717a" stroke-width="2.2" />
+                            <line x1="230" y1="503" x2="215" y2="521" stroke="#71717a" stroke-width="2.2" />
+                            <line x1="262" y1="505" x2="247" y2="523" stroke="#71717a" stroke-width="2.2" />
+                            <line x1="290" y1="507" x2="275" y2="525" stroke="#71717a" stroke-width="2.2" />
+
+                            <!-- Open Screen Lid on Left (Angled toward character's face) -->
+                            <!-- Inner Screen Glow Rim -->
+                            <path d="M 172 408 L 199 495 L 192 498 L 165 412 Z" 
+                                  fill="#bae6fd" stroke="#141210" stroke-width="4.5" stroke-linejoin="round" />
+                            <!-- Outer Back Cover of Laptop Screen -->
+                            <path d="M 136 426 C 134 418, 138 412, 146 410 L 166 408 C 172 408, 175 412, 177 418 L 196 496 L 166 526 L 136 426 Z" 
+                                  fill="#d4d4d8" stroke="#141210" stroke-width="5.5" stroke-linejoin="round" />
+                            <!-- Cute Polar Bear Emblem on Laptop Lid -->
+                            <g transform="translate(165, 464) rotate(-14)">
+                                <circle cx="0" cy="2" r="9.5" fill="#ffffff" stroke="#141210" stroke-width="3.4" />
+                                <circle cx="-7" cy="-6" r="4" fill="#ffffff" stroke="#141210" stroke-width="3" />
+                                <circle cx="7" cy="-6" r="4" fill="#ffffff" stroke="#141210" stroke-width="3" />
+                            </g>
+                        </g>
+
+                        <!-- 2F. LEFT ARM & PAW (Procedural soft-skinned sleeve pinned at shoulder + articulating paw) -->
+                        <g id="rig-arm-left">
+                            <path id="sleeve-left-fill" d="M 238 298 C 198 328, 174 390, 166 472 L 230 478 C 236 442, 240 404, 242 362 Z" fill="#faf8f2" />
+                            <path id="sleeve-left-outer" d="M 238 298 C 198 328, 174 390, 166 472" fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+                            <path id="sleeve-left-inner" d="M 242 362 C 240 404, 236 442, 230 478" fill="none" stroke="#141210" stroke-width="5.8" stroke-linecap="round" />
+                            <path id="sleeve-left-crease" d="M 214 426 Q 225 430 235 436" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+
+                            <!-- Left Mitten Paw -->
+                            <g id="rig-paw-left" transform="translate(208, 492)">
+                                <path d="M -24 -12 C -30 8, -22 32, -3 34 C 16 36, 28 26, 28 6 C 28 -8, 18 -18, 2 -20 C -10 -21, -20 -18, -24 -12 Z" 
+                                      fill="#faf8f2" stroke="#141210" stroke-width="6" stroke-linejoin="round" />
+                                <path d="M -7 13 C -7 23, -4 30, 0 33" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                <path d="M 8 11 C 8 21, 11 28, 14 31" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                            </g>
+                        </g>
+
+                        <!-- 2G. HEAD & POLAR BEAR HOOD GROUP (Pivots at neck: 308, 298) -->
+                        <g id="rig-head" transform="translate(308, 298)">
+                            <g transform="translate(-308, -298)">
+
+                                <!-- LEFT BEAR EAR (Pivots at ear base 248, 134 so it perks & twitches naturally!) -->
+                                <g id="rig-ear-left" class="hotspot" transform="translate(248, 134)">
+                                    <g transform="translate(-16, -20)">
+                                        <circle cx="0" cy="0" r="34" fill="#faf8f2" stroke="#141210" stroke-width="6.2" />
+                                        <circle cx="-2" cy="2" r="17" fill="#d8d1c5" stroke="#141210" stroke-width="4.5" />
+                                    </g>
+                                </g>
+
+                                <!-- RIGHT BEAR EAR (Pivots at ear base 390, 136 so it perks & twitches naturally!) -->
+                                <g id="rig-ear-right" class="hotspot" transform="translate(390, 136)">
+                                    <g transform="translate(16, -20)">
+                                        <circle cx="0" cy="0" r="35" fill="#faf8f2" stroke="#141210" stroke-width="6.2" />
+                                        <path d="M 18 -28 C 34 -12, 34 18, 12 30 C 24 14, 24 -12, 18 -28 Z" fill="#e3ded3" />
+                                        <circle cx="0" cy="0" r="35" fill="none" stroke="#141210" stroke-width="6.2" />
+                                        <circle cx="-2" cy="2" r="17" fill="#d8d1c5" stroke="#141210" stroke-width="4.5" />
+                                    </g>
+                                </g>
+
+                                <!-- OUTER HOOD DOME SHAPE (Closed fill + continuous outer stroke) -->
+                                <path d="M 206 138 
+                                         C 232 92, 304 80, 380 94 
+                                         C 430 114, 454 170, 450 232 
+                                         C 446 286, 410 318, 334 332 
+                                         L 301 324 
+                                         C 238 314, 196 282, 192 230 
+                                         C 189 190, 195 158, 206 138 Z" 
+                                      fill="#faf8f2" stroke="#141210" stroke-width="6.2" stroke-linejoin="round" />
+
+                                <!-- Seamless Ear-to-Hood Base Masks (Covers the hood stroke right inside the ear bases so ears merge cleanly like 1 line!) -->
+                                <ellipse cx="236" cy="124" rx="26" ry="16" transform="rotate(-28 236 124)" fill="#faf8f2" />
+                                <ellipse cx="400" cy="126" rx="26" ry="16" transform="rotate(28 400 126)" fill="#faf8f2" />
+
+                                <!-- Hood Right & Bottom Warm Shading -->
+                                <path d="M 430 142 C 452 184, 453 240, 435 280 C 415 314, 372 326, 334 332 C 380 310, 415 280, 421 226 C 425 186, 421 158, 430 142 Z" 
+                                      fill="#e3ded3" />
+
+                                <!-- Redraw Bottom Collar Fold Lines cleanly on top of shading -->
+                                <path d="M 216 296 C 238 312, 268 320, 296 324" fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+                                <path d="M 332 332 C 378 322, 418 304, 438 272" fill="none" stroke="#141210" stroke-width="6.2" stroke-linecap="round" />
+
+                                <!-- INNER HOOD OPENING & FACE (Strictly clipped to hood opening!) -->
+                                <g clip-path="url(#hood-opening-clip)">
+                                    <!-- Inner Hood Lining Wall (Warm cream-grey on the left of the face) -->
+                                    <rect x="195" y="120" width="210" height="215" fill="#e5e0d5" />
+
+                                    <!-- Character Neck (Cleanly tucked at the bottom of the opening) -->
+                                    <path d="M 294 282 L 298 330 L 365 330 L 365 270 Z" fill="#dc9d72" />
+                                    <path d="M 295 286 L 299 325" fill="none" stroke="#141210" stroke-width="5.8" stroke-linecap="round" />
+                                    <path d="M 353 282 L 350 315" fill="none" stroke="#141210" stroke-width="5.5" stroke-linecap="round" />
+
+                                    <!-- Character Face Base (Warm Peach Skin) -->
+                                    <path d="M 238 168 
+                                             C 230 208, 228 254, 244 274 
+                                             C 260 292, 308 294, 342 284 
+                                             C 370 275, 386 254, 386 222 
+                                             L 384 160 Z" 
+                                          fill="#f4be96" />
+
+                                    <!-- Subtle Chin & Right Cheek Skin Shading -->
+                                    <path d="M 275 289 C 315 291, 348 278, 368 252 L 388 252 L 388 296 L 275 296 Z" fill="#dc9d72" />
+
+                                    <!-- Single Crisp Face & Chin Contour (No duplicate inner lines!) -->
+                                    <path d="M 238 168 C 230 208, 228 254, 244 274 C 258 288, 286 291, 314 289" 
+                                          fill="none" stroke="#141210" stroke-width="5.8" stroke-linecap="round" />
+
+                                    <!-- Right Human Ear peeking inside hood -->
+                                    <path d="M 374 224 C 388 222, 390 252, 372 260" fill="#dc9d72" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+
+                                    <!-- Crisp Black Hair Cap & Sideburn -->
+                                    <path d="M 225 142 
+                                             C 255 125, 345 125, 385 148 
+                                             L 392 232 
+                                             L 374 228 
+                                             C 368 208, 363 188, 362 168 
+                                             C 325 179, 265 177, 237 165 
+                                             L 234 196 
+                                             L 222 190 Z" 
+                                          fill="#141210" />
+
+                                    <!-- Rosy Facial Cheek Blush -->
+                                    <g id="face-blush" opacity="0" class="transition-opacity duration-300">
+                                        <ellipse cx="248" cy="249" rx="13" ry="7.5" fill="#e57c68" opacity="0.55" />
+                                        <ellipse cx="338" cy="251" rx="14" ry="8" fill="#e57c68" opacity="0.55" />
+                                    </g>
+
+                                    <!-- EYES GROUP -->
+                                    <g id="rig-eyes" transform="translate(0, 0)">
+                                        <g id="eyes-open">
+                                            <ellipse cx="258" cy="218" rx="4.8" ry="6.8" fill="#141210" />
+                                            <ellipse cx="312" cy="219" rx="4.8" ry="6.8" fill="#141210" />
+                                        </g>
+                                        <g id="eyes-closed" class="hidden" stroke="#141210" stroke-width="5" stroke-linecap="round" fill="none">
+                                            <path d="M 249 219 L 267 219" />
+                                            <path d="M 303 220 L 321 220" />
+                                        </g>
+                                        <g id="eyes-happy" class="hidden" stroke="#141210" stroke-width="5" stroke-linecap="round" fill="none">
+                                            <path d="M 249 221 Q 258 210 267 221" />
+                                            <path d="M 303 222 Q 312 211 321 222" />
+                                        </g>
+                                    </g>
+
+                                    <!-- CHARACTER MOUTH -->
+                                    <g id="rig-mouth" transform="translate(285, 260)">
+                                        <path id="mouth-deadpan" d="M -12 0 L 12 0.6" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                        <path id="mouth-smile" class="hidden" d="M -12 -2 Q 0 8 12 -1" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                        <ellipse id="mouth-o" class="hidden" cx="0" cy="1" rx="5.2" ry="6.2" fill="#141210" />
+                                        <path id="mouth-cat" class="hidden" d="M -12 -1 Q -6 6 0 -1 Q 6 6 12 -1" fill="none" stroke="#141210" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round" />
+                                    </g>
+
+                                    <!-- SIGNATURE BLACK RECTANGULAR GLASSES (Clickable Hotspot!) -->
+                                    <g id="rig-glasses" class="hotspot" transform="translate(0, 0)">
+                                        <rect x="225" y="194" width="56" height="44" rx="10" fill="rgba(255,255,255,0.05)" stroke="#141210" stroke-width="6.8" />
+                                        <rect x="293" y="196" width="58" height="44" rx="10" fill="rgba(255,255,255,0.05)" stroke="#141210" stroke-width="6.8" />
+                                        <path d="M 281 212 Q 287 210 293 213" fill="none" stroke="#141210" stroke-width="6.8" stroke-linecap="round" />
+                                        <path d="M 351 215 L 382 222" fill="none" stroke="#141210" stroke-width="6.5" stroke-linecap="round" />
+
+                                        <!-- Glasses Glint Overlay -->
+                                        <g id="glasses-shine" opacity="0">
+                                            <polygon points="233,198 246,198 236,235 227,235" fill="#ffffff" opacity="0.75" />
+                                            <polygon points="301,200 314,200 304,237 295,237" fill="#ffffff" opacity="0.75" />
+                                        </g>
+                                    </g>
+                                </g>
+
+                                <!-- INNER HOOD OPENING RIM (Drawn cleanly on top of the clip group so all inner edges are 100% crisp) -->
+                                <path d="M 301 322 
+                                         C 252 308, 214 276, 211 222 
+                                         C 208 158, 240 128, 304 128 
+                                         C 368 128, 395 162, 391 226 
+                                         C 388 275, 348 310, 301 322 Z" 
+                                      fill="none" stroke="#141210" stroke-width="6.2" stroke-linejoin="round" />
+
+                                <!-- OPTIONAL COZY HEADPHONES (Visible in Lo-Fi Vibe Mode) -->
+                                <g id="prop-headphones" class="hidden">
+                                    <path d="M 190 215 C 175 90, 460 90, 450 220" fill="none" stroke="#3f3f46" stroke-width="12" stroke-linecap="round" />
+                                    <path d="M 190 215 C 175 90, 460 90, 450 220" fill="none" stroke="#141210" stroke-width="4.5" stroke-linecap="round" />
+                                    <rect x="172" y="190" width="28" height="58" rx="14" fill="#e07a5f" stroke="#141210" stroke-width="5" transform="rotate(-6 186 219)" />
+                                    <rect x="434" y="193" width="28" height="58" rx="14" fill="#e07a5f" stroke="#141210" stroke-width="5" transform="rotate(6 448 222)" />
+                                </g>
+                            </g>
+                        </g>
+
+                        <!-- 2H. RIGHT ARM & PAW (Layered in front so it can raise high above shoulder to wave, sip cocoa, or adjust glasses) -->
+                        <g id="rig-arm-right">
+                            <path id="sleeve-right-fill" d="M 386 362 C 368 408, 340 440, 312 468 L 348 510 C 392 496, 424 462, 432 414 L 418 368 Z" fill="#faf8f2" />
+                            <path id="sleeve-right-shadow" d="M 342 490 C 378 480, 408 456, 422 420 L 432 430 C 418 472, 386 500, 348 510 Z" fill="#e3ded3" />
+                            <path id="sleeve-right-upper" d="M 386 362 C 370 405, 342 440, 312 468" fill="none" stroke="#141210" stroke-width="6" stroke-linecap="round" />
+                            <path id="sleeve-right-lower" d="M 432 414 C 424 462, 392 496, 348 510" fill="none" stroke="#141210" stroke-width="6" stroke-linecap="round" />
+                            <path id="sleeve-right-crease" d="M 366 434 Q 382 432 394 438" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+
+                            <!-- Right Mitten Paw -->
+                            <g id="rig-paw-right" transform="translate(318, 496)">
+                                <!-- Cocoa Mug Prop (Kept upright by independent counter-rotation) -->
+                                <g id="prop-mug" class="hidden" transform="translate(-22, -18)">
+                                    <path d="M 18 -10 C 32 -10, 32 12, 18 12" fill="none" stroke="#141210" stroke-width="8.5" stroke-linecap="round" />
+                                    <path d="M 18 -10 C 32 -10, 32 12, 18 12" fill="none" stroke="#e07a5f" stroke-width="4.2" stroke-linecap="round" />
+                                    <rect x="-20" y="-22" width="40" height="44" rx="9" fill="#e07a5f" stroke="#141210" stroke-width="5" />
+                                    <ellipse cx="0" cy="-20" rx="16" ry="5" fill="#5c3a21" stroke="#141210" stroke-width="3.6" />
+                                    <circle cx="-5" cy="-20" r="4" fill="#ffffff" />
+                                    <circle cx="4" cy="-19" r="3.5" fill="#ffffff" />
+                                </g>
+
+                                <path d="M -8 -24 C -28 -16, -42 8, -32 26 C -22 40, 8 36, 26 14 C 30 0, 16 -22, -8 -24 Z" 
+                                      fill="#faf8f2" stroke="#141210" stroke-width="6" stroke-linejoin="round" />
+                                <!-- Paw Finger Lines -->
+                                <path d="M -26 10 C -18 4, -10 2, -4 2" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                                <path d="M -18 23 C -10 17, -2 14, 4 14" fill="none" stroke="#141210" stroke-width="5.2" stroke-linecap="round" />
+                            </g>
+                        </g>
+
+                        <!-- 3. DYNAMIC FLOATING PARTICLES & EMOTES LAYER -->
+                        <g id="particles-layer" pointer-events="none"></g>
+
+                        </g>
+                    </g>
+                </svg>
+<script>
+const DESK = true;
+// =====================================================================================================
+// Cozy Bear rig engine. The character drawing is untouched; this script only moves its named groups.
+//  - time-based: the same speed at 60, 120 or 144 Hz, and a hiccup never makes him jump
+//  - every mode is a pose function; switching modes cross-fades the poses with an eased weight,
+//    so arms travel, props grow in and out, and fast rhythms (typing, waving) stay crisp
+//  - an autopilot ("Auto") picks what he does next, with small idle fidgets in between
+// =====================================================================================================
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const smooth = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const rand = (a, b) => a + Math.random() * (b - a);
+const weighted = (pairs) => { let s = 0; for (const [, w] of pairs) s += w; let r = Math.random() * s; for (const [v, w] of pairs) { if ((r -= w) <= 0) return v; } return pairs[0][0]; };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("cozybear." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("cozybear." + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+};
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// front ends (the studio page, the desktop pet) plug in here
+const hooks = { onChange() {} };
+
+// ---------- sound: synthesised, no files ----------
+class CozyAudioEngine {
+  constructor() { this.ctx = null; this.enabled = true; }
+  init() {
+    if (!this.ctx) { const A = window.AudioContext || window.webkitAudioContext; if (A) this.ctx = new A(); }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    return !!this.ctx;
+  }
+  tone(type, freq, gain, dur, at = 0, glide) {
+    if (!this.enabled || !this.init()) return;
+    const now = this.ctx.currentTime + at, osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, now);
+    if (glide) glide(osc.frequency, now);
+    g.gain.setValueAtTime(gain, now); g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    osc.connect(g); g.connect(this.ctx.destination); osc.start(now); osc.stop(now + dur + 0.01);
+  }
+  playPop(f = 520) { this.tone("sine", f, 0.14, 0.1, 0, (p, n) => p.exponentialRampToValueAtTime(f * 1.6, n + 0.09)); }
+  playBoing() { this.tone("triangle", 280, 0.15, 0.24, 0, (p, n) => { p.exponentialRampToValueAtTime(480, n + 0.08); p.exponentialRampToValueAtTime(340, n + 0.22); }); }
+  playSparkle() { [880, 1174.66, 1396.91, 1760].forEach((n, i) => this.tone("sine", n, 0.08, 0.18, i * 0.045)); }
+  playChord(freqs) { freqs.forEach((f) => this.tone("triangle", f, 0.035, 1.4)); }
+}
+const sound = new CozyAudioEngine();
+
+// ---------- the rig's parts ----------
+const rig = {
+  svg: $("character-svg"), shadow: $("rig-shadow"), root: $("rig-root"), tail: $("rig-tail"),
+  bellyContent: $("rig-belly-content"), zipper: $("rig-zipper"), bellyBear: $("rig-belly-bear"),
+  bellyEyesOpen: $("belly-eyes-open"), bellyEyesWink: $("belly-eyes-wink"),
+  legLeft: $("rig-leg-left"), footLeft: $("rig-foot-left"), legRight: $("rig-leg-right"), footRight: $("rig-foot-right"),
+  sleeveLeftFill: $("sleeve-left-fill"), sleeveLeftOuter: $("sleeve-left-outer"), sleeveLeftInner: $("sleeve-left-inner"), sleeveLeftCrease: $("sleeve-left-crease"),
+  pawLeft: $("rig-paw-left"),
+  sleeveRightFill: $("sleeve-right-fill"), sleeveRightShadow: $("sleeve-right-shadow"), sleeveRightUpper: $("sleeve-right-upper"), sleeveRightLower: $("sleeve-right-lower"), sleeveRightCrease: $("sleeve-right-crease"),
+  pawRight: $("rig-paw-right"), head: $("rig-head"), earLeft: $("rig-ear-left"), earRight: $("rig-ear-right"),
+  eyes: $("rig-eyes"), eyesOpen: $("eyes-open"), eyesClosed: $("eyes-closed"), eyesHappy: $("eyes-happy"),
+  faceBlush: $("face-blush"), glasses: $("rig-glasses"), glassesShine: $("glasses-shine"),
+  propLaptop: $("prop-laptop"), propMug: $("prop-mug"), propHeadphones: $("prop-headphones"), particles: $("particles-layer"),
+};
+const showEl = (el, on) => el.classList.toggle("hidden", !on);
+
+// The laptop sits on his lap facing him: we see the back of the lid, and his paws type behind it.
+// It is drawn above both arms (the sheet's own laptop sits under them, beside him, so it stays hidden).
+const lapBack = document.createElementNS("http://www.w3.org/2000/svg", "g");
+lapBack.id = "prop-laptop-back";
+lapBack.setAttribute("class", "hidden");
+lapBack.innerHTML = `
+  <ellipse cx="266" cy="420" rx="84" ry="10" fill="#bae6fd" opacity="0.55"/>
+  <path d="M 184 424 C 184 418, 188 414, 194 414 L 338 414 C 344 414, 348 418, 348 424 L 358 516 L 174 516 Z"
+        fill="#d4d4d8" stroke="#141210" stroke-width="5.5" stroke-linejoin="round"/>
+  <path d="M 196 426 L 260 426" fill="none" stroke="#f4f4f5" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 340 432 L 348 512 L 334 512 Z" fill="#a1a1aa" opacity="0.55"/>
+  <path d="M 162 514 L 370 514 L 376 530 C 376 534, 372 536, 368 536 L 164 536 C 160 536, 156 534, 156 530 Z"
+        fill="#a1a1aa" stroke="#141210" stroke-width="5" stroke-linejoin="round"/>
+  <g transform="translate(266, 466)">
+    <circle cx="-11" cy="-11" r="6" fill="#ffffff" stroke="#141210" stroke-width="3.4"/>
+    <circle cx="11" cy="-11" r="6" fill="#ffffff" stroke="#141210" stroke-width="3.4"/>
+    <circle cx="0" cy="3" r="14" fill="#ffffff" stroke="#141210" stroke-width="3.6"/>
+    <circle cx="-5" cy="0" r="1.8" fill="#141210"/><circle cx="5" cy="0" r="1.8" fill="#141210"/>
+    <ellipse cx="0" cy="6" rx="3" ry="2.2" fill="#141210"/>
+  </g>
+  <g id="lap-tap-l" fill="none" stroke="#141210" stroke-width="3.6" stroke-linecap="round"><path d="M 214 404 l -6 -12 M 228 400 l 0 -13 M 200 410 l -12 -6"/></g>
+  <g id="lap-tap-r" fill="none" stroke="#141210" stroke-width="3.6" stroke-linecap="round"><path d="M 300 402 l 4 -12 M 314 406 l 10 -9 M 286 400 l 0 -13"/></g>`;
+rig.particles.before(lapBack);
+const lapTapL = lapBack.querySelector("#lap-tap-l"), lapTapR = lapBack.querySelector("#lap-tap-r");
+
+// the sleeves are re-skinned every frame from the paw offsets (same geometry as the character sheet)
+function updateLeftSleeveGeometry(lx, ly) {
+  const wx1 = (166 + lx * 0.85).toFixed(1), wy1 = (472 + ly * 0.85).toFixed(1), wx2 = (230 + lx * 0.9).toFixed(1), wy2 = (478 + ly * 0.9).toFixed(1);
+  const c1x = (198 + lx * 0.3).toFixed(1), c1y = (328 + ly * 0.3).toFixed(1), c2x = (174 + lx * 0.65).toFixed(1), c2y = (390 + ly * 0.65).toFixed(1);
+  const ic1x = (240 + lx * 0.35).toFixed(1), ic1y = (404 + ly * 0.35).toFixed(1), ic2x = (236 + lx * 0.7).toFixed(1), ic2y = (442 + ly * 0.7).toFixed(1);
+  rig.sleeveLeftFill.setAttribute("d", `M 238 298 C ${c1x} ${c1y}, ${c2x} ${c2y}, ${wx1} ${wy1} L ${wx2} ${wy2} C ${ic2x} ${ic2y}, ${ic1x} ${ic1y}, 242 362 Z`);
+  rig.sleeveLeftOuter.setAttribute("d", `M 238 298 C ${c1x} ${c1y}, ${c2x} ${c2y}, ${wx1} ${wy1}`);
+  rig.sleeveLeftInner.setAttribute("d", `M 242 362 C ${ic1x} ${ic1y}, ${ic2x} ${ic2y}, ${wx2} ${wy2}`);
+  rig.sleeveLeftCrease.setAttribute("d", `M ${(214 + lx * 0.7).toFixed(1)} ${(426 + ly * 0.7).toFixed(1)} Q ${(225 + lx * 0.75).toFixed(1)} ${(430 + ly * 0.75).toFixed(1)} ${(235 + lx * 0.8).toFixed(1)} ${(436 + ly * 0.8).toFixed(1)}`);
+}
+function updateRightSleeveGeometry(rx, ry) {
+  const lift = clamp(-ry / 220, 0, 1), px = 318 + rx, py = 496 + ry;
+  const sx1 = 386 - lift * 6, sy1 = 362 - lift * 16, sx2 = 432 + lift * 10, sy2 = 414 - lift * 26;
+  const ux = px + (-6 * (1 - lift) + -22 * lift), uy = py + (-28 * (1 - lift) + 8 * lift);
+  const lx = px + (30 * (1 - lift) + 22 * lift), ly = py + (14 * (1 - lift) + 18 * lift);
+  const uc1x = sx1 + (ux - sx1) * 0.35 + lift * 6, uc1y = sy1 + (uy - sy1) * 0.35 + (1 - lift) * 6;
+  const uc2x = sx1 + (ux - sx1) * 0.7 + lift * 4, uc2y = sy1 + (uy - sy1) * 0.7 + (1 - lift) * 4;
+  const lc1x = sx2 + (lx - sx2) * 0.35 + 18, lc1y = sy2 + (ly - sy2) * 0.35 + (1 - lift) * 16 + lift * 6;
+  const lc2x = sx2 + (lx - sx2) * 0.7 + (1 - lift) * 14 + lift * 12, lc2y = sy2 + (ly - sy2) * 0.7 + (1 - lift) * 12 + lift * 4;
+  const f = (v) => v.toFixed(1);
+  rig.sleeveRightFill.setAttribute("d", `M ${f(sx1)} ${f(sy1)} C ${f(uc1x)} ${f(uc1y)}, ${f(uc2x)} ${f(uc2y)}, ${f(ux)} ${f(uy)} L ${f(lx)} ${f(ly)} C ${f(lc2x)} ${f(lc2y)}, ${f(lc1x)} ${f(lc1y)}, ${f(sx2)} ${f(sy2)} L 414 364 Z`);
+  rig.sleeveRightShadow.setAttribute("d", `M ${f(lx - 6)} ${f(ly - 14)} C ${f(lc2x - 8)} ${f(lc2y - 10)}, ${f(lc1x - 8)} ${f(lc1y - 8)}, ${f(sx2 - 8)} ${f(sy2 + 2)} L ${f(sx2)} ${f(sy2)} C ${f(lc1x)} ${f(lc1y)}, ${f(lc2x)} ${f(lc2y)}, ${f(lx)} ${f(ly)} Z`);
+  rig.sleeveRightUpper.setAttribute("d", `M ${f(sx1)} ${f(sy1)} C ${f(uc1x)} ${f(uc1y)}, ${f(uc2x)} ${f(uc2y)}, ${f(ux)} ${f(uy)}`);
+  rig.sleeveRightLower.setAttribute("d", `M ${f(sx2)} ${f(sy2)} C ${f(lc1x)} ${f(lc1y)}, ${f(lc2x)} ${f(lc2y)}, ${f(lx)} ${f(ly)}`);
+  const crX1 = sx1 + (ux - sx1) * 0.45 + 6, crY1 = sy1 + (uy - sy1) * 0.45 + 18 * (1 - lift);
+  rig.sleeveRightCrease.setAttribute("d", `M ${f(crX1)} ${f(crY1)} Q ${f(crX1 + 14)} ${f(crY1 - 2)} ${f(crX1 + 24)} ${f(crY1 + 4)}`);
+}
+
+// ---------- poses ----------
+const REST = { rootY: 0, rootScaleX: 1, rootScaleY: 1, bellyY: 0, headX: 0, headY: 0, headRot: 0, earLRot: 0, earRRot: 0,
+  pawLX: 0, pawLY: 0, pawLRot: 0, pawRX: 0, pawRY: 0, pawRRot: 0, mugRot: -6, footLRot: 0, footRRot: 0, tailRot: 0 };
+const KEYS = Object.keys(REST);
+
+// each mode: a pose for time t (b = bounce intensity), its mouth, blush and label, and what it gives off
+const MODES = {
+  idle: {
+    label: "Idle & Chilling", mouth: "deadpan", blush: 0,
+    pose(o, t, b) {
+      const breath = Math.sin(t * 2.0), late = Math.sin(t * 2.0 - 0.45);
+      o.rootScaleX = 1 - breath * 0.006 * b; o.rootScaleY = 1 + breath * 0.01 * b; o.bellyY = -breath * 2.2 * b;
+      o.headY = -late * 2.6 * b; o.headRot = Math.sin(t * 1.0) * 1.2 * b;
+      o.earLRot = -late * 2.2 * b; o.earRRot = late * 2.2 * b;
+      o.pawLY = -breath * 1.2 * b; o.pawRY = -breath * 1.2 * b; o.footRRot = Math.sin(t * 1.5) * 1.8 * b;
+    },
+  },
+  wave: {
+    label: "Waving Hello! 👋", mouth: "smile", blush: 0.8,
+    pose(o, t, b) {
+      const sway = Math.sin(t * 3.6), wave = Math.sin(t * 7.6), bob = (1 - Math.cos(t * 7.6)) * 0.5;
+      o.rootScaleX = 1 + bob * 0.009 * b; o.rootScaleY = 1 - bob * 0.009 * b; o.bellyY = -bob * 2.2 * b;
+      o.headX = sway * 2.5 * b; o.headY = -bob * 3.2 * b; o.headRot = -2.0 + sway * 3.0 * b;
+      o.pawRX = 88 + wave * 22 * b; o.pawRY = -258 + Math.abs(wave) * 7 * b; o.pawRRot = 128 + wave * 22 * b;   // paw up beside the hood
+      o.earLRot = sway * 5.0 * b; o.earRRot = sway * 5.0 * b; o.tailRot = wave * 11 * b;
+    },
+    emit(dt, pose) { if (Math.random() < 2.4 * dt) spawnParticle("sparkle", 410 + (pose.pawRX - 88), 195); },
+  },
+  cocoa: {
+    label: "Sipping Warm Cocoa ☕", mouth: "cat", blush: 1,
+    pose(o, t, b) {
+      const raw = clamp((Math.sin(t * 1.6) + 0.25) / 1.25, 0, 1), sip = raw * raw * (3 - 2 * raw);   // 0 at the chest .. 1 at his mouth
+      const breath = Math.sin(t * 2.0);
+      o.bellyY = -breath * 1.8 * b; o.headY = sip * 5.5 * b - breath * 1.5; o.headRot = -sip * 5.0 * b;
+      o.pawRX = -18 - sip * 6 * b; o.pawRY = -68 - sip * 124 * b; o.pawRRot = 36 + sip * 38 * b;
+      o.mugRot = -o.pawRRot - 4 - sip * 16;                                                  // keeps the mug upright
+      o.earLRot = -sip * 3.5 * b; o.earRRot = sip * 3.5 * b; o.footRRot = Math.sin(t * 2.8) * 3.0 * b; o.tailRot = Math.sin(t * 3.2) * 6 * b;
+      o.sip = sip;
+    },
+    every: 0.55, emit(dt, pose) { spawnParticle("steam", 318 + pose.pawRX - 22, 496 + pose.pawRY - 44); },
+  },
+  vibe: {
+    label: "Vibing to Lo-Fi Beats 🎧", mouth: "deadpan", blush: 0,
+    pose(o, t, b) {
+      const tempo = t * 5.6, groove = (1 - Math.cos(tempo)) * 0.5, headGroove = (1 - Math.cos(tempo - 0.55)) * 0.5;
+      const earGroove = (1 - Math.cos(tempo - 1.1)) * 0.5, side = Math.sin(tempo * 0.5);
+      o.rootScaleX = 1 + groove * 0.014 * b; o.rootScaleY = 1 - groove * 0.014 * b; o.bellyY = groove * 3.0 * b;
+      o.headX = side * 3.5 * b; o.headY = headGroove * 7.5 * b; o.headRot = -headGroove * 5.5 * b + side * 2.5 * b;
+      o.earLRot = -earGroove * 7.5 * b; o.earRRot = earGroove * 7.5 * b; o.pawLY = groove * 3.5 * b; o.pawRY = groove * 3.5 * b;
+      o.footRRot = -groove * 9.5 * b; o.footLRot = (1 - groove) * 5.0 * b; o.tailRot = side * 12 * b;
+    },
+    every: 0.65,
+    emit() {
+      spawnParticle("note", 195 + Math.random() * 210, 160);
+      if (Math.random() < 0.45) { sound.playChord(CHORDS[state.chordStep % CHORDS.length]); state.chordStep++; }
+    },
+  },
+  sleep: {
+    label: "Dozing Off... Zzz 💤", mouth: "o", blush: 0.4,
+    pose(o, t, b) {
+      const slow = Math.sin(t * 1.25), nod = (1 - Math.cos(t * 0.85)) * 0.5;
+      o.rootScaleX = 1 - slow * 0.008 * b; o.rootScaleY = 1 + slow * 0.012 * b; o.bellyY = -slow * 2.5 * b;
+      o.headX = -2.5 * b; o.headY = (5.0 + nod * 6.5 - slow * 1.8) * b; o.headRot = (-4.5 - nod * 4.5) * b;
+      o.earLRot = (-3 - nod * 4) * b; o.earRRot = (2 + nod * 3) * b; o.pawLY = 3; o.pawRY = 3; o.tailRot = Math.sin(t * 0.8) * 1.5;
+    },
+    every: 1.25, emit() { spawnParticle("zzz", 225, 165); },
+  },
+  code: {
+    label: "In the Coding Zone 💻", mouth: "deadpan", blush: 0,
+    pose(o, t, b) {
+      const typeL = Math.sin(t * 19) * 0.5 + Math.sin(t * 11) * 0.5, typeR = Math.cos(t * 19) * 0.5 + Math.sin(t * 13) * 0.5;
+      o.headY = 3.5 * b; o.headRot = -3.0 + Math.sin(t * 2.2) * 1.2 * b;
+      o.pawLX = 24 + typeL * 2.0 * b; o.pawLY = -2 + Math.abs(typeL) * 5.5 * b; o.pawLRot = -18 + typeL * 6 * b;   // on the keys
+      o.pawRX = -34 + typeR * 2.0 * b; o.pawRY = 2 + Math.abs(typeR) * 5.5 * b; o.pawRRot = 18 + typeR * 6 * b;
+      o.earLRot = Math.sin(t * 3.6) * 2 * b; o.earRRot = -Math.sin(t * 3.6) * 2 * b;
+      o.shine = 0.45 + Math.sin(t * 4.5) * 0.2;
+    },
+    every: 0.52, emit() { spawnParticle("code", 190 + Math.random() * 130, 398); },   // rising from behind the screen
+  },
+};
+const MODE_NAMES = Object.keys(MODES);
+const CHORDS = [[261.63, 329.63, 392.0, 493.88], [220.0, 261.63, 329.63, 392.0], [174.61, 220.0, 261.63, 349.23], [196.0, 246.94, 293.66, 349.23]];
+
+// ---------- state ----------
+const state = {
+  mode: "idle", exprOverride: null, speed: 1, bounceScale: reduceMotion ? 0.6 : 1, eyeTracking: store.get("eyes", true),
+  t: 0, chordStep: 0,
+  fade: Object.fromEntries(MODE_NAMES.map((m) => [m, m === "idle" ? 1 : 0])),      // 0..1 progress of each mode's cross-fade
+  emitAt: Object.fromEntries(MODE_NAMES.map((m) => [m, 0])),
+  springs: { earL: { pos: 0, vel: 0 }, earR: { pos: 0, vel: 0 }, tail: { pos: 0, vel: 0 }, foot: { pos: 0, vel: 0 }, pat: { pos: 0, vel: 0 } },
+  glassesT: 0, bellyWinkT: 0, blushPulse: 0, blush: 0, surpriseT: 0, yawnT: 0,
+  blink: { next: 2.5, until: 0 },
+  eye: { x: 0, y: 0, tx: 0, ty: 0, lastPointer: -99 }, gaze: { x: 0, y: 0, until: 0 },
+  nextFidget: 4,
+};
+const FADE_TIME = 0.6;   // seconds for one mode to hand over to the next
+
+// critically damped-ish spring on an impulse (ears, tail, feet, head pat); sub-stepped so it is stable at any frame rate
+function stepSpring(s, k, c, dt) {
+  const n = Math.ceil(dt / (1 / 120));
+  for (let i = 0; i < n; i++) { const h = dt / n; s.vel += (-k * s.pos - c * s.vel) * h; s.pos += s.vel * h; }
+}
+
+// ---------- particles (time-based) ----------
+const particles = [];
+function spawnParticle(type, x, y) {
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  let c = "";
+  if (type === "heart") c = '<path d="M 0 6 C -8 -2, -16 4, -8 14 L 0 22 L 8 14 C 16 4, 8 -2, 0 6 Z" fill="#f43f5e" stroke="#141210" stroke-width="2.5"/>';
+  else if (type === "zzz") c = '<text x="0" y="0" font-family="Fredoka, sans-serif" font-weight="700" font-size="24" fill="#141210">Zzz</text>';
+  else if (type === "note") {
+    const sym = ["♪", "♫", "♬"][Math.floor(Math.random() * 3)], col = ["#e07a5f", "#3d405b", "#81b29a", "#f2cc8f"][Math.floor(Math.random() * 4)];
+    c = `<text x="0" y="0" font-family="Fredoka, sans-serif" font-weight="700" font-size="28" fill="${col}" stroke="#141210" stroke-width="1.2">${sym}</text>`;
+  } else if (type === "steam") c = '<path d="M 0 0 Q -6 -10 0 -20 Q 6 -30 0 -40" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.75"/>';
+  else if (type === "code") c = `<text x="0" y="0" font-family="monospace" font-weight="700" font-size="18" fill="#0284c7">${["{ }", "&lt;/&gt;", "01", "★"][Math.floor(Math.random() * 4)]}</text>`;
+  else if (type === "sparkle") c = '<path d="M 0 -10 Q 0 0 10 0 Q 0 0 0 10 Q 0 0 -10 0 Q 0 0 0 -10 Z" fill="#fbbf24" stroke="#141210" stroke-width="2"/>';
+  g.innerHTML = c;
+  rig.particles.appendChild(g);
+  particles.push({ el: g, x: x + rand(-13, 13), y, vx: rand(-21, 21), vy: -rand(60, 108), scale: 0.4, life: 0, max: rand(1.25, 1.65) });
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life += dt; p.x += p.vx * dt + Math.sin(p.life * 4.8) * 21 * dt; p.y += p.vy * dt;
+    p.scale = Math.min(1.05, p.scale + 2.4 * dt);
+    const a = p.life > p.max * 0.6 ? Math.max(0, 1 - (p.life - p.max * 0.6) / (p.max * 0.4)) : 1;
+    p.el.setAttribute("transform", `translate(${p.x.toFixed(1)}, ${p.y.toFixed(1)}) scale(${p.scale.toFixed(2)})`);
+    p.el.setAttribute("opacity", a.toFixed(2));
+    if (p.life >= p.max) { p.el.remove(); particles.splice(i, 1); }
+  }
+}
+
+// ---------- one-shot reactions ----------
+function triggerGlassesPush(loud = true) {
+  if (state.glassesT > 0) return;
+  state.glassesT = 1.0;
+  if (loud) { sound.playSparkle(); spawnParticle("sparkle", 240, 195); spawnParticle("sparkle", 345, 195); }
+}
+function twitchEar(side, loud = true) {
+  state.springs[side === "L" ? "earL" : "earR"].vel = side === "L" ? -260 : 260;
+  if (loud) { sound.playBoing(); spawnParticle("sparkle", side === "L" ? 210 : 430, 95); }
+}
+function wiggleToes(loud = true) {
+  state.springs.foot.vel = -280;
+  if (loud) { sound.playBoing(); spawnParticle("heart", 215, 540); spawnParticle("sparkle", 150, 550); }
+}
+function wagTail(loud = true) {
+  state.springs.tail.vel = 320;
+  if (loud) { sound.playBoing(); spawnParticle("sparkle", 495, 500); }
+}
+function winkBelly(loud = true) {
+  state.bellyWinkT = 1.0;
+  if (loud) { sound.playPop(680); spawnParticle("heart", 306, 395); }
+}
+function headPat() {
+  if (state.mode === "sleep") { wake(); return; }
+  state.springs.pat.vel = 220; state.blushPulse = 1.4;
+  sound.playPop(580); spawnParticle("heart", 280, 110); spawnParticle("heart", 340, 115);
+}
+function wake() {
+  setMode("idle", { quietButton: true });
+  state.surpriseT = 0.9; state.springs.earL.vel = -300; state.springs.earR.vel = 300;
+  sound.playBoing(); spawnParticle("sparkle", 230, 120); spawnParticle("sparkle", 380, 120);
+  autopilot.until = state.t + rand(4, 7);
+}
+
+// ---------- autopilot: he decides what to do next ----------
+const autopilot = {
+  on: store.get("auto", true), until: rand(6, 9), acts: 0,
+  LEN: { idle: [7, 12], wave: [2.8, 3.6], cocoa: [10, 15], code: [12, 18], vibe: [9, 14], sleep: [14, 22] },
+  step() {
+    if (!this.on || state.t < this.until) return;
+    let next = "idle";
+    if (state.mode === "idle") {
+      next = weighted([["cocoa", 3], ["code", 3], ["vibe", 2], ["wave", 1.2], ["sleep", this.acts >= 3 ? 3 : 0.3]]);
+      this.acts = next === "sleep" ? 0 : this.acts + 1;
+    }
+    if (state.mode === "sleep") wake(); else setMode(next, { quietButton: true });
+    const [a, b] = this.LEN[state.mode];
+    this.until = state.t + rand(a, b);
+  },
+};
+
+// small fidgets while idling, so he never stands frozen
+function fidget() {
+  const what = weighted([["look", 3], ["ear", 2], ["toes", 1.2], ["tail", 1.2], ["glasses", 1], ["belly", 0.8], ["yawn", 0.7]]);
+  if (what === "look") { state.gaze = { x: rand(3.5, 6) * (Math.random() < 0.5 ? -1 : 1), y: rand(-2.5, 2.5), until: state.t + rand(1.2, 2.2) }; }
+  else if (what === "ear") twitchEar(Math.random() < 0.5 ? "L" : "R", false);
+  else if (what === "toes") wiggleToes(false);
+  else if (what === "tail") wagTail(false);
+  else if (what === "glasses") triggerGlassesPush(false);
+  else if (what === "belly") winkBelly(false);
+  else state.yawnT = 1.6;
+}
+
+// ---------- mode switching ----------
+function setMode(mode, opts = {}) {
+  if (!MODES[mode]) return;
+  if (!opts.quietButton) sound.playPop(440);
+  if (opts.manual) setAuto(false);
+  state.mode = mode; state.exprOverride = null;
+  updateStatus();
+}
+function setAuto(on) {
+  autopilot.on = on; store.set("auto", on);
+  if (on) autopilot.until = state.t + 2;
+  updateStatus();
+}
+function updateStatus() { hooks.onChange(); }
+
+// ---------- one frame ----------
+let lastNow = null;
+const dbg = { paused: false };
+function frame(now) {
+  const real = lastNow === null ? 1 / 60 : clamp((now - lastNow) / 1000, 0, 1 / 15);   // a long pause never becomes a jump
+  lastNow = now;
+  if (!dbg.paused) tick(real);
+  requestAnimationFrame(frame);
+}
+document.addEventListener("visibilitychange", () => { lastNow = null; });
+
+function tick(real) {
+  const dt = real * state.speed;
+  state.t += dt;
+  const t = state.t, b = state.bounceScale;
+
+  autopilot.step();
+  if (state.mode === "idle" && state.fade.idle > 0.98 && t > state.nextFidget) { fidget(); state.nextFidget = t + rand(2.8, 5.5); }
+  else if (state.mode !== "idle") state.nextFidget = Math.max(state.nextFidget, t + 2.5);
+
+  // cross-fade weights: each mode eases in or out over FADE_TIME
+  let sum = 0;
+  const w = {};
+  for (const m of MODE_NAMES) {
+    state.fade[m] = clamp(state.fade[m] + (m === state.mode ? 1 : -1) * dt / FADE_TIME, 0, 1);
+    w[m] = smooth(state.fade[m]); sum += w[m];
+  }
+  for (const m of MODE_NAMES) w[m] = sum > 0 ? w[m] / sum : (m === state.mode ? 1 : 0);
+  let lead = state.mode;
+  for (const m of MODE_NAMES) if (w[m] > w[lead]) lead = m;
+
+  // blend the poses of every mode that is still showing
+  const pose = Object.assign({}, REST, { sip: 0, shine: 0 });
+  for (const k of KEYS) pose[k] = 0;
+  pose.sip = 0; pose.shine = 0;
+  for (const m of MODE_NAMES) {
+    if (w[m] < 1e-4) continue;
+    const o = Object.assign({}, REST, { tailRot: Math.sin(t * 2.2) * 3.5 * b, sip: 0, shine: 0 });
+    MODES[m].pose(o, t, b);
+    for (const k of KEYS) pose[k] += o[k] * w[m];
+    pose.sip += o.sip * w[m]; pose.shine += o.shine * w[m];
+  }
+
+  // things each mode gives off, only once it is mostly in
+  for (const m of MODE_NAMES) {
+    const M = MODES[m];
+    if (!M.emit || w[m] < 0.6) continue;
+    if (M.every) { if (t >= state.emitAt[m]) { state.emitAt[m] = t + M.every; M.emit(dt, pose); } }
+    else M.emit(dt, pose);
+  }
+
+  // springs: impulses from taps and fidgets
+  const S = state.springs;
+  stepSpring(S.earL, 180, 10, real); stepSpring(S.earR, 180, 10, real); stepSpring(S.tail, 210, 9, real);
+  stepSpring(S.foot, 190, 9, real); stepSpring(S.pat, 150, 11, real);
+  pose.earLRot += S.earL.pos; pose.earRRot += S.earR.pos; pose.tailRot += S.tail.pos;
+  pose.footRRot += S.foot.pos; pose.footLRot -= S.foot.pos * 0.8; pose.rootY -= Math.abs(S.foot.pos) * 0.25;
+  const pat = S.pat.pos;
+  pose.headY += Math.abs(pat) * 0.45; pose.headRot += pat * 0.35; pose.earLRot -= Math.abs(pat) * 0.8; pose.earRRot += Math.abs(pat) * 0.8;
+  pose.rootScaleX += Math.abs(pat) * 0.0012; pose.rootScaleY -= Math.abs(pat) * 0.0012;
+
+  // glasses push: the right paw goes up to the frame and nudges it, then returns to whatever it was doing
+  let push = 0;
+  if (state.glassesT > 0) {
+    state.glassesT = Math.max(0, state.glassesT - real * 1.6);
+    const p = smooth(Math.sin(state.glassesT * Math.PI));
+    push = p;
+    pose.pawRX = lerp(pose.pawRX, 16, p); pose.pawRY = lerp(pose.pawRY, -262, p); pose.pawRRot = lerp(pose.pawRRot, 96, p);
+    pose.headRot -= 3.5 * p; pose.headY += 2.5 * p;
+  }
+  rig.glasses.setAttribute("transform", `translate(0, ${(-3.5 * push).toFixed(1)})`);
+  rig.glassesShine.setAttribute("opacity", Math.max(push, pose.shine).toFixed(2));
+
+  // a yawn: head back, mouth open, eyes squeezed shut in the middle
+  let yawnK = 0;
+  if (state.yawnT > 0) { state.yawnT = Math.max(0, state.yawnT - real); yawnK = Math.sin((1 - state.yawnT / 1.6) * Math.PI); pose.headRot += 3 * yawnK; pose.headY -= 3 * yawnK; }
+  if (state.surpriseT > 0) state.surpriseT = Math.max(0, state.surpriseT - real);
+
+  // eyes: smooth follow of the cursor, or a look around when the cursor is idle
+  const E = state.eye, recentPointer = state.eyeTracking && t - E.lastPointer < 4;
+  const gazeOn = t < state.gaze.until;
+  const gx = recentPointer ? E.tx : gazeOn ? state.gaze.x : 0, gy = recentPointer ? E.ty : gazeOn ? state.gaze.y : 0;
+  const k = 1 - Math.exp(-real * 7.5);
+  E.x += (gx - E.x) * k; E.y += (gy - E.y) * k;
+  rig.eyes.setAttribute("transform", `translate(${E.x.toFixed(2)}, ${E.y.toFixed(2)})`);
+  const awake = 1 - w.sleep;
+  pose.headX += E.x * 0.4 * awake; pose.headY += E.y * 0.3 * awake; pose.headRot += E.x * 0.25 * awake;
+
+  // blinking on its own clock, now and then twice
+  if (t > state.blink.next) { state.blink.until = t + 0.13; state.blink.next = t + (Math.random() < 0.15 ? 0.3 : rand(2.8, 5.8)); }
+  const blinking = t < state.blink.until;
+  const sipping = w.cocoa > 0.5 && pose.sip > 0.55;
+  const closed = w.sleep > 0.5 || sipping || (yawnK > 0.35);
+  const happy = Math.abs(S.pat.pos) > 2.5;
+  showEl(rig.eyesClosed, closed || (blinking && !happy));
+  showEl(rig.eyesHappy, !closed && happy);
+  showEl(rig.eyesOpen, !closed && !happy && !blinking);
+
+  // mouth: a chosen expression wins; otherwise the leading mode's, with a little "o" for yawns and surprises
+  let mouth = state.exprOverride || MODES[lead].mouth;
+  if (yawnK > 0.2 || state.surpriseT > 0) mouth = "o";
+  for (const id of ["deadpan", "smile", "cat", "o"]) showEl($("mouth-" + id), id === mouth);
+  state.mouth = mouth;
+
+  // blush: eases toward the modes' blush, flushes on a head pat
+  state.blushPulse = Math.max(0, state.blushPulse - real);
+  let blushTarget = 0;
+  for (const m of MODE_NAMES) blushTarget += MODES[m].blush * w[m];
+  if (state.blushPulse > 0) blushTarget = 1;
+  state.blush += (blushTarget - state.blush) * (1 - Math.exp(-real * 6));
+  rig.faceBlush.setAttribute("opacity", state.blush.toFixed(2));
+
+  // belly bear: winks when tapped, sleeps when he does
+  if (state.bellyWinkT > 0) state.bellyWinkT = Math.max(0, state.bellyWinkT - real * 2.0);
+  const bellyShut = state.bellyWinkT > 0 || w.sleep > 0.5;
+  showEl(rig.bellyEyesOpen, !bellyShut); showEl(rig.bellyEyesWink, bellyShut);
+
+  // props grow in and out with their mode instead of popping
+  const pop = (x) => { x = clamp(x, 0, 1); const s = 1.70158; return 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2); };
+  const lap = w.code, mug = w.cocoa, hp = w.vibe;
+  showEl(rig.propLaptop, false);
+  showEl(lapBack, lap > 0.01);
+  if (lap > 0.01) {
+    lapBack.setAttribute("transform", `translate(266 530) scale(${pop(lap).toFixed(3)}) translate(-266 -530)`);
+    lapBack.setAttribute("opacity", Math.min(1, lap * 2).toFixed(2));
+    // little tap marks pop up over the lid in time with each paw's keystrokes
+    const typing = lap > 0.6;
+    showEl(lapTapL, typing && Math.sin(t * 19) > 0.5); showEl(lapTapR, typing && Math.cos(t * 19) > 0.5);
+  }
+  showEl(rig.propMug, mug > 0.01);
+  rig.propMug.setAttribute("transform", `translate(-22, -18) rotate(${pose.mugRot.toFixed(2)}) scale(${pop(mug).toFixed(3)})`);
+  showEl(rig.propHeadphones, hp > 0.01);
+  if (hp > 0.01) { rig.propHeadphones.setAttribute("transform", `translate(0 ${(-(1 - smooth(hp)) * 60).toFixed(1)})`); rig.propHeadphones.setAttribute("opacity", Math.min(1, hp * 2).toFixed(2)); }
+
+  // apply
+  rig.root.setAttribute("transform", `translate(304, ${(586 + pose.rootY).toFixed(2)}) scale(${pose.rootScaleX.toFixed(4)}, ${pose.rootScaleY.toFixed(4)})`);
+  rig.shadow.setAttribute("rx", (186 * pose.rootScaleX - pose.rootY * 0.8).toFixed(1));
+  rig.bellyContent.setAttribute("transform", `translate(0, ${pose.bellyY.toFixed(2)})`);
+  rig.zipper.setAttribute("transform", `translate(301, 322) rotate(${(pose.headRot * 1.2).toFixed(2)})`);
+  rig.head.setAttribute("transform", `translate(${(308 + pose.headX).toFixed(2)}, ${(298 + pose.headY).toFixed(2)}) rotate(${pose.headRot.toFixed(2)})`);
+  rig.earLeft.setAttribute("transform", `translate(248, 134) rotate(${pose.earLRot.toFixed(2)})`);
+  rig.earRight.setAttribute("transform", `translate(390, 136) rotate(${pose.earRRot.toFixed(2)})`);
+  updateLeftSleeveGeometry(pose.pawLX, pose.pawLY);
+  rig.pawLeft.setAttribute("transform", `translate(${(208 + pose.pawLX).toFixed(2)}, ${(492 + pose.pawLY).toFixed(2)}) rotate(${pose.pawLRot.toFixed(2)})`);
+  updateRightSleeveGeometry(pose.pawRX, pose.pawRY);
+  rig.pawRight.setAttribute("transform", `translate(${(318 + pose.pawRX).toFixed(2)}, ${(496 + pose.pawRY).toFixed(2)}) rotate(${pose.pawRRot.toFixed(2)})`);
+  rig.footLeft.setAttribute("transform", `translate(176, 566) rotate(${pose.footLRot.toFixed(2)})`);
+  rig.footRight.setAttribute("transform", `translate(242, 560) rotate(${pose.footRRot.toFixed(2)})`);
+  rig.tail.setAttribute("transform", `translate(452, 512) rotate(${pose.tailRot.toFixed(2)})`);
+
+  updateParticles(real);
+  dbg.w = w; dbg.pose = pose;
+}
+
+// ---------- input ----------
+function onPointer(x, y) {
+  const r = rig.svg.getBoundingClientRect();
+  const dx = (x - (r.left + r.width * 0.48)) / (r.width * 0.5), dy = (y - (r.top + r.height * 0.34)) / (r.height * 0.5);
+  state.eye.tx = clamp(dx * 6, -6.5, 6.5); state.eye.ty = clamp(dy * 4.5, -4.5, 4.5);
+  state.eye.lastPointer = state.t;
+}
+addEventListener("pointermove", (e) => onPointer(e.clientX, e.clientY), { passive: true });
+
+// any tap on him while he sleeps wakes him first; otherwise each part has its own reaction
+const tap = (el, fn) => el.addEventListener("click", (e) => { e.stopPropagation(); sound.init(); if (state.mode === "sleep") wake(); else fn(); });
+tap(rig.earLeft, () => twitchEar("L"));
+tap(rig.earRight, () => twitchEar("R"));
+tap(rig.glasses, () => triggerGlassesPush());
+tap(rig.bellyBear, () => winkBelly());
+tap(rig.tail, () => wagTail());
+tap(rig.legRight, () => wiggleToes());
+tap(rig.legLeft, () => wiggleToes());
+tap(rig.head, headPat);                                                   // the face or hood: a pat
+rig.svg.addEventListener("click", () => { if (state.mode === "sleep") wake(); });   // anywhere else on him wakes him up
+
+// ---------- desktop pet front end ----------
+// The window is transparent and lets clicks through everywhere except on him. Drag him to move the window,
+// right-click for the menu. The main process sends the cursor position (so his eyes follow it across the
+// whole screen) and the menu choices.
+const desk = window.deskApp || { moveBy() {}, setIgnore() {}, showMenu() {}, on() {} };
+
+// clicks pass through the empty parts of the window
+let ignoring = null;
+const overHim = (x, y) => { const el = document.elementFromPoint(x, y); return !!el && el !== rig.svg && rig.svg.contains(el) && el.closest("#rig-root") !== null && el.closest("#particles-layer") === null; };
+function setIgnore(v) { if (v !== ignoring) { ignoring = v; desk.setIgnore(v); } }
+addEventListener("mousemove", (e) => { if (!drag) setIgnore(!overHim(e.clientX, e.clientY)); });
+addEventListener("mouseleave", () => { if (!drag) setIgnore(true); });
+
+// drag to move; a press without moving is a tap
+let drag = null, dragged = false;
+rig.svg.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  drag = { x: e.screenX, y: e.screenY, moved: 0 }; dragged = false;
+  rig.svg.setPointerCapture(e.pointerId);
+});
+rig.svg.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const dx = e.screenX - drag.x, dy = e.screenY - drag.y;
+  drag.moved += Math.abs(dx) + Math.abs(dy);
+  if (drag.moved > 5) {
+    if (!dragged) { dragged = true; rig.svg.classList.add("grabbing"); state.springs.earL.vel = -220; state.springs.earR.vel = 220; }
+    desk.moveBy(dx, dy); drag.x = e.screenX; drag.y = e.screenY;
+    state.surpriseT = 0.25;                                   // "whoa" while he is carried
+    state.springs.foot.vel += clamp(dx, -40, 40) * 3;         // feet dangle as he swings
+  }
+});
+const endDrag = () => { drag = null; rig.svg.classList.remove("grabbing"); };
+rig.svg.addEventListener("pointerup", endDrag);
+rig.svg.addEventListener("pointercancel", endDrag);
+// a drag is not a tap
+addEventListener("click", (e) => { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
+
+// right-click: the menu (built by the main process, in Cantonese)
+addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  desk.showMenu({ mode: state.mode, auto: autopilot.on, sound: sound.enabled, eyes: state.eyeTracking });
+});
+desk.on("menu", (cmd) => {
+  sound.init();
+  if (MODES[cmd]) {
+    if (state.mode === "sleep" && cmd !== "sleep") { setAuto(false); wake(); if (cmd !== "idle") setMode(cmd, { quietButton: true }); }
+    else setMode(cmd, { manual: true });
+  } else if (cmd === "auto") setAuto(!autopilot.on);
+  else if (cmd === "pat") headPat();
+  else if (cmd === "glasses") triggerGlassesPush();
+  else if (cmd === "toes") wiggleToes();
+  else if (cmd === "sound") { sound.enabled = !sound.enabled; store.set("sound", sound.enabled); if (sound.enabled) sound.playPop(600); }
+  else if (cmd === "eyes") { state.eyeTracking = !state.eyeTracking; store.set("eyes", state.eyeTracking); }
+});
+// the cursor anywhere on screen, in this window's coordinates
+desk.on("cursor", (p) => onPointer(p.x, p.y));
+
+// sound starts off on the desktop (the lo-fi chords would play by themselves)
+sound.enabled = store.get("sound", false);
+setIgnore(true);
+setAuto(autopilot.on);
+window.__studio = { state, autopilot, setMode, tick, dbg, MODES };
+requestAnimationFrame(frame);
+
+</script>
+</body>
+</html>

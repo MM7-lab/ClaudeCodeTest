@@ -1,0 +1,26 @@
+{
+  "name": "bear-desk-pet",
+  "productName": "Bear Pet",
+  "version": "1.0.0",
+  "description": "Desktop pet: the polar-bear-onesie guy sitting on your Windows desktop",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "lab.mm7.bearpet",
+    "productName": "Bear Pet",
+    "files": ["main.js", "preload.js", "pet.html", "icon.png"],
+    "directories": { "output": "dist" },
+    "win": { "icon": "icon.png", "signAndEditExecutable": false },
+    "portable": { "artifactName": "BearPet-${version}-portable.exe" },
+    "nsis": { "oneClick": true, "artifactName": "BearPet-${version}-setup.exe" }
+  },
+  "author": "MM7 Lab"
+}
