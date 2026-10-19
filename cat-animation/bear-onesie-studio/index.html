@@ -653,6 +653,31 @@ const rig = {
 };
 const showEl = (el, on) => el.classList.toggle("hidden", !on);
 
+// The laptop sits on his lap facing him: we see the back of the lid, and his paws type behind it.
+// It is drawn above both arms (the sheet's own laptop sits under them, beside him, so it stays hidden).
+const lapBack = document.createElementNS("http://www.w3.org/2000/svg", "g");
+lapBack.id = "prop-laptop-back";
+lapBack.setAttribute("class", "hidden");
+lapBack.innerHTML = `
+  <ellipse cx="266" cy="420" rx="84" ry="10" fill="#bae6fd" opacity="0.55"/>
+  <path d="M 184 424 C 184 418, 188 414, 194 414 L 338 414 C 344 414, 348 418, 348 424 L 358 516 L 174 516 Z"
+        fill="#d4d4d8" stroke="#141210" stroke-width="5.5" stroke-linejoin="round"/>
+  <path d="M 196 426 L 260 426" fill="none" stroke="#f4f4f5" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 340 432 L 348 512 L 334 512 Z" fill="#a1a1aa" opacity="0.55"/>
+  <path d="M 162 514 L 370 514 L 376 530 C 376 534, 372 536, 368 536 L 164 536 C 160 536, 156 534, 156 530 Z"
+        fill="#a1a1aa" stroke="#141210" stroke-width="5" stroke-linejoin="round"/>
+  <g transform="translate(266, 466)">
+    <circle cx="-11" cy="-11" r="6" fill="#ffffff" stroke="#141210" stroke-width="3.4"/>
+    <circle cx="11" cy="-11" r="6" fill="#ffffff" stroke="#141210" stroke-width="3.4"/>
+    <circle cx="0" cy="3" r="14" fill="#ffffff" stroke="#141210" stroke-width="3.6"/>
+    <circle cx="-5" cy="0" r="1.8" fill="#141210"/><circle cx="5" cy="0" r="1.8" fill="#141210"/>
+    <ellipse cx="0" cy="6" rx="3" ry="2.2" fill="#141210"/>
+  </g>
+  <g id="lap-tap-l" fill="none" stroke="#141210" stroke-width="3.6" stroke-linecap="round"><path d="M 214 404 l -6 -12 M 228 400 l 0 -13 M 200 410 l -12 -6"/></g>
+  <g id="lap-tap-r" fill="none" stroke="#141210" stroke-width="3.6" stroke-linecap="round"><path d="M 300 402 l 4 -12 M 314 406 l 10 -9 M 286 400 l 0 -13"/></g>`;
+rig.particles.before(lapBack);
+const lapTapL = lapBack.querySelector("#lap-tap-l"), lapTapR = lapBack.querySelector("#lap-tap-r");
+
 // the sleeves are re-skinned every frame from the paw offsets (same geometry as the character sheet)
 function updateLeftSleeveGeometry(lx, ly) {
   const wx1 = (166 + lx * 0.85).toFixed(1), wy1 = (472 + ly * 0.85).toFixed(1), wx2 = (230 + lx * 0.9).toFixed(1), wy2 = (478 + ly * 0.9).toFixed(1);
@@ -758,7 +783,7 @@ const MODES = {
       o.earLRot = Math.sin(t * 3.6) * 2 * b; o.earRRot = -Math.sin(t * 3.6) * 2 * b;
       o.shine = 0.45 + Math.sin(t * 4.5) * 0.2;
     },
-    every: 0.52, emit() { spawnParticle("code", 195 + Math.random() * 85, 455); },
+    every: 0.52, emit() { spawnParticle("code", 190 + Math.random() * 130, 398); },   // rising from behind the screen
   },
 };
 const MODE_NAMES = Object.keys(MODES);
@@ -1016,8 +1041,15 @@ function tick(real) {
   // props grow in and out with their mode instead of popping
   const pop = (x) => { x = clamp(x, 0, 1); const s = 1.70158; return 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2); };
   const lap = w.code, mug = w.cocoa, hp = w.vibe;
-  showEl(rig.propLaptop, lap > 0.01);
-  if (lap > 0.01) { rig.propLaptop.setAttribute("transform", `translate(232 520) scale(${pop(lap).toFixed(3)}) translate(-232 -520)`); rig.propLaptop.setAttribute("opacity", Math.min(1, lap * 2).toFixed(2)); }
+  showEl(rig.propLaptop, false);
+  showEl(lapBack, lap > 0.01);
+  if (lap > 0.01) {
+    lapBack.setAttribute("transform", `translate(266 530) scale(${pop(lap).toFixed(3)}) translate(-266 -530)`);
+    lapBack.setAttribute("opacity", Math.min(1, lap * 2).toFixed(2));
+    // little tap marks pop up over the lid in time with each paw's keystrokes
+    const typing = lap > 0.6;
+    showEl(lapTapL, typing && Math.sin(t * 19) > 0.5); showEl(lapTapR, typing && Math.cos(t * 19) > 0.5);
+  }
   showEl(rig.propMug, mug > 0.01);
   rig.propMug.setAttribute("transform", `translate(-22, -18) rotate(${pose.mugRot.toFixed(2)}) scale(${pop(mug).toFixed(3)})`);
   showEl(rig.propHeadphones, hp > 0.01);
