@@ -1262,7 +1262,8 @@ function joinRoom(code, name, avatar){
   store.set('player', {room: code, name, avatar, token});
   history.replaceState(null, '', joinUrl(code).replace(location.origin, ''));
   if (player) leavePlayer(true);
-  player = {code, name, avatar, token, peer: null, conn: null, view: {t: 'connecting'}, score: 0, retries: 0, closed: false, wake: null};
+  player = {code, name, avatar, token, peer: null, conn: null, view: {t: 'connecting'}, score: 0, retries: 0, closed: false, wake: null,
+    startedAt: Date.now(), diag: {signal: 'connecting', ice: 'new', cands: {host: 0, srflx: 0, relay: 0}, tries: 0, err: null}};
   playerConnect();
   requestWake();
 }
@@ -1274,6 +1275,12 @@ function playerConnect(){
   const start = () => {
     const conn = P.peer.connect(PEER_PREFIX + P.code, {reliable: true, serialization: 'json'});
     P.conn = conn;
+    P.diag.tries++; P.diag.ice = 'new'; P.diag.cands = {host: 0, srflx: 0, relay: 0};
+    try {
+      const pc = conn.peerConnection;
+      pc.addEventListener('icecandidate', e => { const t = e.candidate && e.candidate.type; if (t && t in P.diag.cands) P.diag.cands[t]++; });
+      pc.addEventListener('iceconnectionstatechange', () => { P.diag.ice = pc.iceConnectionState; });
+    } catch {}
     const timeout = setTimeout(() => { if (!conn.open) playerLost(conn, 'timeout'); }, 15000);
     conn.on('open', () => { clearTimeout(timeout); P.retries = 0; conn.send({t: 'join', token: P.token, name: P.name, avatar: P.avatar}); });
     conn.on('data', m => onHostMsg(conn, m));
@@ -1282,8 +1289,9 @@ function playerConnect(){
   };
   if (P.peer && !P.peer.destroyed && P.peer.open){ start(); return; }
   try { P.peer?.destroy(); } catch {}
+  P.diag.signal = 'connecting';
   P.peer = new Peer(peerOptions());
-  P.peer.on('open', () => { if (!P.conn) start(); });
+  P.peer.on('open', () => { P.diag.signal = 'ok'; if (!P.conn) start(); });
   P.peer.on('disconnected', () => { if (!P.peer.destroyed) setTimeout(() => { try { P.peer.reconnect(); } catch {} }, 1500); });
   P.peer.on('error', err => {
     if (err.type === 'peer-unavailable'){
@@ -1291,10 +1299,29 @@ function playerConnect(){
       else playerLost(P.conn, 'unavailable');
       return;
     }
-    if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) playerLost(P.conn, err.type);
+    if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)){ P.diag.signal = 'fail'; P.diag.err = err.type; playerLost(P.conn, err.type); }
   });
 }
 
+// Plain-language reason for a connection that is taking too long, from what we saw so far.
+function diagBox(P){
+  const d = P.diag;
+  const rows = [
+    ['配對伺服器', d.signal === 'ok' ? '✅ 已連接' : d.signal === 'fail' ? `❌ 連唔到（${d.err || '未知'}）` : '⏳ 連接緊'],
+    ['連去主持機', d.ice === 'connected' || d.ice === 'completed' ? '✅ 已連通' : d.ice === 'failed' || d.ice === 'disconnected' ? '❌ 連唔通' : d.signal === 'ok' ? '⏳ 嘗試緊' : '⏳ 等緊'],
+    ['中轉備用線路', d.cands.relay ? '✅ 搵到' : d.signal === 'ok' ? '❌ 搵唔到' : '—'],
+  ];
+  let why;
+  if (d.signal === 'fail') why = '手機連唔到配對伺服器（0.peerjs.com）。請檢查手機有冇上網，或者場地 Wi-Fi 有冇擋住呢個網站。';
+  else if (d.signal !== 'ok') why = '手機仲未連到配對伺服器，請再等一陣，或者檢查網絡。';
+  else if (!d.cands.relay) why = '手機同主持機之間連唔通，而且備用線路都搵唔到。多數係場地 Wi-Fi 擋咗設備互連，或者備用線路被擋。請試：關咗流動數據、轉用同主持機同一個 Wi-Fi，或者用手提電話開熱點俾主持機同手機一齊連。';
+  else why = '手機同主持機之間連唔通。請確認主持機仲開住比賽頁面（冇重新整理），再試；或者轉用同一個 Wi-Fi。';
+  return el('div', {class: 'result bad', style: 'text-align:left;width:100%'},
+    el('h3', {}, '🔎 連線診斷'),
+    el('ul', {style: 'list-style:none;padding:0;margin:0;display:grid;gap:4px'}, rows.map(([k, v]) => el('li', {}, el('b', {}, k + '：'), v))),
+    el('p', {}, why),
+    el('p', {class: 'small muted'}, `房號 ${P.code} · 試咗 ${d.tries} 次 · 已等 ${Math.round((Date.now() - P.startedAt) / 1000)} 秒 · 主持人可以將呢段字話俾職員睇。`));
+}
 function playerLost(conn, why){
   const P = player;
   if (!P || P.closed || (conn && conn !== P.conn)) return;
@@ -1358,10 +1385,20 @@ function renderPlayer(){
   const v = P.view;
   const warn = v.reconnecting ? el('div', {class: 'banner warn'}, '📶 斷咗線，重新連接緊…（分數唔會唔見）') : null;
   const status = (em, title, text, extra) => el('div', {class: 'card'}, el('div', {class: 'big-status'}, el('div', {class: 'em'}, em), el('h2', {}, title), text ? el('p', {}, text) : null, extra || null));
-  if (v.t === 'connecting') return mount(el('div', {class: 'topbar'}, el('button', {class: 'btn sm', onclick(){ leavePlayer(); showJoin(); }}, '‹ 返回'), el('h1', {}, '🏆 參加比賽')),
-    status('⏳', `連接緊房號 ${P.code}…`, '請等等，唔好閂呢頁。'));
-  if (v.t === 'lost') return mount(playerHead(), status('📵', '連唔返主持人', '請檢查 Wi-Fi 或者流動數據，再撳「再試」。',
-    el('button', {class: 'btn primary', onclick(){ P.retries = 0; P.view = {t: 'connecting'}; playerConnect(); }}, '再試')));
+  if (v.t === 'connecting'){
+    const slot = el('div', {style: 'width:100%'});
+    const draw = () => slot.replaceChildren(...(Date.now() - P.startedAt > 10000 ? [diagBox(P)] : []));
+    draw(); P.tick = setInterval(draw, 1000);
+    return mount(el('div', {class: 'topbar'}, el('button', {class: 'btn sm', onclick(){ leavePlayer(); showJoin(); }}, '‹ 返回'), el('h1', {}, '🏆 參加比賽')),
+      status('⏳', `連接緊房號 ${P.code}…`, '請等等，唔好閂呢頁。', slot));
+  }
+  if (v.t === 'lost'){
+    const slot = el('div', {style: 'width:100%'});
+    const draw = () => slot.replaceChildren(diagBox(P));
+    draw(); P.tick = setInterval(draw, 1000);
+    return mount(playerHead(), status('📵', '連唔返主持人', '請睇下面嘅診斷，改善網絡後撳「再試」。',
+      el('div', {style: 'display:grid;gap:10px;width:100%'}, slot, el('button', {class: 'btn primary block', onclick(){ P.retries = 0; P.startedAt = Date.now(); P.diag.tries = 0; P.view = {t: 'connecting'}; playerConnect(); }}, '再試'))));
+  }
   if (v.t === 'msg') return mount(el('div', {class: 'topbar'}, el('button', {class: 'btn sm', onclick: goHome}, '‹ 主頁')), status(v.em, v.title, v.text));
   if (v.t === 'lobby') return mount(playerHead(), warn, status(P.avatar, `你好，${P.name}！`, '已經加入咗。睇住投影機，等主持人開始…',
     el('p', {class: 'small muted'}, '小貼士：比賽期間唔好閂呢頁，亦唔好鎖機。')));
