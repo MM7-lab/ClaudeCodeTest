@@ -680,7 +680,7 @@ function makePerson(o){
   if(o.propL)prop(0,o.propL);if(o.propR)prop(1,o.propR);
   if(o.mapPhone){const ph=mesh(bgeo(0.055,0.11,0.01),new THREE.MeshBasicMaterial({map:OUTFIT.map}));ph.position.set(0,-0.04,0.065);ph.rotation.x=-1.0;arms[1].hand.add(ph);}
   neck.rotation.order='YXZ';if(o.book||o.arm==='phone'||o.phone||o.news)arms[1].hold=true;if(o.news)arms[0].hold=true;arms.forEach(a=>{if(a.hold){a.curl=true;a.hm.geometry=handGeo(true,a.sd);}});
-  let bandage=null;if(o.bandage){bandage=outline(mesh(cgeo(0.06,0.06,0.1,12),toon(0xffffff)),0.007);bandage.position.y=-0.36;legs[1].knee.add(bandage);legs[1].shoe.rotation.x=0.2;}
+  let bandage=null;if(o.bandage){bandage=mesh(cgeo(0.072,0.078,0.17,16),anime(0xffffff,{map:G('gauzeTex',()=>{const t=textTex(128,64,(c,w,h)=>{c.fillStyle='#f7f5ef';c.fillRect(0,0,w,h);c.strokeStyle='rgba(150,150,140,.55)';c.lineWidth=2;for(let x=-h;x<w;x+=12){c.beginPath();c.moveTo(x,h);c.lineTo(x+h,0);c.stroke();c.beginPath();c.moveTo(x,0);c.lineTo(x+h,h);c.stroke();}c.fillStyle='rgba(210,170,150,.6)';c.fillRect(0,h*0.45,w,4);});t.wrapS=THREE.RepeatWrapping;t.repeat.set(2,1);return t;})}));bandage.position.y=-0.355;legs[0].knee.add(bandage);legs[0].shoe.rotation.x=0.2;}
   const p={id:o.id||('p'+(pid++)),g,root,hips,spine,neck,head,torso,legs,arms,coat,belly,badge,bandage,o,
     label:o.label,clues:o.clues||[],need:!!o.need,feedback:o.feedback||'',focus:o.focus||'head',
     pose:'stand',arm:o.arm||'down',path:[],phase:Math.random()*10,lean:rand(-0.04,0.04),act:o.act||'look',spineX:spine.rotation.x,neckX:neck.rotation.x,gy:0,gp:0,gr:0,gT:rand(0.5,3),bT:rand(1,5),bOff:0,chatDir:pick([-1,1]),seat:null,judged:null,s,spawned:true,occ:false};
@@ -736,7 +736,8 @@ function setShot(pos,look,fov){cam.follow=null;cam.mode='fixed';cam.tPos.copy(po
 function overview(){cam.follow=null;cam.mode='over';cam.tPos.copy(OVERVIEW.pos);cam.tLook.copy(OVERVIEW.look);cam.tFov=baseFov();}
 function shotPerson(p,part,dist){cam.mode='follow';cam.follow={p,part:part||null,dist:dist||null};}
 function focusPoint(p,part){const v=new THREE.Vector3();let o=p.torso;
-  if(part==='head')o=p.head;else if(part==='legs')o=p.bandage||p.legs[1].shin;else if(part==='hands')o=p.arms[1].hand;else if(part==='badge')o=p.badge||p.torso;else if(part==='knees')o=p.legs[0].knee;
+  if(part==='head')o=p.head;else if(part==='legs')o=p.bandage||p.legs[0].shin;else if(part==='hands')o=p.arms[1].hand;else if(part==='badge')o=p.badge||p.torso;else if(part==='knees')o=p.legs[0].knee;
+  else if(part==='injury'){p.hips.getWorldPosition(v);const b=new THREE.Vector3();(p.bandage||p.legs[0].shin).getWorldPosition(b);return v.lerp(b,0.55);}
   else if(part&&part.isObject3D)o=part;o.getWorldPosition(v);return v;}
 function followTarget(){
   const f=cam.follow,p=f.p;const pt=focusPoint(p,f.part);
@@ -804,7 +805,7 @@ const EXTRAS=[
   top:0xf3e7d3,jacket:0xffffff,jacketMap:OUTFIT.rainbow,bottom:0x5f7fa6,botMap:OUTFIT.paint,bib:true,hair:0x5a3a26,hairStyle:'bun',hairCut:'Fpart',faceShape:'round',glasses:true,neckphones:true,arm:'phone',act:'phone',sit:true,floorTote:true,shoe:0xb08a5a},
  {id:'xC',g:'f',label:'夜班醫護',clues:['著住醫院制服，頸掛職員證','望一望手錶，準備趕返夜班'],feedback:'佢要趕返工，但冇即時需要幫助。',
   top:0x2d4f86,bottom:0x2d4f86,jacket:0x1d1f24,hood:0x1d1f24,lanyard:true,hair:0x2a2019,hairStyle:'bun',hairCut:'Fpart',faceShape:'oval',arm:'lap',act:'watch',sit:true,propR:'lunch',backpack:true,backpackColor:0x2b2e36,shoe:0x9a9a9e},
- {id:'xD',g:'m',label:'便利店職員',clues:['制服背心外面加件連帽衫，兩隻手各拎一袋嘢','不停打喊路，睇落好攰'],feedback:'佢只係做完夜更好攰，企得穩，冇即時需要幫助。',
+ {id:'xD',g:'m',label:'便利店職員',clues:['制服背心外面加件連帽衫，兩隻手各拎一袋嘢','不停打喊路，睇落好攰','不過佢兩隻腳企得好穩，冇扶嘢都唔會郁'],feedback:'佢只係做完夜更好攰，企得穩，冇即時需要幫助。',
   top:0x2a3140,hood:0x2a3140,longSleeve:true,vest:true,bottom:0x2a3140,shoe:0x6a5a44,hair:0x2a2019,hairStyle:'short',hairCut:'Mshort',faceShape:'square',mood:'tired',yawns:true,arm:'hold',propL:'bags',propR:'bags',act:'look'},
  {id:'xE',g:'f',label:'外賣員',clues:['揹住一個大保溫袋，戴住迷彩帽','專心睇住手機地圖，諗緊下一單點去'],feedback:'佢趕住送外賣，冇即時需要幫助。',
   top:0xd8f23a,jacket:0xffffff,jacketMap:OUTFIT.neon,bottom:0x2a2d33,shoe:0x2a3b66,hair:0x4a3022,hairStyle:'pony',hairCut:'Fpart',faceShape:'oval',cap:true,thermal:true,mapPhone:true,arm:'phone',act:'phone'},
@@ -828,8 +829,8 @@ function populate(){
   const kid=makePerson({id:'kid',skin:SKINS[0],top:0xf0c04f,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',scale:0.62,shorts:true,label:'細路仔',clues:['坐喺媽媽身邊','扭計想飲嘢'],feedback:'有媽媽照顧緊，冇即時需要幫助。'});
   sitAt(kid,seats.find(s=>s.side===1&&Math.abs(s.x+4.33)<0.3)||freeSeat());
   const hurt=makePerson({id:'hurt',need:true,skin:SKINS[2],top:0xfaf7f0,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',bandage:true,shorts:true,focus:'legs',mood:'tired',
-    label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳','右腳踭包住紗布，鞋踭冇穿好'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
-  standAt(hurt,{x:-2.2,z:0.4,occ:null},-Math.PI*0.6);reserve(-2.2,0.4,hurt);hurt.arm='strap';hurt.injured=true;
+    label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳，左手撐住一支拐杖','右腳踭包住紗布，鞋踭冇穿好'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
+  standAt(hurt,{x:-2.2,z:0.4,occ:null},Math.PI*0.4);reserve(-2.2,0.4,hurt);hurt.arm='crutch';hurt.injured=true;hurt.arms[1].hold=true;setCurl(hurt.arms[1],true);hurt.root.add(makeCrutch(hurt));
   // keep the boarding spots of the pregnant woman and the granny clear
   reserve(-3.35,-0.3,{});reserve(-5.3,-0.4,{});reserve(-4.3,0.85,{});
   const near=(lo,hi)=>s=>!s.occ&&s.x>lo&&s.x<hi;
@@ -880,6 +881,7 @@ function poseArms(p){
   const R=A[1],L=A[0];
   switch(p.arm){
     case'strap':R.sh.rotation.x=-2.85;break;
+    case'crutch':R.sh.rotation.set(0.04,0,0.13);R.el.rotation.set(-0.22,0,-0.05);break;
     case'pole':L.sh.rotation.x=-1.15;L.sh.rotation.z=0.25;L.el.rotation.x=-0.4;R.sh.rotation.x=0.05;break;
     case'phone':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-1.25;a.sh.rotation.z=-a.sd*0.15;});break;
     case'lap':[L,R].forEach(a=>{a.sh.rotation.x=-0.35;a.el.rotation.x=-0.75;});break;
@@ -906,12 +908,12 @@ function updatePeople(dt,t){
     else if(p.pose==='sit'){L.forEach(l=>{l.hip.rotation.x=-1.5;l.knee.rotation.x=1.5;});p.root.position.y=0.47-0.88*p.s;poseArms(p);swayPerson(p,t,0.3);}
     else{L.forEach(l=>{l.hip.rotation.x=0;l.knee.rotation.x=0;});
       if(!p.injured&&!p.granny){const ln=p.lean*(0.55+0.45*Math.sin(t*0.23+p.phase));p.hips.rotation.z=ln;p.spine.rotation.z=-ln*0.8;L[p.lean>0?1:0].knee.rotation.x=0.07;}
-      if(p.injured){L[1].hip.rotation.x=0.18;L[1].knee.rotation.x=0.4;p.hips.rotation.z=0.06+Math.sin(t*2+p.phase)*0.02;}
+      if(p.injured){L[0].hip.rotation.x=0.18;L[0].knee.rotation.x=0.4;p.hips.rotation.z=0.06+Math.sin(t*2+p.phase)*0.02;}
       if(p.granny){const tr=0.14+Math.sin(t*22)*0.025;L.forEach(l=>{l.hip.rotation.x=-tr;l.knee.rotation.x=tr*2;});p.root.position.y=-0.02;}
-      poseArms(p);swayPerson(p,t,p.arm==='strap'||p.arm==='pole'||p.arm==='belly'?0.6:1);}
+      poseArms(p);swayPerson(p,t,p.arm==='strap'||p.arm==='pole'||p.arm==='belly'||p.arm==='crutch'?0.6:1);}
     if(p.pose!=='walk')updateGaze(p,dt,t);else{p.neck.rotation.set(p.neckX,0,0);}
     blink(p,dt);
-    if(p.pose==='stand'&&!p.path.length&&(p.arm==='strap'||p.arm==='pole'||p.arm==='belly'))gripIK(p);
+    if(p.pose==='stand'&&!p.path.length&&(p.arm==='strap'||p.arm==='pole'||p.arm==='belly'||p.arm==='crutch'))gripIK(p);
     if(p===granny&&trolley&&p.spawned){if(p.pull)pullTrolley(p);else settleTrolley(dt);}
   });
 }
@@ -950,11 +952,19 @@ function blink(p,dt){
 const _ik=new THREE.Vector3(),_ie=new THREE.Vector3(),_iq=new THREE.Quaternion(),_sw=new THREE.Vector3();
 function gripTarget(p){const key=p.g.position.x.toFixed(2)+','+p.g.position.z.toFixed(2)+p.arm+p.g.rotation.y.toFixed(2);if(p.gripKey===key)return p.grip;
   p.gripKey=key;p.grip=null;p.g.updateMatrixWorld(true);const reach=0.57*p.s;let best=null;
-  const idx=p.arm==='strap'?[1,0]:[0];
+  const idx=p.arm==='strap'?[1,0]:p.arm==='crutch'?[0]:[0];
   idx.forEach(i=>{p.arms[i].sh.getWorldPosition(_sw);
     if(p.arm==='pole'){POLES.forEach(q=>{const T=new THREE.Vector3(q.x,clamp(_sw.y-0.22,0.85,q.top-0.05),q.z);const d=T.distanceTo(_sw);if(d<reach&&(!best||d<best.d))best={i,T,d};});}
     else RINGS.forEach(r=>{const T=new THREE.Vector3(r.x,1.712,r.z);const d=T.distanceTo(_sw);if(d<reach&&(!best||d<best.d))best={i,T,d};});});
   p.grip=best;return best;}
+/* underarm crutch on the person's left (+x, opposite the injured right leg): two rails from the armpit pad to a rubber tip, with a hand grip at hand height (root space) */
+function makeCrutch(p){const g=new THREE.Group(),m=M.steel,pad=anime(0x2a2d33);
+  [-1,1].forEach(sd=>{const r=mesh(cgeo(0.011,0.011,0.62,8),m);r.position.set(0,0.95,sd*0.035);r.rotation.x=sd*0.05;g.add(r);});
+  const low=mesh(cgeo(0.012,0.012,0.66,8),m);low.position.y=0.36;g.add(low);
+  const tip=mesh(cgeo(0.02,0.022,0.05,10),pad);tip.position.y=0.025;g.add(tip);
+  const top=mesh(bgeo(0.05,0.035,0.16),pad);top.position.y=1.27;g.add(top);
+  const grip=mesh(cgeo(0.016,0.016,0.11,8),pad);grip.rotation.x=Math.PI/2;grip.position.set(0,0.8,0);g.add(grip);
+  g.position.set(0.29,0,0.04);g.rotation.z=0.05;g.traverse(o=>{if(o.isMesh){o.userData.person=p;o.userData.noOutline=true;}});p.crutch=g;return g;}
 function setCurl(a,on){if(a.curl===on)return;a.curl=on;const g=handGeo(on,a.sd);a.hm.geometry=g;a.hm.children.forEach(c=>{c.geometry=g;});}
 function gripIK(p){const gt=gripTarget(p);p.arms.forEach((a,i)=>setCurl(a,!!gt&&i===gt.i||(p.granny&&i===1)||a.hold));if(!gt)return;const arm=p.arms[gt.i];
   if(p.arm==='strap'){const o=p.arms[1-gt.i];o.sh.rotation.set(0.04,0,o.sd*0.07);o.el.rotation.set(-0.14,0,0);}
@@ -1014,7 +1024,7 @@ function tagTex(n,state){const k=n+'|'+state;return TAGC[k]||(TAGC[k]=textTex(64
 function setTag(p){const i=S.cast.indexOf(p);if(p.tag&&i>=0){p.tag.material.map=tagTex(i+1,p.judged);p.tag.material.needsUpdate=true;}}
 function inspect(p){
   if(S.step>=3)return;
-  current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:null);
+  current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:p.id==='hurt'?'injury':null,p.id==='hurt'&&p.judged!=='ok'?2.0:null);
   const panel=$('#insp');panel.hidden=false;
   const n=S.cast.length,i=S.cast.indexOf(p);
   let html='';
