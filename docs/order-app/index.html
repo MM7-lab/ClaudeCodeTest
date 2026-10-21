@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1C6B50">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://0.peerjs.com wss://0.peerjs.com http://localhost:9000 ws://localhost:9000; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; worker-src blob:; connect-src wss://broker.hivemq.com:8884 wss://broker.emqx.io:8084 wss://test.mosquitto.org:8081 wss://mqtt.eclipseprojects.io:443 ws://localhost:* ws://127.0.0.1:*; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227.5%22 fill=%22%231C6B50%22/%3E%3Ctext x=%228%22 y=%2211.5%22 font-size=%229%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22%3E%E9%A4%90%3C/text%3E%3C/svg%3E">
 <title>手機點餐學堂</title>
@@ -273,14 +273,13 @@ footer.foot{font-size:.75rem;color:var(--muted);text-align:center;margin-top:8px
 <div class="wrap" id="app" aria-live="polite"></div>
 <noscript><p style="padding:20px">呢個網頁要開咗 JavaScript 先用得。</p></noscript>
 <script src="vendor/qrcode.js"></script>
-<script src="vendor/peerjs.min.js"></script>
+<script src="vendor/mqtt.min.js"></script>
 <script>
 'use strict';
 
 // ===================================================================
 // Basics
 // ===================================================================
-const PEER_PREFIX = 'zhongxin-order-quiz-v1-';
 const params = new URLSearchParams(location.search);
 const app = document.getElementById('app');
 
@@ -422,7 +421,7 @@ function healthTags(h){
 // Home
 // ===================================================================
 function goHome(){
-  history.replaceState(null, '', location.pathname + peerQuery());
+  history.replaceState(null, '', location.pathname + brokerQuery());
   document.body.classList.remove('host-mode');
   speech.stop();
   mount(
@@ -439,6 +438,7 @@ function goHome(){
       el('p', {}, el('b', {}, '健康燈號點睇？'), ' 每樣食物都有「鹽、糖、油」三個燈號：'),
       el('div', {class: 'legend'}, el('span', {class: 'hl lo'}, el('i'), '低'), el('span', {class: 'hl mid'}, el('i'), '中'), el('span', {class: 'hl hi'}, el('i'), '高')),
       el('p', {}, '燈號只係按一般茶餐廳做法嘅粗略估計，唔係化驗數據；價錢都係練習用。有高血壓、糖尿病等長期病，飲食請跟醫生或者營養師嘅建議。')),
+    el('div', {class: 'note'}, el('b', {}, '比賽嘅私隱：'), '比賽時，公仔、名同答案會經免費公共伺服器轉送，唔會儲起。比賽完畢主持人閂頁，記錄就冇晒。請唔好用真名全名或者填寫個人資料，用暱稱就得。'),
     el('footer', {class: 'foot'}, '「眾心行善」專案 · 練習用模擬網頁，唔會收集任何個人資料'),
   );
 }
@@ -923,25 +923,50 @@ function answerTile(i, text, extra){
 }
 
 // ===================================================================
-// Peer-to-peer connection. The host's browser is the game server; players connect to it
-// through the free PeerJS matchmaking server. Add ?peerhost=&peerport= to use another server.
+// Relay connection. Every message goes through a free public MQTT broker over secure WebSocket, so the host and
+// the phones can be on different networks (Wi-Fi, 4G, another venue): nothing needs a direct route between them.
+// The host's browser is still the game server; the broker only carries the messages. A room is the topic prefix
+// below plus the 4-digit code. Players try every broker in parallel and use the one where the host is announced.
+// For testing, ?broker=ws://localhost:9001 (repeatable) replaces the list.
 // ===================================================================
-function peerOptions(){
-  const o = {debug: 1};
-  const host = params.get('peerhost');
-  if (host){ o.host = host; o.port = +params.get('peerport') || 9000; o.path = params.get('peerpath') || '/'; o.secure = params.get('peersecure') === '1'; }
-  return o;
+const BROKERS = [
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://test.mosquitto.org:8081/',
+  'wss://mqtt.eclipseprojects.io:443/mqtt',
+];
+const TOPIC_ROOT = 'zhongxin-order-quiz-v1/';
+const topic = (code, sub) => TOPIC_ROOT + code + '/' + sub;
+const TOKEN_RE = /^[A-Za-z0-9-]{8,40}$/;
+function brokerUrls(){
+  const q = params.getAll('broker').filter(u => /^wss?:\/\//.test(u));
+  return q.length ? q : BROKERS;
 }
-function peerQuery(){
+function brokerQuery(){
   const q = new URLSearchParams();
-  for (const k of ['peerhost', 'peerport', 'peerpath', 'peersecure']) if (params.get(k)) q.set(k, params.get(k));
+  for (const b of params.getAll('broker')) q.append('broker', b);
   const s = q.toString();
   return s ? '?' + s : '';
 }
 function joinUrl(code){
-  const q = new URLSearchParams(peerQuery().slice(1)); q.set('room', code);
+  const q = new URLSearchParams(brokerQuery().slice(1)); q.set('room', code);
   return location.origin + location.pathname + '?' + q.toString();
 }
+function brokerName(url){ try { return new URL(url).hostname; } catch { return url; } }
+function newClient(url, opts){
+  return mqtt.connect(url, {clientId: 'zx-' + Math.random().toString(36).slice(2, 12), clean: true, keepalive: 30, connectTimeout: 6000, reconnectPeriod: 2000, protocolVersion: 4, ...opts});
+}
+// Resolves with a connected client, or rejects after `ms` (the client is then shut down so it stops retrying).
+function dial(url, ms, opts){
+  return new Promise((resolve, reject) => {
+    let c, done = false;
+    try { c = newClient(url, opts); } catch (e) { reject(e); return; }
+    const t = setTimeout(() => { if (done) return; done = true; try { c.end(true); } catch {} reject(new Error('timeout')); }, ms);
+    c.once('connect', () => { if (done){ try { c.end(true); } catch {} return; } done = true; clearTimeout(t); resolve(c); });
+    c.on('error', () => {});
+  });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const AVATARS = [['🐼', '熊貓'], ['🐯', '老虎'], ['🐶', '小狗'], ['🐱', '小貓'], ['🐰', '白兔'], ['🐸', '青蛙'], ['🐵', '馬騮'], ['🐔', '雞仔'], ['🐟', '金魚'], ['🌻', '太陽花'], ['🌸', '櫻花'], ['⭐', '星星']];
 
 // ===================================================================
@@ -950,61 +975,100 @@ const AVATARS = [['🐼', '熊貓'], ['🐯', '老虎'], ['🐶', '小狗'], ['�
 let host = null;
 
 function startHost(){
-  if (typeof Peer === 'undefined'){ alert('連線程式載入唔到，請檢查網絡再試。'); return; }
+  if (typeof mqtt === 'undefined'){ alert('連線程式載入唔到，請檢查網絡再試。'); return; }
   document.body.classList.add('host-mode');
   const saved = store.get('hostSettings', {});
   host = {
-    code: null, peer: null, players: new Map(), phase: 'lobby', status: 'connecting', error: null,
+    code: null, client: null, broker: null, players: new Map(), phase: 'lobby', status: 'connecting', error: null, offline: false, opening: false,
     settings: {count: saved.count || 10, secs: saved.secs || 30, cat: saved.cat || 'all', read: saved.read ?? true},
     questions: [], qi: -1, qStart: 0, timer: null,
   };
+  host.sweep = setInterval(hostSweep, 3000);
   openRoom();
   window.onbeforeunload = () => host && host.phase !== 'lobby' ? '比賽進行緊，離開會結束比賽。' : undefined;
 }
 
-function openRoom(){
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-  host.code = code; host.status = 'connecting'; host.error = null;
-  try { host.peer?.destroy(); } catch {}
-  const peer = new Peer(PEER_PREFIX + code, peerOptions());
-  host.peer = peer;
-  peer.on('open', () => { host.status = 'ready'; history.replaceState(null, '', location.pathname + peerQuery() + (peerQuery() ? '&' : '?') + 'host=1'); renderHost(); });
-  peer.on('connection', conn => onPlayerConn(conn));
-  peer.on('disconnected', () => { if (!peer.destroyed) setTimeout(() => { try { peer.reconnect(); } catch {} }, 1500); });
-  peer.on('error', err => {
-    if (err.type === 'unavailable-id'){ openRoom(); return; }
-    if (err.type === 'peer-unavailable') return;
-    host.status = 'error'; host.error = err.type || String(err); renderHost();
-  });
+// Connect to the first broker that answers, take a free room code and announce the room (retained, cleared automatically if we drop).
+async function openRoom(){
+  if (!host || host.opening) return;
+  host.opening = true; host.status = 'connecting'; host.error = null;
+  try { host.client?.end(true); } catch {}
+  host.client = null;
   renderHost();
+  const tried = [];
+  try {
+    for (let attempt = 0; attempt < 6 && host; attempt++){
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const hostTopic = topic(code, 'host');
+      let client = null, url = null;
+      for (const u of brokerUrls()){
+        try { client = await dial(u, 6000, {will: {topic: hostTopic, payload: '', qos: 1, retain: true}}); url = u; break; }
+        catch { if (!tried.includes(brokerName(u))) tried.push(brokerName(u)); }
+        if (!host) return;
+      }
+      if (!client){ host.status = 'error'; host.error = tried.join('、'); return; }
+      // Is another host already announcing this code on this broker?
+      let taken = false;
+      client.on('message', (tp, buf) => { if (tp === hostTopic && buf.length && !host.client) taken = true; });
+      client.subscribe(hostTopic, {qos: 1});
+      await sleep(1500);
+      if (taken){ try { client.end(true); } catch {} continue; }
+      if (!host){ try { client.end(true); } catch {} return; }
+      client.removeAllListeners('message');
+      host.code = code; host.client = client; host.broker = url;
+      const announce = () => client.publish(hostTopic, JSON.stringify({t: 'host', at: Date.now()}), {qos: 1, retain: true});
+      client.on('connect', () => { host.offline = false; announce(); renderHostLight(true); });
+      client.on('close', () => { if (host && host.client === client && !host.offline){ host.offline = true; renderHostLight(true); } });
+      client.on('message', (tp, buf) => { if (tp === topic(code, 'up')) onPlayerMsg(buf); });
+      client.subscribe(topic(code, 'up'), {qos: 1});
+      announce();
+      host.status = 'ready';
+      history.replaceState(null, '', location.pathname + brokerQuery() + (brokerQuery() ? '&' : '?') + 'host=1');
+      return;
+    }
+    if (host){ host.status = 'error'; host.error = '搵唔到可用嘅房號'; }
+  } finally { if (host){ host.opening = false; renderHost(); } }
 }
 
-function onPlayerConn(conn){
-  conn.on('data', msg => {
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.t === 'join') hostJoin(conn, msg);
-    else if (msg.t === 'answer') hostAnswer(conn, msg);
-  });
-  conn.on('close', () => {
-    for (const p of host.players.values()) if (p.conn === conn){ p.connected = false; if (host.phase === 'lobby') renderHost(); }
-  });
+function onPlayerMsg(buf){
+  if (!host) return;
+  let msg; try { msg = JSON.parse(buf.toString()); } catch { return; }
+  if (!msg || typeof msg !== 'object' || typeof msg.token !== 'string' || !TOKEN_RE.test(msg.token)) return;
+  const p = host.players.get(msg.token);
+  if (p){ p.lastSeen = Date.now(); if (!p.connected){ p.connected = true; if (host.phase === 'lobby') renderHostLight(); } }
+  if (msg.t === 'join') hostJoin(msg);
+  else if (msg.t === 'answer') hostAnswer(p, msg);
+  else if (msg.t === 'leave' && p){ p.connected = false; p.lastSeen = 0; if (host.phase === 'lobby') renderHostLight(); }
+}
+// A phone that stops sending its 5-second heartbeat counts as gone, so a question can still close early.
+function hostSweep(){
+  if (!host) return;
+  let changed = false;
+  for (const p of host.players.values()){
+    const live = Date.now() - p.lastSeen < 20000;
+    if (live !== p.connected){ p.connected = live; changed = true; }
+  }
+  if (host.phase === 'question'){
+    const live = [...host.players.values()].filter(x => x.connected);
+    if (live.length && live.every(x => x.answers[host.qi])){ revealQuestion(); return; }
+  }
+  if (changed) renderHostLight();
 }
 
 function cleanName(s){ return String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 10); }
-function hostJoin(conn, msg){
-  const token = typeof msg.token === 'string' ? msg.token.slice(0, 40) : '';
-  if (!token) return;
+function hostJoin(msg){
+  const token = msg.token;
   let p = host.players.get(token);
   const avatar = AVATARS.find(a => a[0] === msg.avatar) || AVATARS[0];
   if (!p){
-    if (host.players.size >= 60){ conn.send({t: 'full'}); return; }
+    if (host.players.size >= 60){ sendTo(token, {t: 'full'}); return; }
     let name = cleanName(msg.name) || avatar[1];
     const taken = new Set([...host.players.values()].map(x => x.avatar + x.name));
     if (taken.has(avatar[0] + name)){ let n = 2; while (taken.has(avatar[0] + name + n)) n++; name += n; }
-    p = {token, name, avatar: avatar[0], score: 0, totalMs: 0, answers: {}, conn, connected: true};
+    p = {token, name, avatar: avatar[0], score: 0, totalMs: 0, answers: {}, connected: true, lastSeen: Date.now()};
     host.players.set(token, p);
-  } else { p.conn = conn; p.connected = true; }
-  conn.send({t: 'welcome', name: p.name, avatar: p.avatar, score: p.score});
+  } else { p.connected = true; p.lastSeen = Date.now(); }
+  send(p, {t: 'welcome', name: p.name, avatar: p.avatar, score: p.score});
   sendState(p);
   renderHostLight();
 }
@@ -1013,19 +1077,21 @@ function sendState(p){
   if (host.phase === 'question'){
     const q = host.questions[host.qi];
     const a = p.answers[host.qi];
-    if (a) p.conn.send({t: 'locked', q: host.qi, choice: a.choice});
-    else p.conn.send(questionMsg(q, Math.max(0, host.settings.secs * 1000 - (Date.now() - host.qStart))));
-  } else if (host.phase === 'reveal') p.conn.send(revealMsg(p));
-  else if (host.phase === 'final') p.conn.send(finalMsg(p));
+    if (a) send(p, {t: 'locked', q: host.qi, choice: a.choice});
+    else send(p, questionMsg(q, Math.max(0, host.settings.secs * 1000 - (Date.now() - host.qStart))));
+  } else if (host.phase === 'reveal') send(p, revealMsg(p));
+  else if (host.phase === 'final') send(p, finalMsg(p));
 }
 function questionMsg(q, remainingMs){
   return {t: 'question', q: host.qi, total: host.questions.length, prompt: q.prompt, options: q.options, scene: q.scene || null, remainingMs, secs: host.settings.secs};
 }
-function send(p, m){ if (p.connected && p.conn?.open) try { p.conn.send(m); } catch {} }
+function sendTo(token, m){
+  if (host?.client?.connected) try { host.client.publish(topic(host.code, 'to/' + token), JSON.stringify(m), {qos: 1}); } catch {}
+}
+function send(p, m){ sendTo(p.token, m); }
 
-function hostAnswer(conn, msg){
+function hostAnswer(p, msg){
   if (host.phase !== 'question' || msg.q !== host.qi) return;
-  const p = [...host.players.values()].find(x => x.conn === conn);
   if (!p || p.answers[host.qi]) return;
   const choice = Number.isInteger(msg.choice) && msg.choice >= 0 && msg.choice < 4 ? msg.choice : null;
   if (choice == null) return;
@@ -1108,15 +1174,22 @@ function finishGame(){
   if (host.settings.read){ const w = ranking()[0]; if (w) speech.say(`恭喜冠軍，${w.name}！多謝大家參加！`); }
 }
 function endHost(){
-  clearInterval(host?.timer);
-  for (const p of host?.players.values() || []) send(p, {t: 'closed'});
-  setTimeout(() => { try { host?.peer?.destroy(); } catch {} host = null; }, 300);
+  const h = host;
+  clearInterval(h?.timer); clearInterval(h?.sweep);
+  for (const p of h?.players.values() || []) send(p, {t: 'closed'});
+  setTimeout(() => {
+    try { h?.client?.publish(topic(h.code, 'host'), '', {qos: 1, retain: true}, () => { try { h.client.end(true); } catch {} }); } catch {}
+    setTimeout(() => { try { h?.client?.end(true); } catch {} }, 1500);
+  }, 300);
+  host = null;
   window.onbeforeunload = null;
   goHome();
 }
 
 // Re-render only the parts that change often (lobby list, answer counts) to keep the QR code steady.
-function renderHostLight(){
+function renderHostLight(full){
+  if (!host) return;
+  if (full){ renderHost(); return; }
   if (host.phase === 'lobby'){ const box = document.getElementById('host-players'); if (box){ box.replaceChildren(...lobbyPlayers()); return; } }
   if (host.phase === 'question'){
     const c = document.getElementById('host-count');
@@ -1129,7 +1202,7 @@ function lobbyPlayers(){
   return [
     el('h2', {}, `已加入：${ps.length} 人`),
     ps.length ? el('div', {class: 'chips'}, ps.map(p => el('span', {class: 'chip' + (p.connected ? '' : ' off')}, p.avatar, ' ', p.name,
-      el('button', {'aria-label': `移除 ${p.name}`, title: '移除', onclick(){ send(p, {t: 'kicked'}); host.players.delete(p.token); setTimeout(() => { try { p.conn.close(); } catch {} }, 200); renderHostLight(); }}, '✕'))))
+      el('button', {'aria-label': `移除 ${p.name}`, title: '移除', onclick(){ send(p, {t: 'kicked'}); host.players.delete(p.token); renderHostLight(); }}, '✕'))))
       : el('p', {class: 'muted'}, '等緊老友記加入…'),
   ];
 }
@@ -1144,10 +1217,11 @@ function renderHost(){
     el('button', {class: 'btn sm', onclick(){ if (host.phase === 'lobby' || confirm('確定結束比賽？')) endHost(); }}, host.phase === 'lobby' ? '‹ 主頁' : '結束比賽'),
     el('h1', {}, '🏆 手機點餐大比拼'),
     el('div', {class: 'tools'}, fontBtn()));
-  if (host.phase === 'lobby') return mount(top, renderLobby());
-  if (host.phase === 'question') return mount(top, renderHostQuestion());
-  if (host.phase === 'reveal') return mount(top, renderHostReveal());
-  if (host.phase === 'final') return mount(top, renderHostFinal());
+  const off = host.offline && host.status === 'ready' ? el('div', {class: 'banner warn'}, '📶 主持機連線斷咗，重新連接緊…（唔好閂呢頁）') : null;
+  if (host.phase === 'lobby') return mount(top, off, renderLobby());
+  if (host.phase === 'question') return mount(top, off, renderHostQuestion());
+  if (host.phase === 'reveal') return mount(top, off, renderHostReveal());
+  if (host.phase === 'final') return mount(top, off, renderHostFinal());
 }
 
 function renderLobby(){
@@ -1157,9 +1231,9 @@ function renderLobby(){
     const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
     qrBox = el('div', {class: 'qr'}); qrBox.innerHTML = qr.createSvgTag({cellSize: 6, margin: 2, scalable: true, alt: '加入比賽嘅 QR code'});
     qrBox = [el('p', {style: 'text-align:center;font-weight:700'}, '📷 用手機相機掃呢個 QR code'), qrBox,
-      el('p', {style: 'text-align:center'}, '或者喺「參加比賽」輸入房號：'), el('div', {class: 'room-code'}, host.code), el('p', {class: 'url muted'}, url)];
+      el('p', {style: 'text-align:center'}, '或者喺「參加比賽」輸入房號：'), el('div', {class: 'room-code'}, host.code), el('p', {class: 'url muted'}, url), el('p', {class: 'small muted', style: 'text-align:center'}, '中轉伺服器：' + brokerName(host.broker))];
   } else if (host.status === 'error'){
-    qrBox = [el('div', {class: 'banner bad'}, '連唔到配對伺服器（', host.error, '）。請檢查網絡，再撳「重試」。'), el('button', {class: 'btn primary', onclick: openRoom}, '重試')];
+    qrBox = [el('div', {class: 'banner bad'}, '連唔到中轉伺服器（', host.error, '）。請檢查呢部電腦有冇上網，再撳「重試」。'), el('button', {class: 'btn primary', onclick: openRoom}, '重試')];
   } else qrBox = [el('p', {class: 'muted'}, '開緊房，請等等…')];
   const n = host.players.size;
   return el('div', {class: 'host-grid'},
@@ -1256,89 +1330,124 @@ function showJoin(err){
 function newToken(){ return (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); }
 
 function joinRoom(code, name, avatar){
-  if (typeof Peer === 'undefined'){ showJoin('連線程式載入唔到，請檢查網絡再試。'); return; }
+  if (typeof mqtt === 'undefined'){ showJoin('連線程式載入唔到，請檢查網絡再試。'); return; }
   const saved = store.get('player', {});
-  const token = saved.room === code && saved.token ? saved.token : newToken();
+  const token = saved.room === code && TOKEN_RE.test(saved.token || '') ? saved.token : newToken();
   store.set('player', {room: code, name, avatar, token});
   history.replaceState(null, '', joinUrl(code).replace(location.origin, ''));
   if (player) leavePlayer(true);
-  player = {code, name, avatar, token, peer: null, conn: null, view: {t: 'connecting'}, score: 0, retries: 0, closed: false, wake: null,
-    startedAt: Date.now(), diag: {signal: 'connecting', ice: 'new', cands: {host: 0, srflx: 0, relay: 0}, tries: 0, err: null}};
+  player = {code, name, avatar, token, clients: [], link: null, view: {t: 'connecting'}, score: 0, closed: false, wake: null, startedAt: Date.now(), diag: null};
   playerConnect();
   requestWake();
 }
 
+// Open a connection to every broker at once. The one where the host's room is announced becomes the link; the rest are closed.
 function playerConnect(){
   const P = player;
   if (!P || P.closed) return;
+  stopProbe(P);
+  P.view = {t: 'connecting'}; P.startedAt = Date.now(); P.link = null; P.lostShown = false;
+  P.diag = {brokers: {}, room: 'unknown'};
   renderPlayer();
-  const start = () => {
-    const conn = P.peer.connect(PEER_PREFIX + P.code, {reliable: true, serialization: 'json'});
-    P.conn = conn;
-    P.diag.tries++; P.diag.ice = 'new'; P.diag.cands = {host: 0, srflx: 0, relay: 0};
-    try {
-      const pc = conn.peerConnection;
-      pc.addEventListener('icecandidate', e => { const t = e.candidate && e.candidate.type; if (t && t in P.diag.cands) P.diag.cands[t]++; });
-      pc.addEventListener('iceconnectionstatechange', () => { P.diag.ice = pc.iceConnectionState; });
-    } catch {}
-    const timeout = setTimeout(() => { if (!conn.open) playerLost(conn, 'timeout'); }, 15000);
-    conn.on('open', () => { clearTimeout(timeout); P.retries = 0; conn.send({t: 'join', token: P.token, name: P.name, avatar: P.avatar}); });
-    conn.on('data', m => onHostMsg(conn, m));
-    conn.on('close', () => playerLost(conn, 'close'));
-    conn.on('error', () => playerLost(conn, 'error'));
-  };
-  if (P.peer && !P.peer.destroyed && P.peer.open){ start(); return; }
-  try { P.peer?.destroy(); } catch {}
-  P.diag.signal = 'connecting';
-  P.peer = new Peer(peerOptions());
-  P.peer.on('open', () => { P.diag.signal = 'ok'; if (!P.conn) start(); });
-  P.peer.on('disconnected', () => { if (!P.peer.destroyed) setTimeout(() => { try { P.peer.reconnect(); } catch {} }, 1500); });
-  P.peer.on('error', err => {
-    if (err.type === 'peer-unavailable'){
-      if (P.view.t === 'connecting' && !P.everJoined){ leavePlayer(); showJoin(`搵唔到房號 ${P.code}。請睇清楚投影機上面嘅數字，或者叫職員幫手。`); }
-      else playerLost(P.conn, 'unavailable');
-      return;
-    }
-    if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)){ P.diag.signal = 'fail'; P.diag.err = err.type; playerLost(P.conn, err.type); }
-  });
+  const hostTopic = topic(P.code, 'host'), myTopic = topic(P.code, 'to/' + P.token);
+  P.clients = brokerUrls().map(url => {
+    let c;
+    try { c = newClient(url); } catch { P.diag.brokers[url] = 'fail'; return null; }
+    P.diag.brokers[url] = 'connecting';
+    c.on('connect', () => {
+      if (P.closed) return;
+      P.diag.brokers[url] = 'ok';
+      c.subscribe([hostTopic, myTopic], {qos: 1});
+      if (P.link === c){ playerPublish({t: 'join', name: P.name, avatar: P.avatar}); setReconnecting(false); }
+    });
+    c.on('close', () => {
+      if (P.closed) return;
+      if (P.link === c) setReconnecting(true);
+      else if (!P.link) P.diag.brokers[url] = 'fail';
+    });
+    c.on('error', () => {});
+    c.on('message', (tp, buf) => {
+      if (P.closed) return;
+      const text = buf.toString();
+      if (tp === hostTopic){
+        if (!text){ if (P.link === c) hostGone(); return; }
+        if (!P.link) chooseLink(c);
+      } else if (tp === myTopic && P.link === c){
+        let m; try { m = JSON.parse(text); } catch { return; }
+        onHostMsg(m);
+      }
+    });
+    return c;
+  }).filter(Boolean);
+  P.probe = setInterval(checkProbe, 2000);
+}
+function stopProbe(P){
+  clearInterval(P.probe); clearInterval(P.hb); clearInterval(P.tick);
+  for (const c of P.clients || []) try { c.end(true); } catch {}
+  P.clients = []; P.link = null;
+}
+function chooseLink(c){
+  const P = player;
+  P.link = c; P.diag.room = 'found';
+  for (const o of P.clients) if (o !== c) try { o.end(true); } catch {}
+  P.clients = [c];
+  clearInterval(P.hb);
+  P.hb = setInterval(() => playerPublish({t: 'hb'}), 5000);
+  playerPublish({t: 'join', name: P.name, avatar: P.avatar});
+}
+function playerPublish(m){
+  const P = player;
+  if (!P || !P.link || !P.link.connected) return false;
+  try { P.link.publish(topic(P.code, 'up'), JSON.stringify({...m, token: P.token}), {qos: 1}); return true; } catch { return false; }
+}
+function checkProbe(){
+  const P = player;
+  if (!P || P.closed || P.link) return;
+  const st = Object.values(P.diag.brokers);
+  const age = Date.now() - P.startedAt;
+  const anyOk = st.includes('ok');
+  if (anyOk && ((age > 6000 && !st.includes('connecting')) || age > 14000)){
+    leavePlayer(); showJoin(`搵唔到房號 ${P.code}。請睇清楚投影機上面嘅數字，亦要確認主持人嗰頁仲開住。`); return;
+  }
+  if (!anyOk && age > 20000 && !P.lostShown){ P.lostShown = true; P.view = {t: 'lost'}; renderPlayer(); }
+  else if (P.view.t === 'connecting' || P.view.t === 'lost') { /* diagnosis redraws itself every second */ }
+}
+function setReconnecting(on){
+  const P = player;
+  if (!P || P.closed || P.view.t === 'connecting' || P.view.t === 'lost') return;
+  if (!!P.view.reconnecting === on) return;
+  P.view = {...P.view, reconnecting: on};
+  renderPlayer();
+}
+function hostGone(){
+  const P = player;
+  P.view = {t: 'msg', em: '👋', title: '比賽完咗', text: '主持人已經離開咗房，多謝參加！'};
+  renderPlayer(); leavePlayer(true);
 }
 
 // Plain-language reason for a connection that is taking too long, from what we saw so far.
 function diagBox(P){
   const d = P.diag;
-  const rows = [
-    ['配對伺服器', d.signal === 'ok' ? '✅ 已連接' : d.signal === 'fail' ? `❌ 連唔到（${d.err || '未知'}）` : '⏳ 連接緊'],
-    ['連去主持機', d.ice === 'connected' || d.ice === 'completed' ? '✅ 已連通' : d.ice === 'failed' || d.ice === 'disconnected' ? '❌ 連唔通' : d.signal === 'ok' ? '⏳ 嘗試緊' : '⏳ 等緊'],
-    ['中轉備用線路', d.cands.relay ? '✅ 搵到' : d.signal === 'ok' ? '❌ 搵唔到' : '—'],
-  ];
+  const entries = Object.entries(d.brokers);
+  const anyOk = entries.some(([, v]) => v === 'ok');
+  const mark = v => v === 'ok' ? '✅ 連到' : v === 'fail' ? '❌ 連唔到' : '⏳ 連接緊';
   let why;
-  if (d.signal === 'fail') why = '手機連唔到配對伺服器（0.peerjs.com）。請檢查手機有冇上網，或者場地 Wi-Fi 有冇擋住呢個網站。';
-  else if (d.signal !== 'ok') why = '手機仲未連到配對伺服器，請再等一陣，或者檢查網絡。';
-  else if (!d.cands.relay) why = '手機同主持機之間連唔通，而且備用線路都搵唔到。多數係場地 Wi-Fi 擋咗設備互連，或者備用線路被擋。請試：關咗流動數據、轉用同主持機同一個 Wi-Fi，或者用手提電話開熱點俾主持機同手機一齊連。';
-  else why = '手機同主持機之間連唔通。請確認主持機仲開住比賽頁面（冇重新整理），再試；或者轉用同一個 Wi-Fi。';
+  if (!anyOk) why = '手機連唔到任何中轉伺服器。請檢查手機有冇上網；如果喺場地 Wi-Fi，試切換去手機流動數據（或者相反）。公司或者學校嘅網絡有時會擋住呢類連線。';
+  else why = '手機連到中轉伺服器，但搵唔到主持人嘅房。請確認房號啱，同埋主持人嗰頁仲開住（冇重新整理）。主持人畫面會顯示佢用嘅「中轉伺服器」，如果手機連唔到嗰個，就會搵唔到。';
   return el('div', {class: 'result bad', style: 'text-align:left;width:100%'},
     el('h3', {}, '🔎 連線診斷'),
-    el('ul', {style: 'list-style:none;padding:0;margin:0;display:grid;gap:4px'}, rows.map(([k, v]) => el('li', {}, el('b', {}, k + '：'), v))),
+    el('ul', {style: 'list-style:none;padding:0;margin:0;display:grid;gap:4px'},
+      entries.map(([u, v]) => el('li', {}, el('b', {}, brokerName(u) + '：'), mark(v)))),
     el('p', {}, why),
-    el('p', {class: 'small muted'}, `房號 ${P.code} · 試咗 ${d.tries} 次 · 已等 ${Math.round((Date.now() - P.startedAt) / 1000)} 秒 · 主持人可以將呢段字話俾職員睇。`));
-}
-function playerLost(conn, why){
-  const P = player;
-  if (!P || P.closed || (conn && conn !== P.conn)) return;
-  P.conn = null;
-  try { conn?.close(); } catch {}
-  P.retries++;
-  if (P.retries > 20){ P.view = {t: 'lost'}; renderPlayer(); return; }
-  if (P.view.t !== 'connecting') P.view = {...P.view, reconnecting: true};
-  renderPlayer();
-  clearTimeout(P.retryTimer);
-  P.retryTimer = setTimeout(playerConnect, Math.min(1500 * P.retries, 6000));
+    el('p', {class: 'small muted'}, `房號 ${P.code} · 已等 ${Math.round((Date.now() - P.startedAt) / 1000)} 秒 · 可以將呢段字話俾職員睇。`));
 }
 
 function leavePlayer(silent){
   const P = player; if (!P) return;
-  P.closed = true; clearTimeout(P.retryTimer); clearInterval(P.tick);
-  try { P.peer?.destroy(); } catch {}
+  playerPublish({t: 'leave'});
+  P.closed = true;
+  const clients = P.clients; clearInterval(P.probe); clearInterval(P.hb); clearInterval(P.tick);
+  setTimeout(() => { for (const c of clients) try { c.end(true); } catch {} }, 400);
   try { P.wake?.release(); } catch {}
   player = null;
   if (!silent) speech.stop();
@@ -1350,12 +1459,13 @@ async function requestWake(){
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !player || player.closed) return;
   requestWake();
-  if (!player.conn || !player.conn.open){ player.retries = 0; clearTimeout(player.retryTimer); playerConnect(); }
+  if (!player.link) playerConnect();
+  else if (!player.link.connected) try { player.link.reconnect(); } catch {}
 });
 
-function onHostMsg(conn, m){
+function onHostMsg(m){
   const P = player;
-  if (!P || conn !== P.conn || !m || typeof m !== 'object') return;
+  if (!P || !m || typeof m !== 'object') return;
   switch (m.t){
     case 'welcome': P.everJoined = true; P.name = m.name; P.avatar = m.avatar; P.score = m.score; P.view = {t: 'lobby'}; break;
     case 'lobby': P.score = 0; P.view = {t: 'lobby'}; break;
@@ -1365,7 +1475,7 @@ function onHostMsg(conn, m){
     case 'final': P.score = m.score; P.view = {...m, t: 'final'}; break;
     case 'full': P.view = {t: 'msg', em: '🙇', title: '房已經滿咗', text: '請同職員講。'}; break;
     case 'kicked': leavePlayer(); showJoin('主持人將你移出咗房，如有需要請同職員講。'); return;
-    case 'closed': P.closed = true; P.view = {t: 'msg', em: '👋', title: '比賽完咗', text: '多謝參加！'}; renderPlayer(); leavePlayer(); return;
+    case 'closed': P.view = {t: 'msg', em: '👋', title: '比賽完咗', text: '多謝參加！'}; renderPlayer(); leavePlayer(true); return;
     default: return;
   }
   renderPlayer();
@@ -1397,7 +1507,7 @@ function renderPlayer(){
     const draw = () => slot.replaceChildren(diagBox(P));
     draw(); P.tick = setInterval(draw, 1000);
     return mount(playerHead(), status('📵', '連唔返主持人', '請睇下面嘅診斷，改善網絡後撳「再試」。',
-      el('div', {style: 'display:grid;gap:10px;width:100%'}, slot, el('button', {class: 'btn primary block', onclick(){ P.retries = 0; P.startedAt = Date.now(); P.diag.tries = 0; P.view = {t: 'connecting'}; playerConnect(); }}, '再試'))));
+      el('div', {style: 'display:grid;gap:10px;width:100%'}, slot, el('button', {class: 'btn primary block', onclick(){ playerConnect(); }}, '再試'))));
   }
   if (v.t === 'msg') return mount(el('div', {class: 'topbar'}, el('button', {class: 'btn sm', onclick: goHome}, '‹ 主頁')), status(v.em, v.title, v.text));
   if (v.t === 'lobby') return mount(playerHead(), warn, status(P.avatar, `你好，${P.name}！`, '已經加入咗。睇住投影機，等主持人開始…',
@@ -1419,8 +1529,7 @@ function renderPlayer(){
         renderScene(v.scene),
         sayBtn(() => v.prompt + '。' + v.options.join('。')),
         el('div', {class: 'answers'}, v.options.map((o, i) => answerTile(i, o, {tag: 'button', attrs: {onclick(){
-          if (!P.conn?.open) return;
-          P.conn.send({t: 'answer', q: v.q, choice: i});
+          if (!playerPublish({t: 'answer', q: v.q, choice: i})) return;
           clearInterval(P.tick);
           P.view = {...v, t: 'locked', choice: i}; renderPlayer();
         }}})))));
