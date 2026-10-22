@@ -6,10 +6,12 @@ const fs = require("fs");
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");   // his sound effects
 
-// the character's drawing is 600 × 630
+// the character's drawing is 600 × 630; with the desk clock beside him it is 740 wide
 const SIZES = { small: [200, 210], medium: [280, 294], large: [380, 399] };
+const WIDE = 740 / 600;
+const winSize = (name) => { const [w, h] = SIZES[name]; return [Math.round(w * (state.wide ? WIDE : 1)), h]; };
 const statePath = () => path.join(app.getPath("userData"), "pet-state.json");
-let state = { size: "medium", top: true, x: null, y: null };
+let state = { size: "medium", top: true, wide: true, x: null, y: null };
 let win = null, cursorTimer = null, lastCursor = "";
 
 function loadState() {
@@ -25,7 +27,7 @@ function saveState() {
 }
 
 function createWindow() {
-  const [w, h] = SIZES[state.size];
+  const [w, h] = winSize(state.size);
   const area = screen.getPrimaryDisplay().workArea;
   let x = state.x, y = state.y;
   const onScreen = x !== null && screen.getAllDisplays().some((d) => {
@@ -83,15 +85,22 @@ ipcMain.on("move-by", (_e, dx, dy) => {
   const [x, y] = win.getPosition();
   win.setPosition(Math.round(x + dx), Math.round(y + dy));
 });
+ipcMain.on("set-wide", (_e, wide) => {
+  if (!win || state.wide === !!wide) return;
+  state.wide = !!wide; saveState();
+  const [x, y] = win.getPosition(), [w, h] = winSize(state.size);
+  win.setBounds({ x, y, width: w, height: h });                      // grows to the right, so he does not move
+});
 ipcMain.on("set-ignore", (_e, ignore) => {
   if (win) win.setIgnoreMouseEvents(!!ignore, { forward: true });
 });
 ipcMain.on("show-menu", (_e, s) => {
   const size = (name) => () => {
     state.size = name; saveState();
-    const [w, h] = SIZES[name];
-    const [x, y] = win.getPosition(), [ow, oh] = win.getSize();
-    win.setBounds({ x: x + Math.round((ow - w) / 2), y: y + oh - h, width: w, height: h });   // keeps him sitting on the same spot
+    const [w, h] = winSize(name);
+    const [x, y] = win.getPosition(), [, oh] = win.getSize();
+    const scale = h / oh;
+    win.setBounds({ x: x + Math.round((300 / 630) * oh * (1 - scale)), y: y + oh - h, width: w, height: h });   // keeps him sitting on the same spot
   };
   const mode = (id, label) => ({ label, type: "radio", checked: s.mode === id, click: send(id) });
   const startup = app.getLoginItemSettings().openAtLogin;

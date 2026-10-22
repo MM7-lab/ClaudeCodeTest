@@ -76,6 +76,7 @@
   .scene-btn[aria-pressed="true"] { background: var(--ink); }
   .scene-btn:focus-visible { outline: 3px solid #f59e0b; }
   #character-svg { width: 100%; height: auto; max-width: 500px; max-height: 500px; overflow: visible; display: block; margin: auto; position: relative; z-index: 1; touch-action: manipulation; }
+  #character-svg.wide { max-width: 617px; }
   .hotspot { cursor: pointer; transition: filter 0.15s ease; }
   .hotspot:hover { filter: brightness(1.03); }
   .legend { width: 100%; padding-top: 8px; border-top: 1px solid rgba(168, 162, 158, 0.6); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 0.74rem; color: var(--muted); font-weight: 500; position: relative; z-index: 2; }
@@ -844,7 +845,8 @@ const state = {
   nextFidget: 4,
   deskClock: store.get("deskClock", true), ringT: 0, chimeHour: new Date().getHours(),
 };
-const FADE_TIME = 0.6;   // seconds for one mode to hand over to the next
+const FADE_TIME = 0.6;
+   // seconds for one mode to hand over to the next
 
 // critically damped-ish spring on an impulse (ears, tail, feet, head pat); sub-stepped so it is stable at any frame rate
 function stepSpring(s, k, c, dt) {
@@ -945,7 +947,10 @@ function chimeCheck() {
     spawnParticle("sparkle", 220, 350); spawnParticle("sparkle", 385, 350);
   }
 }
-function setDeskClock(on) { state.deskClock = on; store.set("deskClock", on); hooks.onChange(); }
+// the desk clock needs room beside him: the picture widens to the right while it is out (he stays where he is)
+const VIEW_W = 600, VIEW_W_CLOCK = 740;
+function fitView() { rig.svg.setAttribute("viewBox", `0 0 ${state.deskClock ? VIEW_W_CLOCK : VIEW_W} 630`); rig.svg.classList.toggle("wide", state.deskClock); }
+function setDeskClock(on) { state.deskClock = on; store.set("deskClock", on); fitView(); hooks.onChange(); }
 
 // small fidgets while idling, so he never stands frozen
 function fidget() {
@@ -1116,14 +1121,14 @@ function tick(real) {
   showEl(heldClock, ck > 0.01);
   if (ck > 0.01) {
     const dy = ((pose.pawLY + pose.pawRY) / 2 + 35) * ck - 6;       // resting on his paws
-    heldClock.setAttribute("transform", `translate(0 ${dy.toFixed(1)}) translate(300 470) scale(${pop(ck).toFixed(3)}) translate(-300 -470)`);
+    heldClock.setAttribute("transform", `translate(0 ${dy.toFixed(1)}) translate(300 482) scale(${(1.2 * pop(ck)).toFixed(3)}) translate(-300 -482)`);   // 1.2×, so the time reads at a glance
     heldClock.setAttribute("opacity", Math.min(1, ck * 2).toFixed(2));
   }
   state.ringT = Math.max(0, state.ringT - real);
   showEl(deskClock, state.deskClock);
   if (state.deskClock) {
     const shake = state.ringT > 0 ? Math.sin(t * 60) * 6 * Math.min(1, state.ringT) : 0;
-    deskClock.setAttribute("transform", `translate(548 578) rotate(${shake.toFixed(1)}) scale(0.46) translate(-300 -482)`);
+    deskClock.setAttribute("transform", `translate(640 584) rotate(${shake.toFixed(1)}) scale(0.8) translate(-300 -482)`);
   }
   showEl(rig.propMug, mug > 0.01);
   rig.propMug.setAttribute("transform", `translate(-22, -18) rotate(${pose.mugRot.toFixed(2)}) scale(${pop(mug).toFixed(3)})`);
@@ -1186,6 +1191,7 @@ setInterval(() => {
   shownMouth = state.mouth;
   document.querySelectorAll(".expr").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.expr === shownMouth)));
 }, 100);
+fitView();
 $("btn-deskclock").addEventListener("click", () => { setDeskClock(!state.deskClock); sound.playPop(state.deskClock ? 620 : 420); });
 $("btn-push-glasses").addEventListener("click", () => triggerGlassesPush());
 $("btn-happy-jump").addEventListener("click", () => wiggleToes());
