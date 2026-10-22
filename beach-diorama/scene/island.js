@@ -37,7 +37,7 @@ function profileY(d) {
   return PROFILE[PROFILE.length - 1][1];
 }
 
-/** Ground height at (x, z). Used for placing trees, people and props. */
+/** Ground height at (x, z). Used for placing trees and props. */
 export function islandHeight(x, z) {
   const y = profileY(x - shoreX(z));
   const bumps = 0.035 * Math.sin(1.9 * x + 0.7) * Math.cos(2.3 * z - 0.4) + 0.02 * Math.sin(4.1 * x + 3.3 * z);

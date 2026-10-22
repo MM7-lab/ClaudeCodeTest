@@ -1,5 +1,4 @@
 // Where everything stands on the island (x/z in scene units, y comes from the island height).
-// Kept in one place so the walking paths in people.js can be checked against the obstacles.
 
 // Land is the left half (x < 0), the sea the right half. Palms lean towards the sea.
 export const PALMS = [
@@ -20,12 +19,3 @@ export const PROPS = {
 };
 
 export const FIRE = { x: -2.8, z: -1.2 };
-
-/** Circles walkers must keep clear of: trunks, umbrella pole, towel, fire pit. */
-export const OBSTACLES = [
-  ...PALMS.map((p) => ({ x: p.x, z: p.z, r: 0.2 })),
-  { x: PROPS.umbrella.x, z: PROPS.umbrella.z, r: 0.1 },
-  { x: PROPS.towel.x, z: PROPS.towel.z, r: 0.5 },
-  { x: FIRE.x, z: FIRE.z, r: 0.35 },
-  ...PROPS.rocks.map((r) => ({ x: r.x, z: r.z, r: r.size * 1.15 })),
-];

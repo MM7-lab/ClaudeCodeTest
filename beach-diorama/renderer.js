@@ -5,8 +5,6 @@ import { createBase, createIsland, islandHeight } from './scene/island.js';
 import { createFoam, createSea } from './scene/sea.js';
 import { createPalms } from './scene/palms.js';
 import { createProps } from './scene/props.js';
-import { createPeople } from './scene/people.js';
-import { createBirds } from './scene/birds.js';
 import { createBoat } from './scene/boat.js';
 import { createNight } from './scene/night.js';
 import { MODES, createLighting } from './scene/lighting.js';
@@ -17,7 +15,7 @@ const api = window.diorama;
 const FPS = 30;
 const FRAME_MS = 1000 / FPS;
 const FOV = 32;
-// Sphere around TARGET that contains the whole diorama, the palms and the seagulls' orbits.
+// Sphere around TARGET that contains the whole diorama and the palms.
 // Keeping the camera at least this far away (for any rotation) keeps the island fully in view.
 const TARGET = new THREE.Vector3(0, 0.4, 0);
 const BOUNDING_RADIUS = 7.25;
@@ -86,17 +84,15 @@ const sea = createSea();
 const foam = createFoam();
 const palms = createPalms(islandHeight, PALMS);
 const props = createProps(islandHeight, PROPS);
-const people = createPeople(islandHeight);
-const birds = createBirds();
 const boat = createBoat();
 const night = createNight(islandHeight, FIRE);
 
-const animated = [sea, foam, palms, people, birds, boat, night];
-for (const part of [island, base, sea, foam, palms, props, people, birds, boat]) scene.add(part.object);
+const animated = [sea, foam, palms, boat, night];
+for (const part of [island, base, sea, foam, palms, props, boat]) scene.add(part.object);
 scene.add(night.object);
 
 // Everything except the stars and the soft glows counts as "the diorama" for click-through hit testing.
-for (const part of [island, base, sea, palms, props, people, birds, boat]) markSolid(part.object);
+for (const part of [island, base, sea, palms, props, boat]) markSolid(part.object);
 markSolid(night.campfire);
 markSolid(lighting.bodies);
 
@@ -273,5 +269,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, palms, people, birds, boat, night } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, palms, boat, night } };
 }
