@@ -1,0 +1,50 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+/* Shown only while "Move position" is active. */
+#handle,
+#frame {
+  display: none;
+}
+
+.move-mode #handle {
+  display: block;
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 14px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.82);
+  color: #fff;
+  font: 12px/24px system-ui, 'Microsoft JhengHei UI', 'PingFang HK', sans-serif;
+  white-space: nowrap;
+  cursor: move;
+  -webkit-app-region: drag;
+}
+
+.move-mode #frame {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.75), inset 0 0 0 3px rgba(30, 41, 59, 0.5);
+}

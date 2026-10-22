@@ -1,0 +1,15 @@
+{
+  "name": "beach-diorama",
+  "version": "1.0.0",
+  "description": "A low-poly 3D beach diorama that floats on top of the Windows desktop (Electron + Three.js).",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^45.0.0",
+    "three": "^0.186.1"
+  }
+}
