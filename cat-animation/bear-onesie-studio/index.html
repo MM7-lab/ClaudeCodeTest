@@ -128,6 +128,7 @@
       <button id="btn-auto" class="neo-btn toggle auto" aria-pressed="true" title="Let him decide what to do, like a desktop pet">🤖 <span>Auto</span></button>
       <button id="btn-sound" class="neo-btn toggle" aria-pressed="true" title="Cute sound effects">🔊 <span id="label-sound">SFX On</span></button>
       <button id="btn-eyetrack" class="neo-btn toggle" aria-pressed="true" title="Eyes follow the cursor">👀 <span>Look at Cursor</span></button>
+      <button id="btn-deskclock" class="neo-btn toggle" aria-pressed="true" title="A little clock beside him, always showing the time">⏰ <span>Desk Clock</span></button>
       <button id="btn-pet" class="neo-btn toggle pat">🤚 <span>Head Pat</span></button>
     </div>
   </header>
@@ -562,8 +563,9 @@
           <button data-anim="vibe" class="neo-btn mode" aria-pressed="false"><span class="em">🎧</span><b>Lo-Fi Vibe</b><small>Head bop &amp; beats</small></button>
           <button data-anim="sleep" class="neo-btn mode" aria-pressed="false"><span class="em">💤</span><b>Sleepy Nod</b><small>Dozing off Zzz</small></button>
           <button data-anim="code" class="neo-btn mode" aria-pressed="false"><span class="em">💻</span><b>Coding</b><small>Fast paw typing</small></button>
+          <button data-anim="clock" class="neo-btn mode" aria-pressed="false"><span class="em">⏰</span><b>What Time?</b><small>Shows you the clock</small></button>
         </div>
-        <p class="note">Auto lets him pick what to do on his own, like a desktop pet. Choosing a mode yourself turns Auto off.</p>
+        <p class="note">Auto lets him pick what to do on his own, like a desktop pet, and on the hour he holds up the clock to show you the time. Choosing a mode yourself turns Auto off.</p>
       </div>
 
       <div class="neo-card panel">
@@ -636,6 +638,7 @@ class CozyAudioEngine {
   playBoing() { this.tone("triangle", 280, 0.15, 0.24, 0, (p, n) => { p.exponentialRampToValueAtTime(480, n + 0.08); p.exponentialRampToValueAtTime(340, n + 0.22); }); }
   playSparkle() { [880, 1174.66, 1396.91, 1760].forEach((n, i) => this.tone("sine", n, 0.08, 0.18, i * 0.045)); }
   playChord(freqs) { freqs.forEach((f) => this.tone("triangle", f, 0.035, 1.4)); }
+  playChime() { this.tone("sine", 1318.5, 0.09, 0.9); this.tone("sine", 987.8, 0.09, 1.2, 0.32); }
 }
 const sound = new CozyAudioEngine();
 
@@ -679,6 +682,33 @@ lapBack.innerHTML = `
   <g id="lap-tap-r" fill="none" stroke="#141210" stroke-width="3.6" stroke-linecap="round"><path d="M 300 402 l 4 -12 M 314 406 l 10 -9 M 286 400 l 0 -13"/></g>`;
 rig.particles.before(lapBack);
 const lapTapL = lapBack.querySelector("#lap-tap-l"), lapTapR = lapBack.querySelector("#lap-tap-r");
+
+// A little alarm clock showing the current time. One copy he holds up in front of him (in front of his arms,
+// his paws holding it from underneath), and a small one that can sit on the floor beside him all the time.
+const CLOCK_ART = `
+  <g fill="#f4be96" stroke="#141210" stroke-width="5">
+    <circle cx="232" cy="364" r="17"/><circle cx="368" cy="364" r="17"/>
+  </g>
+  <path d="M 300 368 L 300 352 M 286 350 L 314 350" fill="none" stroke="#141210" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 236 466 L 226 482 M 364 466 L 374 482" fill="none" stroke="#141210" stroke-width="6" stroke-linecap="round"/>
+  <rect x="212" y="368" width="176" height="100" rx="26" fill="#e07a5f" stroke="#141210" stroke-width="6"/>
+  <path d="M 222 392 C 222 380, 230 376, 240 376" fill="none" stroke="#f2a48f" stroke-width="5" stroke-linecap="round"/>
+  <rect x="228" y="386" width="144" height="66" rx="12" fill="#fbfaf6" stroke="#141210" stroke-width="4.5"/>
+  <text class="clock-time" x="300" y="436" text-anchor="middle" font-family="Fredoka, 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="46" fill="#141210" letter-spacing="1">00:00</text>`;
+function makeClock(id) {
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.id = id; g.setAttribute("class", "hidden"); g.innerHTML = CLOCK_ART;
+  return g;
+}
+const heldClock = makeClock("prop-clock-held");
+rig.particles.before(heldClock);                          // in front of his arms, so nothing crosses the time
+const deskClock = makeClock("prop-clock-desk");
+rig.root.before(deskClock);                               // on the floor, outside the rig so it does not squash with him
+const clockTexts = [heldClock, deskClock].map((g) => g.querySelector(".clock-time"));
+let shownTime = "";
+function clockText(now) {
+  return String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+}
 
 // the sleeves are re-skinned every frame from the paw offsets (same geometry as the character sheet)
 function updateLeftSleeveGeometry(lx, ly) {
@@ -787,6 +817,16 @@ const MODES = {
     },
     every: 0.52, emit() { spawnParticle("code", 190 + Math.random() * 130, 398); },   // rising from behind the screen
   },
+  clock: {
+    label: "Checking the Time ⏰", mouth: "smile", blush: 0.3,
+    pose(o, t, b) {
+      const breath = Math.sin(t * 2.0), bob = Math.sin(t * 2.4) * 2.5 * b;
+      o.bellyY = -breath * 1.5 * b; o.headY = 3 + Math.sin(t * 2.0 - 0.45) * 1.5 * b; o.headRot = -2.5 + Math.sin(t * 1.2) * 1.5 * b;
+      o.pawLX = 20; o.pawLY = -34 + bob; o.pawLRot = -16;               // holding the clock up from underneath to show you
+      o.pawRX = 50; o.pawRY = -36 + bob; o.pawRRot = 28;
+      o.earLRot = Math.sin(t * 2.4) * 2 * b; o.earRRot = -Math.sin(t * 2.4) * 2 * b; o.tailRot = Math.sin(t * 3) * 6 * b;
+    },
+  },
 };
 const MODE_NAMES = Object.keys(MODES);
 const CHORDS = [[261.63, 329.63, 392.0, 493.88], [220.0, 261.63, 329.63, 392.0], [174.61, 220.0, 261.63, 349.23], [196.0, 246.94, 293.66, 349.23]];
@@ -802,6 +842,7 @@ const state = {
   blink: { next: 2.5, until: 0 },
   eye: { x: 0, y: 0, tx: 0, ty: 0, lastPointer: -99 }, gaze: { x: 0, y: 0, until: 0 },
   nextFidget: 4,
+  deskClock: store.get("deskClock", true), ringT: 0, chimeHour: new Date().getHours(),
 };
 const FADE_TIME = 0.6;   // seconds for one mode to hand over to the next
 
@@ -877,12 +918,12 @@ function wake() {
 // ---------- autopilot: he decides what to do next ----------
 const autopilot = {
   on: store.get("auto", true), until: rand(6, 9), acts: 0,
-  LEN: { idle: [7, 12], wave: [2.8, 3.6], cocoa: [10, 15], code: [12, 18], vibe: [9, 14], sleep: [14, 22] },
+  LEN: { idle: [7, 12], wave: [2.8, 3.6], cocoa: [10, 15], code: [12, 18], vibe: [9, 14], sleep: [14, 22], clock: [5, 7] },
   step() {
     if (!this.on || state.t < this.until) return;
     let next = "idle";
     if (state.mode === "idle") {
-      next = weighted([["cocoa", 3], ["code", 3], ["vibe", 2], ["wave", 1.2], ["sleep", this.acts >= 3 ? 3 : 0.3]]);
+      next = weighted([["cocoa", 3], ["code", 3], ["vibe", 2], ["wave", 1.2], ["clock", 0.8], ["sleep", this.acts >= 3 ? 3 : 0.3]]);
       this.acts = next === "sleep" ? 0 : this.acts + 1;
     }
     if (state.mode === "sleep") wake(); else setMode(next, { quietButton: true });
@@ -890,6 +931,21 @@ const autopilot = {
     this.until = state.t + rand(a, b);
   },
 };
+
+// on the hour: the desk clock rings, and (in Auto, when he is awake) he holds the clock up to show you the time
+function chimeCheck() {
+  const now = new Date(), h = now.getHours();
+  if (now.getMinutes() !== 0 || h === state.chimeHour) return;
+  state.chimeHour = h;
+  state.ringT = 1.6;
+  sound.playChime();
+  if (autopilot.on && state.mode !== "sleep") {
+    setMode("clock", { quietButton: true });
+    autopilot.until = state.t + 7;
+    spawnParticle("sparkle", 220, 350); spawnParticle("sparkle", 385, 350);
+  }
+}
+function setDeskClock(on) { state.deskClock = on; store.set("deskClock", on); hooks.onChange(); }
 
 // small fidgets while idling, so he never stands frozen
 function fidget() {
@@ -935,6 +991,7 @@ function tick(real) {
   const t = state.t, b = state.bounceScale;
 
   autopilot.step();
+  chimeCheck();
   if (state.mode === "idle" && state.fade.idle > 0.98 && t > state.nextFidget) { fidget(); state.nextFidget = t + rand(2.8, 5.5); }
   else if (state.mode !== "idle") state.nextFidget = Math.max(state.nextFidget, t + 2.5);
 
@@ -1047,6 +1104,27 @@ function tick(real) {
     const typing = lap > 0.6;
     showEl(lapTapL, typing && Math.sin(t * 19) > 0.5); showEl(lapTapR, typing && Math.cos(t * 19) > 0.5);
   }
+  // the clocks: the held one grows in with its mode and rides on his paws; the desk one rings on the hour
+  const now = new Date(), txt = clockText(now);
+  if (txt !== shownTime) {
+    shownTime = txt;
+    for (const el of clockTexts) el.innerHTML = `${txt.slice(0, 2)}<tspan class="colon">:</tspan>${txt.slice(3)}`;
+  }
+  const colonOn = now.getMilliseconds() < 600;                     // the colon blinks once a second
+  for (const el of clockTexts) el.firstElementChild.setAttribute("fill-opacity", colonOn ? "1" : "0.15");
+  const ck = w.clock;
+  showEl(heldClock, ck > 0.01);
+  if (ck > 0.01) {
+    const dy = ((pose.pawLY + pose.pawRY) / 2 + 35) * ck - 6;       // resting on his paws
+    heldClock.setAttribute("transform", `translate(0 ${dy.toFixed(1)}) translate(300 470) scale(${pop(ck).toFixed(3)}) translate(-300 -470)`);
+    heldClock.setAttribute("opacity", Math.min(1, ck * 2).toFixed(2));
+  }
+  state.ringT = Math.max(0, state.ringT - real);
+  showEl(deskClock, state.deskClock);
+  if (state.deskClock) {
+    const shake = state.ringT > 0 ? Math.sin(t * 60) * 6 * Math.min(1, state.ringT) : 0;
+    deskClock.setAttribute("transform", `translate(548 578) rotate(${shake.toFixed(1)}) scale(0.46) translate(-300 -482)`);
+  }
   showEl(rig.propMug, mug > 0.01);
   rig.propMug.setAttribute("transform", `translate(-22, -18) rotate(${pose.mugRot.toFixed(2)}) scale(${pop(mug).toFixed(3)})`);
   showEl(rig.propHeadphones, hp > 0.01);
@@ -1097,6 +1175,7 @@ rig.svg.addEventListener("click", () => { if (state.mode === "sleep") wake(); })
 let shownMouth = "";
 hooks.onChange = () => {
   $("btn-auto").setAttribute("aria-pressed", String(autopilot.on));
+  $("btn-deskclock").setAttribute("aria-pressed", String(state.deskClock));
   $("status-text").textContent = MODES[state.mode].label + (autopilot.on ? " · Auto" : "");
   $("status-dot").classList.toggle("manual", !autopilot.on);
   document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.anim === state.mode)));
@@ -1107,6 +1186,7 @@ setInterval(() => {
   shownMouth = state.mouth;
   document.querySelectorAll(".expr").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.expr === shownMouth)));
 }, 100);
+$("btn-deskclock").addEventListener("click", () => { setDeskClock(!state.deskClock); sound.playPop(state.deskClock ? 620 : 420); });
 $("btn-push-glasses").addEventListener("click", () => triggerGlassesPush());
 $("btn-happy-jump").addEventListener("click", () => wiggleToes());
 $("btn-pet").addEventListener("click", headPat);
