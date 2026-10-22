@@ -97,28 +97,22 @@ export function mergeParts(parts) {
 }
 
 /**
- * Polar grid (rings x segments) used for the island and the sea.
- * `heightFn(x, z, r, theta)` returns the y of each vertex.
+ * Indexed (cols x rows) grid whose vertices come from `pos(i, j) -> [x, y, z]`, with triangles
+ * facing up (+Y). Used for the sand and the sea.
  */
-export function polarGrid({ rInner, rOuter, rings, segments, heightFn = () => 0 }) {
-  const positions = new Float32Array((rings + 1) * segments * 3);
-  const indices = [];
-  for (let i = 0; i <= rings; i++) {
-    const r = rInner + ((rOuter - rInner) * i) / rings;
-    for (let j = 0; j < segments; j++) {
-      const theta = (j / segments) * Math.PI * 2;
-      const x = r * Math.cos(theta);
-      const z = r * Math.sin(theta);
-      positions.set([x, heightFn(x, z, r, theta), z], (i * segments + j) * 3);
-    }
+export function gridGeometry(cols, rows, pos) {
+  const positions = new Float32Array((cols + 1) * (rows + 1) * 3);
+  for (let j = 0; j <= rows; j++) {
+    for (let i = 0; i <= cols; i++) positions.set(pos(i, j), (j * (cols + 1) + i) * 3);
   }
-  for (let i = 0; i < rings; i++) {
-    for (let j = 0; j < segments; j++) {
-      const a = i * segments + j;
-      const b = i * segments + ((j + 1) % segments);
-      const c = (i + 1) * segments + j;
-      const d = (i + 1) * segments + ((j + 1) % segments);
-      indices.push(a, b, c, b, d, c); // counter-clockwise seen from above
+  const indices = [];
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const a = j * (cols + 1) + i;
+      const b = a + 1;
+      const c = a + cols + 1;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
     }
   }
   const geometry = new THREE.BufferGeometry();

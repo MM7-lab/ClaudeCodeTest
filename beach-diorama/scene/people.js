@@ -66,11 +66,10 @@ function buildFigure({ skin, shirt, shorts, hair, hat, cap }) {
 const WALKERS = [
   {
     look: { skin: '#f2c9a0', shirt: '#ff6b6b', shorts: '#3b5b8c', hair: '#3b2a20' },
-    // Slow lap along the wet sand near the water.
+    // Slow lap along the shoreline.
     loop: (u) => {
       const a = u * Math.PI * 2;
-      const r = 2.7 + 0.08 * Math.sin(3 * a);
-      return [r * Math.cos(a), r * Math.sin(a)];
+      return [-0.9 + 0.3 * Math.cos(a), 3.3 * Math.sin(a)];
     },
     speed: 0.5,
     start: 0,
@@ -80,7 +79,7 @@ const WALKERS = [
     // Wanders around the umbrella and towel.
     loop: (u) => {
       const a = u * Math.PI * 2;
-      return [1.3 * Math.cos(a), 1.15 + 0.9 * Math.sin(a)];
+      return [-2.8 + 1.1 * Math.cos(a), 1.9 + 1.0 * Math.sin(a)];
     },
     speed: 0.42,
     start: 2.4,
@@ -97,9 +96,10 @@ const WALKERS = [
   },
 ];
 
+// Swimmers patrol up and down the sea next to the beach.
 const SWIMMERS = [
-  { look: { skin: '#f2c9a0', shirt: '#ff7b54', shorts: '#ff7b54', cap: '#ff4d6d' }, r: 3.65, theta: 0.55, span: 0.55, rate: 0.16, phase: 0.0 },
-  { look: { skin: '#c68b5e', shirt: '#4d9de0', shorts: '#4d9de0', cap: '#ffd23f' }, r: 3.95, theta: 3.7, span: 0.5, rate: 0.13, phase: 2.2 },
+  { look: { skin: '#f2c9a0', shirt: '#ff7b54', shorts: '#ff7b54', cap: '#ff4d6d' }, x: 1.25, z: -1.2, span: 0.9, rate: 0.35, phase: 0.0 },
+  { look: { skin: '#c68b5e', shirt: '#4d9de0', shorts: '#4d9de0', cap: '#ffd23f' }, x: 1.55, z: 1.3, span: 0.9, rate: 0.3, phase: 2.2 },
 ];
 
 export const WALKER_LOOPS = WALKERS.map((w) => makeLoop(w.loop));
@@ -154,14 +154,9 @@ export function createPeople(heightAt) {
       for (const sw of swimmers) {
         const { cfg, figure, wrapper } = sw;
         const k = t * cfg.rate + cfg.phase;
-        const theta = cfg.theta + cfg.span * Math.sin(k);
-        const dTheta = Math.cos(k) * cfg.span * cfg.rate; // sign of the travel direction
-        const r = cfg.r + 0.12 * Math.sin(t * 0.37 + cfg.phase);
-        const x = r * Math.cos(theta);
-        const z = r * Math.sin(theta);
-        // Tangent of increasing theta is (-sin, cos); flip it when swimming the other way.
-        const dir = dTheta >= 0 ? 1 : -1;
-        const heading = Math.atan2(-Math.sin(theta) * dir, Math.cos(theta) * dir);
+        const x = cfg.x + 0.12 * Math.sin(t * 0.37 + cfg.phase);
+        const z = cfg.z + cfg.span * Math.sin(k);
+        const heading = Math.cos(k) >= 0 ? 0 : Math.PI; // swim +z, then turn round and swim -z
 
         const bob = 0.03 * Math.sin(t * 2.1 + cfg.phase);
         wrapper.position.set(x, waveHeight(x, z, t) - 0.06 + bob, z);

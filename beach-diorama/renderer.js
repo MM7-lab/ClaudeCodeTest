@@ -20,7 +20,7 @@ const FOV = 32;
 // Sphere around TARGET that contains the whole diorama, the palms and the seagulls' orbits.
 // Keeping the camera at least this far away (for any rotation) keeps the island fully in view.
 const TARGET = new THREE.Vector3(0, 0.4, 0);
-const BOUNDING_RADIUS = 6.3;
+const BOUNDING_RADIUS = 7.25;
 const DEFAULT_VIEW = { azimuth: 0.65, polar: 1.0, zoom: 1.04 }; // zoom is relative to the fit distance
 const MAX_ZOOM_OUT = 1.7;
 

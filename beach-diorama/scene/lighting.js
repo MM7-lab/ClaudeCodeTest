@@ -24,7 +24,7 @@ export const PRESETS = {
   sunset: {
     sunColor: C('#ffb27a'), sunIntensity: 3.1, azimuth: 118, elevation: 11,
     skyColor: C('#ffb0c8'), groundColor: C('#7a4a6e'), hemiIntensity: 1.35,
-    seaShallow: C('#ffe9a6'), seaMid: C('#ffb584'), seaDeep: C('#c06ea6'),
+    seaShallow: C('#ffe9a6'), seaMid: C('#f592a0'), seaDeep: C('#8f5fb0'),
     foamColor: C('#fff0dc'), foamOpacity: 0.85,
     night: 0, sunBody: 1, sunBodyColor: C('#ff7a3d'), sunBodyScale: 1.35, moonBody: 0,
   },

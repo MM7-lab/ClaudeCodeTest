@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { lambert, setShadows } from './util.js';
 import { waveHeight } from './sea.js';
 
-const LOOP_RADIUS = 4.85;
-const LOOP_SPEED = 0.085; // rad/s, about 74 s per lap
+// The boat sails a tall oval in the open water on the sea side of the map.
+const LOOP_CX = 3.2;
+const LOOP_RX = 0.55;
+const LOOP_RZ = 3.0;
+const LOOP_SPEED = 0.11; // rad/s, about 57 s per lap
 const HALF_LENGTH = 0.8;
 const HALF_WIDTH = 0.34;
 
@@ -67,11 +70,10 @@ export function createBoat() {
     object: boat,
     update(t) {
       const a = t * LOOP_SPEED + 1.2;
-      const r = LOOP_RADIUS + 0.12 * Math.sin(t * 0.21);
-      const x = r * Math.cos(a);
-      const z = r * Math.sin(a);
-      // Moving with increasing angle: tangent is (-sin a, cos a); facing = +Z of the boat.
-      const heading = Math.atan2(-Math.sin(a), Math.cos(a)) + 0.08 * Math.sin(t * 0.4);
+      const x = LOOP_CX + LOOP_RX * Math.cos(a);
+      const z = LOOP_RZ * Math.sin(a);
+      // Moving with increasing a: velocity is (-RX sin a, RZ cos a); the boat faces +Z.
+      const heading = Math.atan2(-LOOP_RX * Math.sin(a), LOOP_RZ * Math.cos(a)) + 0.08 * Math.sin(t * 0.4);
 
       const hBow = heightAtLocal(heading, 0, HALF_LENGTH, x, z, t);
       const hStern = heightAtLocal(heading, 0, -HALF_LENGTH, x, z, t);
