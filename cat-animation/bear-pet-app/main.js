@@ -1,6 +1,6 @@
 // 熊仔桌面寵物: a transparent, borderless, always-on-top window that shows only the bear.
 // Clicks go through everywhere except on him. Drag him to move him, right-click for the menu.
-const { app, BrowserWindow, ipcMain, Menu, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, screen, session } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -15,8 +15,14 @@ let state = { size: "medium", top: true, wide: true, x: null, y: null };
 let win = null, cursorTimer = null, lastCursor = "";
 
 function loadState() {
-  try { state = { ...state, ...JSON.parse(fs.readFileSync(statePath(), "utf8")) }; } catch (e) { /* first run */ }
-  if (!SIZES[state.size]) state.size = "medium";
+  try {
+    const saved = JSON.parse(fs.readFileSync(statePath(), "utf8"));
+    // take only the settings we know, with the right types
+    if (SIZES[saved.size]) state.size = saved.size;
+    if (typeof saved.top === "boolean") state.top = saved.top;
+    if (typeof saved.wide === "boolean") state.wide = saved.wide;
+    if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) { state.x = Math.round(saved.x); state.y = Math.round(saved.y); }
+  } catch (e) { /* first run */ }
 }
 let saveTimer = null;
 function saveState() {
@@ -51,9 +57,16 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,                      // the page runs with no access to files or the system
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
       backgroundThrottling: false,
     },
   });
+  // the window only ever shows the bundled pet page: no links, no new windows, no other pages
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (e) => e.preventDefault());
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile(path.join(__dirname, "pet.html"));
   win.on("moved", () => { [state.x, state.y] = win.getPosition(); saveState(); });
@@ -68,8 +81,8 @@ function createWindow() {
     win.webContents.send("cursor", { x: p.x - b.x, y: p.y - b.y });
   }, 50);
 
-  // automated check: PET_SNAPSHOT=out.png saves one frame and quits
-  if (process.env.PET_SNAPSHOT) {
+  // automated check (development builds only): PET_SNAPSHOT=out.png saves one frame and quits
+  if (!app.isPackaged && process.env.PET_SNAPSHOT) {
     win.webContents.once("did-finish-load", () => setTimeout(async () => {
       const img = await win.webContents.capturePage();
       fs.writeFileSync(process.env.PET_SNAPSHOT, img.toPNG());
@@ -80,21 +93,31 @@ function createWindow() {
 
 const send = (cmd) => () => win && win.webContents.send("menu", cmd);
 
-ipcMain.on("move-by", (_e, dx, dy) => {
-  if (!win) return;
+// messages are only accepted from our own page, and their values are checked before use
+function fromPet(e) {
+  if (!win || e.sender !== win.webContents || !e.senderFrame) return false;
+  try { const u = new URL(e.senderFrame.url); return u.protocol === "file:" && decodeURIComponent(u.pathname).toLowerCase().endsWith("/pet.html"); }
+  catch { return false; }
+}
+const num = (v, lim) => (typeof v === "number" && Number.isFinite(v) ? Math.max(-lim, Math.min(lim, v)) : 0);
+
+ipcMain.on("move-by", (e, dx, dy) => {
+  if (!fromPet(e)) return;
   const [x, y] = win.getPosition();
-  win.setPosition(Math.round(x + dx), Math.round(y + dy));
+  win.setPosition(Math.round(x + num(dx, 2000)), Math.round(y + num(dy, 2000)));
 });
-ipcMain.on("set-wide", (_e, wide) => {
-  if (!win || state.wide === !!wide) return;
+ipcMain.on("set-wide", (e, wide) => {
+  if (!fromPet(e) || state.wide === !!wide) return;
   state.wide = !!wide; saveState();
   const [x, y] = win.getPosition(), [w, h] = winSize(state.size);
   win.setBounds({ x, y, width: w, height: h });                      // grows to the right, so he does not move
 });
-ipcMain.on("set-ignore", (_e, ignore) => {
-  if (win) win.setIgnoreMouseEvents(!!ignore, { forward: true });
+ipcMain.on("set-ignore", (e, ignore) => {
+  if (fromPet(e)) win.setIgnoreMouseEvents(!!ignore, { forward: true });
 });
-ipcMain.on("show-menu", (_e, s) => {
+ipcMain.on("show-menu", (e, raw) => {
+  if (!fromPet(e) || !raw || typeof raw !== "object") return;
+  const s = { mode: String(raw.mode), auto: !!raw.auto, sound: !!raw.sound, eyes: !!raw.eyes, deskClock: !!raw.deskClock };
   const size = (name) => () => {
     state.size = name; saveState();
     const [w, h] = winSize(name);
@@ -133,6 +156,11 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
-  app.whenReady().then(() => { loadState(); createWindow(); });
+  app.whenReady().then(() => {
+    // no camera, microphone, location, notifications or anything else a page could ask for
+    session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    session.defaultSession.setPermissionCheckHandler(() => false);
+    loadState(); createWindow();
+  });
   app.on("window-all-closed", () => { clearInterval(cursorTimer); app.quit(); });
 }

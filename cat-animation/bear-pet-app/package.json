@@ -10,17 +10,40 @@
     "dist": "electron-builder --win portable nsis --x64"
   },
   "devDependencies": {
-    "electron": "33.4.11",
-    "electron-builder": "25.1.8"
+    "electron": "44.9.3",
+    "electron-builder": "26.15.3"
   },
   "build": {
     "appId": "lab.mm7.bearpet",
     "productName": "Bear Pet",
-    "files": ["main.js", "preload.js", "pet.html", "icon.png"],
-    "directories": { "output": "dist" },
-    "win": { "icon": "icon.png", "signAndEditExecutable": false },
-    "portable": { "artifactName": "BearPet-${version}-portable.exe" },
-    "nsis": { "oneClick": true, "artifactName": "BearPet-${version}-setup.exe" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "pet.html",
+      "icon.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.png",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "BearPet-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "artifactName": "BearPet-${version}-setup.exe"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
+    }
   },
   "author": "MM7 Lab"
 }

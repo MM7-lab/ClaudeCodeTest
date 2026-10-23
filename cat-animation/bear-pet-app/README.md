@@ -35,6 +35,14 @@
 
 個 exe 冇數碼簽署（要向認證機構買證書）。佢係 GitHub Actions 由呢個資料夾嘅原始碼自動整嘅：Actions 頁面每次 run 都列明用咗邊個 commit，Artifacts 旁邊有 SHA-256 digest，可以同你下載到嘅 zip 對比（PowerShell：`Get-FileHash 檔名.zip`）。
 
+## 安全設定
+
+- 程式唔會上網、唔會讀你嘅檔案、唔會改 registry，亦唔會開其他程式；只會喺自己嘅設定資料夾寫一個 `pet-state.json`（位置、大細）
+- 畫面喺 sandbox 入面行，冇權限用檔案或者系統功能；唔會開連結或者新視窗；鏡頭、咪、位置等權限一律拒絕
+- 視窗傳俾主程式嘅訊息會先核對來源同數值
+- Electron 用緊有安全更新嘅版本，並關閉咗「當 Node.js 用」、除錯參數等其他程式可以借用嘅功能（Electron fuses），亦會核對 app 檔案冇被改過
+- GitHub 整嘅時候用 `package-lock.json` 鎖死每個套件版本，並跑 `npm audit`，有高風險漏洞就唔會整出 exe
+
 ## 自己由原始碼整
 
 要先裝 [Node.js](https://nodejs.org/)（LTS 版）。
