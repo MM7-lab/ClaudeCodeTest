@@ -16,9 +16,8 @@ export function shoreX(z) {
 // y = 0 is the mean sea level.
 const PROFILE = [
   [-12, 0.38],
-  [-3.0, 0.38],
-  [-1.6, 0.3],
-  [-0.9, 0.18],
+  [-0.95, 0.38], // flat city ground right up to a narrow beach
+  [-0.45, 0.22],
   [0, 0.0],
   [0.4, -0.28],
   [1.0, -0.55],
@@ -37,15 +36,31 @@ function profileY(d) {
   return PROFILE[PROFILE.length - 1][1];
 }
 
-/** Ground height at (x, z). Used for placing trees and props. */
-export function islandHeight(x, z) {
-  const y = profileY(x - shoreX(z));
-  const bumps = 0.035 * Math.sin(1.9 * x + 0.7) * Math.cos(2.3 * z - 0.4) + 0.02 * Math.sin(4.1 * x + 3.3 * z);
-  return y + bumps * smoothstep(-0.1, 0.25, y);
+/** The hill (a Victoria Peak backdrop) in the back-left corner of the land. */
+export const HILL = { x: -3.55, z: -3.2, sigma: 1.05, height: 1.55 };
+
+export function hillHeight(x, z) {
+  const dx = x - HILL.x;
+  const dz = z - HILL.z;
+  return HILL.height * Math.exp(-(dx * dx + dz * dz) / (2 * HILL.sigma * HILL.sigma));
 }
 
+/** Height of the city ground (the flat plateau). */
+export const GROUND_Y = 0.38;
+
+/** Ground height at (x, z). Used for placing buildings and trees. */
+export function islandHeight(x, z) {
+  const y = profileY(x - shoreX(z));
+  // Gentle ripples only on the beach strip; the city ground stays flat.
+  const ripples = 0.03 * Math.sin(1.9 * x + 0.7) * Math.cos(2.3 * z - 0.4) * smoothstep(-0.1, 0.1, y) * (1 - smoothstep(0.2, 0.34, y));
+  return y + ripples + hillHeight(x, z);
+}
+
+const PAVEMENT = new THREE.Color('#c3c8cf');
+const GRASS_LOW = new THREE.Color('#79bd6c');
+const GRASS_HIGH = new THREE.Color('#4f9a58');
+
 const SAND_STOPS = [
-  [0.35, new THREE.Color('#fbe9bd')],
   [0.2, new THREE.Color('#f4d9a0')],
   [0.0, new THREE.Color('#e9c88c')],
   [-0.3, new THREE.Color('#d6b178')],
@@ -64,7 +79,15 @@ function sandColor(y, out) {
   return out.copy(SAND_STOPS[SAND_STOPS.length - 1][1]);
 }
 
-/** Sand heightfield over the whole square; the part below the sea is hidden by the water. */
+/** Vertex colour: sand on the beach strip, pavement on the city ground, grass on the hill. */
+function groundColor(x, y, z, out) {
+  sandColor(y, out).lerp(PAVEMENT, smoothstep(0.16, 0.34, y));
+  const hill = hillHeight(x, z);
+  if (hill > 0.04) out.lerp(GRASS_LOW, smoothstep(0.04, 0.3, hill)).lerp(GRASS_HIGH, smoothstep(0.5, 1.5, hill));
+  return out;
+}
+
+/** Ground heightfield over the whole square; the part below the sea is hidden by the water. */
 export function createIsland() {
   const n = 44;
   const geometry = gridGeometry(n, n, (i, j) => {
@@ -78,7 +101,7 @@ export function createIsland() {
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
     const z = position.getZ(i);
-    sandColor(position.getY(i), c);
+    groundColor(x, position.getY(i), z, c);
     c.multiplyScalar(1 + 0.04 * Math.sin(x * 7.3 + z * 5.1)); // subtle mottling
     colors.set([c.r, c.g, c.b], i * 3);
   }

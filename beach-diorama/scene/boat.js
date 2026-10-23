@@ -22,10 +22,10 @@ function buildBoat() {
 
   // Hull: lower half of a stretched low-poly sphere, plus a flat deck.
   const hullGeo = new THREE.SphereGeometry(1, 8, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
-  const hull = new THREE.Mesh(hullGeo, lambert('#ee5d5d', { side: THREE.DoubleSide }));
+  const hull = new THREE.Mesh(hullGeo, lambert('#8a4a2b', { side: THREE.DoubleSide }));
   hull.scale.set(HALF_WIDTH, 0.3, HALF_LENGTH);
   hull.position.y = 0.08;
-  const deck = new THREE.Mesh(new THREE.CircleGeometry(1, 8), lambert('#f7e3b5'));
+  const deck = new THREE.Mesh(new THREE.CircleGeometry(1, 8), lambert('#d9b98a'));
   deck.rotation.x = -Math.PI / 2;
   deck.scale.set(HALF_WIDTH * 0.97, HALF_LENGTH * 0.97, 1);
   deck.position.y = 0.081;
@@ -33,15 +33,15 @@ function buildBoat() {
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 1.6, 5), lambert('#8a5a34'));
   mast.position.set(0, 0.88, 0.1);
 
-  const sailMaterial = lambert('#ffffff', { side: THREE.DoubleSide });
+  const sailMaterial = lambert('#c7372f', { side: THREE.DoubleSide });
   const mainSail = new THREE.Mesh(triangle([0, 0.22, 0.04], [0, 1.6, 0.06], [0, 0.22, -0.62]), sailMaterial);
   const jib = new THREE.Mesh(
     triangle([0, 0.26, 0.2], [0, 1.45, 0.14], [0, 0.26, 0.74]),
-    lambert('#ffd166', { side: THREE.DoubleSide }),
+    lambert('#e2553f', { side: THREE.DoubleSide }),
   );
   const flag = new THREE.Mesh(
     triangle([0, 1.6, 0.1], [0, 1.72, 0.1], [0, 1.66, -0.12]),
-    lambert('#ff5b5b', { side: THREE.DoubleSide }),
+    lambert('#ffd166', { side: THREE.DoubleSide }),
   );
 
   const sails = new THREE.Group();
@@ -51,7 +51,7 @@ function buildBoat() {
   return { boat, sails };
 }
 
-/** Sailboat drifting around the island on a slow loop, rocking with the waves. */
+/** Red-sailed junk drifting around the harbour on a slow loop, rocking with the waves. */
 export function createBoat() {
   const { boat, sails } = buildBoat();
   boat.rotation.order = 'YXZ';

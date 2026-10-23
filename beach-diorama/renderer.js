@@ -1,21 +1,19 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { HIT_LAYER, markSolid } from './scene/util.js';
-import { createBase, createIsland, islandHeight } from './scene/island.js';
+import { createBase, createIsland } from './scene/island.js';
 import { createFoam, createSea } from './scene/sea.js';
-import { createPalms } from './scene/palms.js';
-import { createProps } from './scene/props.js';
 import { createBoat } from './scene/boat.js';
+import { createCity } from './scene/city.js';
 import { createNight } from './scene/night.js';
 import { MODES, createLighting } from './scene/lighting.js';
-import { FIRE, PALMS, PROPS } from './scene/layout.js';
 
 const api = window.diorama;
 
 const FPS = 30;
 const FRAME_MS = 1000 / FPS;
 const FOV = 32;
-// Sphere around TARGET that contains the whole diorama and the palms.
+// Sphere around TARGET that contains the whole diorama and the tallest tower.
 // Keeping the camera at least this far away (for any rotation) keeps the island fully in view.
 const TARGET = new THREE.Vector3(0, 0.4, 0);
 const BOUNDING_RADIUS = 7.25;
@@ -82,18 +80,16 @@ const island = createIsland();
 const base = createBase();
 const sea = createSea();
 const foam = createFoam();
-const palms = createPalms(islandHeight, PALMS);
-const props = createProps(islandHeight, PROPS);
 const boat = createBoat();
-const night = createNight(islandHeight, FIRE);
+const city = createCity();
+const night = createNight();
 
-const animated = [sea, foam, palms, boat, night];
-for (const part of [island, base, sea, foam, palms, props, boat]) scene.add(part.object);
+const animated = [sea, foam, city, boat, night];
+for (const part of [island, base, sea, foam, city, boat]) scene.add(part.object);
 scene.add(night.object);
 
 // Everything except the stars and the soft glows counts as "the diorama" for click-through hit testing.
-for (const part of [island, base, sea, palms, props, boat]) markSolid(part.object);
-markSolid(night.campfire);
+for (const part of [island, base, sea, city, boat]) markSolid(part.object);
 markSolid(lighting.bodies);
 
 resize();
@@ -269,5 +265,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, palms, boat, night } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, boat, night } };
 }
