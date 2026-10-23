@@ -2,7 +2,7 @@
   "name": "bear-desk-pet",
   "productName": "Bear Pet",
   "version": "1.0.0",
-  "description": "Desktop pet: the polar-bear-onesie guy sitting on your Windows desktop",
+  "description": "Bear Pet desktop pet",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -27,7 +27,7 @@
     },
     "win": {
       "icon": "icon.png",
-      "signAndEditExecutable": false
+      "signExecutable": false
     },
     "portable": {
       "artifactName": "BearPet-${version}-portable.exe"
@@ -43,7 +43,8 @@
       "enableEmbeddedAsarIntegrityValidation": true,
       "onlyLoadAppFromAsar": true,
       "enableCookieEncryption": true
-    }
+    },
+    "copyright": "© 2026 MM7 Lab"
   },
   "author": "MM7 Lab"
 }
