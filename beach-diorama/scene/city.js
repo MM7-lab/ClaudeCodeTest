@@ -1,31 +1,13 @@
 import * as THREE from 'three';
 import { P, lambert, mergeParts, mulberry32, setShadows, vertexColorMaterial } from './util.js';
-import { GROUND_Y, HALF, HILL, islandHeight } from './island.js';
+import { HALF, RIDGE_X, SHORE_X, hillHeight, islandHeight } from './island.js';
+import { BLOCKS, LANDMARKS, WHEEL } from './layout.js';
 
-// A small Hong Kong on the land half: a harbour-front avenue, towers with ribbon windows,
-// a hill behind (Victoria Peak), neon signs and a waterfront observation wheel.
+// A small Hong Kong: towers with ribbon windows between the roads, a forested mountain ridge
+// along the left wall, neon signs and an observation wheel on the harbour promenade.
 
 const BODY_COLORS = ['#ece7dc', '#c9d4de', '#f1cdb0', '#bccbc3', '#d9d9e3', '#f4efe4', '#e2c7c0'];
 const SIGN_COLORS = ['#ff3d6e', '#2ee6d6', '#ffd23f', '#ff8a2a', '#b46bff'];
-
-// Streets: one avenue along the harbour and cross streets between the blocks.
-const AVENUE_X = -1.5;
-const INNER_X = -3.1;
-const CROSS_Z = [-2.05, 0.1, 2.25];
-const BLOCK_X = [
-  [-4.3, -3.2],
-  [-3.0, -1.65],
-];
-const BLOCK_Z = [
-  [-4.3, -2.2],
-  [-1.9, -0.05],
-  [0.25, 2.1],
-  [2.4, 4.3],
-];
-const LANDMARKS = [
-  { x: -2.2, z: 1.15, h: 4.3, kind: 'spire' }, // the tall harbour-front tower
-  { x: -2.2, z: -1.0, h: 3.3, kind: 'stepped' },
-];
 
 function buildTowers(rng) {
   const bodies = [];
@@ -64,50 +46,27 @@ function buildTowers(rng) {
     }
   };
 
-  const used = [];
-  for (const lm of LANDMARKS) {
-    addTower(lm.x, lm.z, 0.7, 0.7, lm.h, lm.kind);
-    used.push(lm);
-  }
+  for (const lm of LANDMARKS) addTower(lm.x, lm.z, 0.6, 0.6, lm.h, lm.kind);
 
-  for (const [x0, x1] of BLOCK_X) {
-    for (const [z0, z1] of BLOCK_Z) {
-      const nx = Math.max(1, Math.floor((x1 - x0) / 0.65));
-      const nz = Math.max(1, Math.floor((z1 - z0) / 0.65));
-      for (let i = 0; i < nx; i++) {
-        for (let j = 0; j < nz; j++) {
-          const cx = x0 + ((i + 0.5) * (x1 - x0)) / nx;
-          const cz = z0 + ((j + 0.5) * (z1 - z0)) / nz;
-          if (Math.hypot(cx - HILL.x, cz - HILL.z) < 1.5) continue; // the hill
-          if (used.some((u) => Math.hypot(cx - u.x, cz - u.z) < 0.75)) continue; // landmark footprint
-          if (rng() < 0.1) continue; // the odd gap
-          const w = ((x1 - x0) / nx) * (0.72 + rng() * 0.2);
-          const d = ((z1 - z0) / nz) * (0.72 + rng() * 0.2);
-          const harbour = cx > -2.3 ? 0.7 : 0; // taller towards the water
-          const centre = 0.5 * (1 - Math.abs(cz) / HALF);
-          const h = 0.8 + rng() * 1.3 + harbour + centre;
-          addTower(cx, cz, w, d, h, 'plain');
-        }
+  for (const [x0, x1, z0, z1] of BLOCKS) {
+    const nx = Math.max(1, Math.floor((x1 - x0) / 0.62));
+    const nz = Math.max(1, Math.floor((z1 - z0) / 0.62));
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < nz; j++) {
+        const cx = x0 + ((i + 0.5) * (x1 - x0)) / nx;
+        const cz = z0 + ((j + 0.5) * (z1 - z0)) / nz;
+        if (LANDMARKS.some((u) => Math.hypot(cx - u.x, cz - u.z) < 0.75)) continue; // landmark footprint
+        if (rng() < 0.08) continue; // the odd gap
+        const w = Math.min(0.62, ((x1 - x0) / nx) * (0.74 + rng() * 0.2));
+        const d = Math.min(0.62, ((z1 - z0) / nz) * (0.74 + rng() * 0.2));
+        const harbour = cx > 0.4 ? 0.8 : 0; // taller towards the water
+        const centre = 0.6 * (1 - Math.abs(cz) / HALF);
+        const h = 0.7 + rng() * 1.2 + harbour + centre;
+        addTower(cx, cz, w, d, h, 'plain');
       }
     }
   }
   return { bodies, windows, signs };
-}
-
-function buildRoads() {
-  const y = GROUND_Y + 0.006;
-  const parts = [];
-  const asphalt = '#5d636d';
-  parts.push(P(new THREE.BoxGeometry(0.26, 0.02, 2 * HALF - 0.1), asphalt, { pos: [AVENUE_X, y, 0] }));
-  parts.push(P(new THREE.BoxGeometry(0.22, 0.02, 2 * HALF - 0.1), asphalt, { pos: [INNER_X, y, 0] }));
-  for (const z of CROSS_Z) {
-    parts.push(P(new THREE.BoxGeometry(AVENUE_X + HALF - 0.05, 0.02, 0.2), asphalt, { pos: [(-HALF + 0.05 + AVENUE_X) / 2, y, z] }));
-  }
-  // dashed centre line on the avenue
-  for (let z = -HALF + 0.3; z < HALF - 0.2; z += 0.5) {
-    parts.push(P(new THREE.BoxGeometry(0.02, 0.022, 0.22), '#f2efe6', { pos: [AVENUE_X, y, z] }));
-  }
-  return parts;
 }
 
 function buildTrees(rng) {
@@ -117,19 +76,17 @@ function buildTrees(rng) {
     parts.push(P(new THREE.ConeGeometry(r, h, 6), c1, { pos: [x, y + 0.14 + h / 2, z] }));
     parts.push(P(new THREE.ConeGeometry(r * 0.7, h * 0.8, 6), c2, { pos: [x, y + 0.14 + h * 0.75, z] }));
   };
-  // forest on the hill
-  for (let i = 0; i < 26; i++) {
-    const a = rng() * Math.PI * 2;
-    const rr = 0.2 + rng() * 1.5;
-    const x = HILL.x + Math.cos(a) * rr;
-    const z = HILL.z + Math.sin(a) * rr;
-    if (x < -HALF + 0.15 || z < -HALF + 0.15 || x > -2.2 || z > -1.9) continue;
+  // forest on the mountain ridge along the left wall
+  for (let i = 0; i < 44; i++) {
+    const x = -HALF + 0.15 + rng() * (RIDGE_X + HALF - 0.2);
+    const z = -HALF + 0.2 + rng() * (2 * HALF - 0.4);
+    if (hillHeight(x, z) < 0.25) continue;
     cone(x, z, 0.35 + rng() * 0.25, 0.14 + rng() * 0.06, islandHeight(x, z) - 0.02, '#3f8c4f', '#56a85d');
   }
   // street trees along the harbour promenade
   for (let z = -3.9; z <= 4.0; z += 0.85) {
-    if (Math.abs(z + 2.6) < 1.0) continue; // keep the observation wheel clear
-    const x = -1.15;
+    if (Math.abs(z - WHEEL.z) < 1.0) continue; // keep the observation wheel clear
+    const x = SHORE_X - 0.75;
     const y = islandHeight(x, z) - 0.02;
     parts.push(P(new THREE.CylinderGeometry(0.02, 0.025, 0.16, 5), '#7a5535', { pos: [x, y + 0.08, z] }));
     parts.push(P(new THREE.IcosahedronGeometry(0.14, 0), '#5fb36a', { pos: [x, y + 0.26, z] }));
@@ -141,8 +98,8 @@ function buildTrees(rng) {
 function buildWheel() {
   const group = new THREE.Group();
   const radius = 0.78;
-  const x = -0.6;
-  const z = -2.6;
+  const x = WHEEL.x;
+  const z = WHEEL.z;
   const hubY = islandHeight(x, z) + radius + 0.2;
   group.position.set(x, hubY, z);
   group.rotation.y = Math.PI / 2; // wheel plane = the y-z plane
@@ -182,7 +139,7 @@ function buildWheel() {
 const _c = new THREE.Color();
 const WARM = new THREE.Color('#ffcf6e');
 
-/** Towers, streets, hill trees, signs and the wheel. All geometry is merged into a few meshes. */
+/** Towers, ridge and street trees, signs and the wheel. All geometry is merged into a few meshes. */
 export function createCity() {
   const rng = mulberry32(2046);
   const group = new THREE.Group();
@@ -197,15 +154,13 @@ export function createCity() {
   const signMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
   const signMesh = new THREE.Mesh(mergeParts(signs), signMaterial);
 
-  const roadMesh = new THREE.Mesh(mergeParts(buildRoads()), vertexColorMaterial);
-  setShadows(roadMesh, false, true);
-  const treeMesh = new THREE.Mesh(mergeParts(buildTrees(rng)), vertexColorMaterial);
+    const treeMesh = new THREE.Mesh(mergeParts(buildTrees(rng)), vertexColorMaterial);
   setShadows(treeMesh, true, true);
 
   const wheel = buildWheel();
   setShadows(wheel.group, true, false);
 
-  group.add(bodyMesh, windowMesh, signMesh, roadMesh, treeMesh, wheel.group);
+  group.add(bodyMesh, windowMesh, signMesh, treeMesh, wheel.group);
 
   return {
     object: group,

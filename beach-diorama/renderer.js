@@ -5,6 +5,7 @@ import { createBase, createIsland } from './scene/island.js';
 import { createFoam, createSea } from './scene/sea.js';
 import { createBoat } from './scene/boat.js';
 import { createCity } from './scene/city.js';
+import { createTraffic } from './scene/traffic.js';
 import { createNight } from './scene/night.js';
 import { MODES, createLighting } from './scene/lighting.js';
 
@@ -82,14 +83,15 @@ const sea = createSea();
 const foam = createFoam();
 const boat = createBoat();
 const city = createCity();
+const traffic = createTraffic();
 const night = createNight();
 
-const animated = [sea, foam, city, boat, night];
-for (const part of [island, base, sea, foam, city, boat]) scene.add(part.object);
+const animated = [sea, foam, city, traffic, boat, night];
+for (const part of [island, base, sea, foam, city, traffic, boat]) scene.add(part.object);
 scene.add(night.object);
 
 // Everything except the stars and the soft glows counts as "the diorama" for click-through hit testing.
-for (const part of [island, base, sea, city, boat]) markSolid(part.object);
+for (const part of [island, base, sea, city, traffic, boat]) markSolid(part.object);
 markSolid(lighting.bodies);
 
 resize();
@@ -265,5 +267,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, boat, night } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, boat, night } };
 }

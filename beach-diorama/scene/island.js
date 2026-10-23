@@ -1,15 +1,21 @@
 import * as THREE from 'three';
 import { lambert, gridGeometry, smoothstep, setShadows, mergeParts, P, vertexColorMaterial } from './util.js';
 
-/** Half the side of the square map: it spans x, z in [-HALF, HALF]. Land is x < 0, sea is x > 0. */
+/**
+ * Half the side of the square map: it spans x, z in [-HALF, HALF]. The harbour is the strip
+ * x > SHORE_X (20% of the width); the other 80% is the city.
+ */
 export const HALF = 4.4;
 const WALL_T = 0.2;
 const WALL_TOP = 0.5;
 const WALL_BOTTOM = -0.6;
 
-/** x of the shoreline at depth z: a wavy line down the middle of the map. */
+/** Mean x of the harbour front: 80% land to its left, 20% sea to its right. */
+export const SHORE_X = -HALF + 2 * HALF * 0.8;
+
+/** x of the shoreline at depth z: a gently wavy harbour front. */
 export function shoreX(z) {
-  return 0.15 + 0.3 * Math.sin(0.9 * z + 0.5) + 0.15 * Math.sin(2.1 * z);
+  return SHORE_X + 0.12 * Math.sin(0.9 * z + 0.5) + 0.06 * Math.sin(2.1 * z);
 }
 
 // Sand profile across the shore: [signed distance seaward of the shoreline, height].
@@ -36,13 +42,14 @@ function profileY(d) {
   return PROFILE[PROFILE.length - 1][1];
 }
 
-/** The hill (a Victoria Peak backdrop) in the back-left corner of the land. */
-export const HILL = { x: -3.55, z: -3.2, sigma: 1.05, height: 1.55 };
+/** Where the mountain ridge (Victoria Peak and friends) starts, along the left wall. */
+export const RIDGE_X = -3.15;
 
+/** Height of the ridge: zero on the flat city ground, rising smoothly towards the left wall. */
 export function hillHeight(x, z) {
-  const dx = x - HILL.x;
-  const dz = z - HILL.z;
-  return HILL.height * Math.exp(-(dx * dx + dz * dz) / (2 * HILL.sigma * HILL.sigma));
+  const t = Math.min(1, Math.max(0, (RIDGE_X - x) / (RIDGE_X + HALF)));
+  const peak = 1.25 + 0.35 * Math.sin(1.1 * z + 0.4) + 0.25 * Math.sin(2.3 * z + 1.0);
+  return peak * t * t * (3 - 2 * t);
 }
 
 /** Height of the city ground (the flat plateau). */

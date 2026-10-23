@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { gridGeometry, smoothstep, setShadows } from './util.js';
 import { HALF, shoreX } from './island.js';
 
-const COLS = 12; // across the sea, from just under the sand to the far wall
+const COLS = 8; // across the harbour, from just under the sand to the far wall
 const ROWS = 44; // along the shoreline
 
 /**
@@ -11,7 +11,7 @@ const ROWS = 44; // along the shoreline
  */
 export function waveHeight(x, z, t) {
   const d = x - shoreX(z); // distance seaward of the shoreline
-  const amp = 0.04 + 0.065 * smoothstep(0.3, 2.2, d);
+  const amp = 0.04 + 0.065 * smoothstep(0.2, 1.4, d);
   const w =
     0.5 * Math.sin(1.05 * x + 0.62 * z + 1.25 * t) +
     0.28 * Math.sin(-0.71 * x + 1.38 * z + 1.8 * t + 1.3) +
@@ -44,8 +44,8 @@ export function createSea() {
     baseX[i] = x;
     baseZ[i] = z;
     const d = x - shoreX(z);
-    toMid[i] = smoothstep(0.3, 1.2, d);
-    toDeep[i] = smoothstep(1.2, 3.8, d);
+    toMid[i] = smoothstep(0.2, 0.7, d);
+    toDeep[i] = smoothstep(0.7, 1.7, d);
     mottle[i] = 1 + 0.05 * Math.sin(x * 5.7 + z * 4.3); // facet-to-facet variation
   }
   const colors = new Float32Array(count * 3).fill(1);

@@ -121,3 +121,35 @@ export function gridGeometry(cols, rows, pos) {
   geometry.computeVertexNormals();
   return geometry;
 }
+
+/**
+ * Closed loop given as a function of u in [0, 1), re-parameterised by arc length so that
+ * vehicles move at a constant speed.
+ */
+export function makeLoop(fn, samples = 400) {
+  const pts = [];
+  const cum = [0];
+  for (let i = 0; i <= samples; i++) {
+    pts.push(fn((i % samples) / samples));
+    if (i > 0) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  }
+  const length = cum[samples];
+  return {
+    length,
+    /** Writes the point at arc length `s` (wrapping) into `out`. */
+    at(s, out) {
+      s = ((s % length) + length) % length;
+      let lo = 0;
+      let hi = samples;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (cum[mid] <= s) lo = mid;
+        else hi = mid;
+      }
+      const f = (s - cum[lo]) / (cum[lo + 1] - cum[lo] || 1);
+      out.x = pts[lo][0] + (pts[lo + 1][0] - pts[lo][0]) * f;
+      out.z = pts[lo][1] + (pts[lo + 1][1] - pts[lo][1]) * f;
+      return out;
+    },
+  };
+}

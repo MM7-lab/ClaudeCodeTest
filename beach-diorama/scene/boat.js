@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { lambert, setShadows } from './util.js';
 import { waveHeight } from './sea.js';
 
-// The boat sails a tall oval in the open water on the sea side of the map.
-const LOOP_CX = 3.2;
-const LOOP_RX = 0.55;
-const LOOP_RZ = 3.0;
+// The junk sails a tall, narrow oval up and down the harbour.
+const LOOP_CX = 3.62;
+const LOOP_RX = 0.2;
+const LOOP_RZ = 3.2;
 const LOOP_SPEED = 0.11; // rad/s, about 57 s per lap
 const HALF_LENGTH = 0.8;
 const HALF_WIDTH = 0.34;
@@ -55,7 +55,7 @@ function buildBoat() {
 export function createBoat() {
   const { boat, sails } = buildBoat();
   boat.rotation.order = 'YXZ';
-  boat.scale.setScalar(1.2);
+  boat.scale.setScalar(0.95);
   const sample = new THREE.Vector3();
 
   function heightAtLocal(heading, lx, lz, x, z, t) {
