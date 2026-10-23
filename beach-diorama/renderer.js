@@ -224,6 +224,19 @@ api.onMode((mode) => lighting.setMode(mode));
 api.onMoveMode(setMoveMode);
 api.onResetView(resetView);
 
+// ---- digital clock (local time, HH:MM) ----
+
+const clockElement = document.getElementById('clock');
+let shownMinute = '';
+function updateClock() {
+  const now = new Date();
+  const text = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  if (text !== shownMinute) {
+    shownMinute = text;
+    clockElement.textContent = text;
+  }
+}
+
 // ---- main loop (capped at 30 fps) -------------------------------------------------------------
 
 let simTime = 0;
@@ -235,6 +248,7 @@ function renderFrame(dt) {
   const env = lighting.update(dt);
   for (const part of animated) part.update(simTime, dt, env);
   stepResetAnim(dt);
+  updateClock();
   controls.update();
   renderer.render(scene, camera);
 }

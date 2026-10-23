@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { P, lambert, mergeParts, mulberry32, setShadows, vertexColorMaterial } from './util.js';
 import { HALF, RIDGE_X, SHORE_X, hillHeight, islandHeight } from './island.js';
-import { BLOCKS, LANDMARKS, WHEEL } from './layout.js';
+import { BLOCKS, CLOCK_TOWER, LANDMARKS, WHEEL } from './layout.js';
 
 // A small Hong Kong: towers with ribbon windows between the roads, a forested mountain ridge
 // along the left wall, neon signs and an observation wheel on the harbour promenade.
@@ -86,6 +86,7 @@ function buildTrees(rng) {
   // street trees along the harbour promenade
   for (let z = -3.9; z <= 4.0; z += 0.85) {
     if (Math.abs(z - WHEEL.z) < 1.0) continue; // keep the observation wheel clear
+    if (Math.abs(z - CLOCK_TOWER.z) < 0.5) continue; // and the clock tower
     const x = SHORE_X - 0.75;
     const y = islandHeight(x, z) - 0.02;
     parts.push(P(new THREE.CylinderGeometry(0.02, 0.025, 0.16, 5), '#7a5535', { pos: [x, y + 0.08, z] }));
@@ -136,6 +137,67 @@ function buildWheel() {
   return { group, spinner, cabins };
 }
 
+/**
+ * Red-brick clock tower on the promenade, in the spirit of the old railway clock tower in
+ * Tsim Sha Tsui. All four faces show the computer's local time.
+ */
+function buildClockTower() {
+  const group = new THREE.Group();
+  const { x, z } = CLOCK_TOWER;
+  const y0 = islandHeight(x, z) - 0.03;
+  group.position.set(x, y0, z);
+
+  const brick = '#b5532f';
+  const stone = '#e9e2d0';
+  const body = mergeParts([
+    P(new THREE.BoxGeometry(0.32, 1.6, 0.32), brick, { pos: [0, 0.8, 0] }),
+    ...[0.35, 0.9, 1.45].map((y) => P(new THREE.BoxGeometry(0.345, 0.05, 0.345), stone, { pos: [0, y, 0] })),
+    P(new THREE.BoxGeometry(0.42, 0.5, 0.42), brick, { pos: [0, 1.85, 0] }),
+    P(new THREE.BoxGeometry(0.47, 0.05, 0.47), stone, { pos: [0, 2.12, 0] }),
+    P(new THREE.ConeGeometry(0.3, 0.4, 4), '#4e7a5a', { pos: [0, 2.35, 0], rot: [0, Math.PI / 4, 0] }),
+    P(new THREE.CylinderGeometry(0.01, 0.018, 0.3, 5), '#8d98a5', { pos: [0, 2.7, 0] }),
+  ]);
+  const bodyMesh = new THREE.Mesh(body, vertexColorMaterial);
+  group.add(bodyMesh);
+
+  const faceMaterial = new THREE.MeshBasicMaterial({ color: 0xf4f1e6 });
+  const faceGeometry = new THREE.CircleGeometry(0.17, 20);
+  const handGeometry = (len, width) => new THREE.BoxGeometry(width, len, 0.006).translate(0, len / 2, 0);
+  const hourGeometry = handGeometry(0.095, 0.017);
+  const minuteGeometry = handGeometry(0.14, 0.011);
+  const handMaterial = lambert('#20252b');
+  const ticks = mergeParts(
+    [0, 1, 2, 3].map((k) => {
+      const a = (k * Math.PI) / 2;
+      return P(new THREE.BoxGeometry(0.014, 0.03, 0.004), '#20252b', { pos: [Math.sin(a) * 0.14, Math.cos(a) * 0.14, 0.002], rot: [0, 0, -a] });
+    }),
+  );
+
+  const hands = [];
+  for (let k = 0; k < 4; k++) {
+    const side = new THREE.Group(); // one clock face; turned to face +z, +x, -z, -x in turn
+    side.rotation.y = (k * Math.PI) / 2;
+    side.position.y = 1.85;
+    const face = new THREE.Mesh(faceGeometry, faceMaterial);
+    face.position.z = 0.213;
+    const tickMesh = new THREE.Mesh(ticks, vertexColorMaterial);
+    tickMesh.position.z = 0.214;
+    const hour = new THREE.Mesh(hourGeometry, handMaterial);
+    hour.position.z = 0.218;
+    const minute = new THREE.Mesh(minuteGeometry, handMaterial);
+    minute.position.z = 0.222;
+    side.add(face, tickMesh, hour, minute);
+    group.add(side);
+    hands.push({ hour, minute });
+  }
+  setShadows(group, true, false);
+  return { group, faceMaterial, hands };
+}
+
+const FACE_DAY = new THREE.Color('#f4f1e6');
+const FACE_NIGHT = new THREE.Color('#ffe9a6');
+let lastSecond = -1;
+
 const _c = new THREE.Color();
 const WARM = new THREE.Color('#ffcf6e');
 
@@ -159,8 +221,9 @@ export function createCity() {
 
   const wheel = buildWheel();
   setShadows(wheel.group, true, false);
+  const clock = buildClockTower();
 
-  group.add(bodyMesh, windowMesh, signMesh, treeMesh, wheel.group);
+  group.add(bodyMesh, windowMesh, signMesh, treeMesh, wheel.group, clock.group);
 
   return {
     object: group,
@@ -170,6 +233,20 @@ export function createCity() {
       windowMaterial.color.copy(_c);
       const dim = 0.75 + 0.25 * env.night;
       signMaterial.color.setScalar(dim);
+
+      // Clock faces: lit warm at night; hands follow the local time (updated once a second).
+      clock.faceMaterial.color.copy(FACE_DAY).lerp(FACE_NIGHT, env.night);
+      const now = new Date();
+      if (now.getSeconds() !== lastSecond) {
+        lastSecond = now.getSeconds();
+        const minutes = now.getMinutes() + now.getSeconds() / 60;
+        const hourAngle = (((now.getHours() % 12) + minutes / 60) * Math.PI) / 6;
+        const minuteAngle = (minutes * Math.PI) / 30;
+        for (const h of clock.hands) {
+          h.hour.rotation.z = -hourAngle; // clockwise as seen from the front of the face
+          h.minute.rotation.z = -minuteAngle;
+        }
+      }
 
       wheel.spinner.rotation.z = -t * 0.12;
       for (const holder of wheel.cabins) holder.rotation.z = t * 0.12; // cabins stay upright

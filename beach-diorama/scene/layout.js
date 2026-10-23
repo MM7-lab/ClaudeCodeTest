@@ -33,5 +33,6 @@ export const LANDMARKS = [
   { x: 0.9, z: -1.3, h: 3.3, kind: 'stepped' },
 ];
 
-/** The observation wheel stands on the harbour promenade. */
+/** The clock tower and the observation wheel stand on the harbour promenade. */
+export const CLOCK_TOWER = { x: 2.2, z: 1.65 };
 export const WHEEL = { x: 2.0, z: -2.5 };
