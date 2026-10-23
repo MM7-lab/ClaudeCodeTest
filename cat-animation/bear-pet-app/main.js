@@ -103,7 +103,6 @@ ipcMain.on("show-menu", (_e, s) => {
     win.setBounds({ x: x + Math.round((300 / 630) * oh * (1 - scale)), y: y + oh - h, width: w, height: h });   // keeps him sitting on the same spot
   };
   const mode = (id, label) => ({ label, type: "radio", checked: s.mode === id, click: send(id) });
-  const startup = app.getLoginItemSettings().openAtLogin;
   const template = [
     { label: "自動（自己決定做乜）", type: "checkbox", checked: s.auto, click: send("auto") },
     { type: "separator" },
@@ -124,7 +123,6 @@ ipcMain.on("show-menu", (_e, s) => {
     { label: "聲效", type: "checkbox", checked: s.sound, click: send("sound") },
     { label: "眼跟住滑鼠", type: "checkbox", checked: s.eyes, click: send("eyes") },
     { label: "永遠喺最頂", type: "checkbox", checked: win.isAlwaysOnTop(), click: (item) => { win.setAlwaysOnTop(item.checked); state.top = item.checked; saveState(); } },
-    { label: "開機自動開", type: "checkbox", checked: startup, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
     { type: "separator" },
     { label: "離開", role: "quit" },
   ];
