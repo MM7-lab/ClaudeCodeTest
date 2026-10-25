@@ -4,52 +4,63 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { P, gridGeometry, makeLoop, markSolid, mergeParts, mulberry32, setShadows, smoothstep } from '../util.js';
 import { HALF, createBase } from '../island.js';
 import { createClockBoard } from '../clockboard.js';
+import { buildWheel } from '../city.js';
 import { glowTexture } from '../textures.js';
 import { vehicleSpec } from '../traffic.js';
 import { bench, buildingDetails, busStop, createDetailLayer, crosswalk, lampPost, post, trafficLight } from '../details.js';
 import { createCoastFoam, createRealSea } from '../real/water.js';
 import { facadeBox, facadeRound, makeFacadeTextures } from '../real/facade.js';
 import { distToPolyline, inPolygon, pointAlong, polylineLength, signedDistance, smoothClosed } from '../real/geo.js';
-import data from '../real/kowloonbay.data.js';
+import kowloonData from '../real/kowloonbay.data.js';
+import centralData from '../real/central.data.js';
 
-// The second map: a realistic Kowloon Bay. Layout comes from kowloonbay.data.js (traced from a
-// screenshot, storeys estimated). Buildings are generated to fill the blocks between the roads.
+// The realistic maps (Kowloon Bay, Central). Layout comes from a data file (traced from screenshots,
+// storeys estimated); buildings are generated to fill the blocks between the roads. The data file is
+// chosen by createRealMap, which fills the module-level variables below.
 
-const K = (2 * HALF) / data.size; // reference pixels -> world units
 const LAND_Y = 0.14;
 const VEXAG = 1.5; // heights are exaggerated so the towers read at this tiny size
-const METRES_PER_UNIT = (data.metresPerPixel * data.size) / (2 * HALF);
-const STOREY = (3.3 * VEXAG) / METRES_PER_UNIT;
 
-const toWorld = ([px, py]) => [(px - data.origin[0] - data.size / 2) * K, (py - data.origin[1] - data.size / 2) * K];
+let data, K, STOREY, toWorld, rail, water, promenade, plazas, parks, railCorridor, roads, zones, landmarks, hillPoly, hillHeightMax, trackLines;
 const polyWorld = (poly) => poly.map(toWorld);
-
-// ---- the map in world units -------------------------------------------------------------------
-
-// Optional parts of the data format default to empty, so a sparse OSM import still works.
-const rail = data.rail ?? { corridor: [], tracks: [], offsets: [] };
-const water = polyWorld(data.water ?? []);
-const promenade = polyWorld(data.promenade ?? []);
-const plazas = (data.plazas ?? []).map((c) => {
-  const [x, z] = toWorld([c.x, c.y]);
-  return { x, z, r: c.r * K };
-});
 const circle = (c, n = 28) => Array.from({ length: n }, (_, i) => [c.x + Math.cos((i / n) * Math.PI * 2) * c.r, c.z + Math.sin((i / n) * Math.PI * 2) * c.r]);
-const parks = [...(data.parks ?? []).map(polyWorld), ...plazas.map((c) => circle(c))];
-const railCorridor = polyWorld(rail.corridor);
-const roads = data.roads.map((r) => ({ ...r, pts: r.pts.map(toWorld), w: r.width * K * 1.15 }));
-const zones = (data.zones ?? []).map((z) => ({ ...z, poly: polyWorld(z.poly) }));
-const landmarks = (data.landmarks ?? []).map((l) => {
-  const [x, z] = toWorld([l.x, l.y]);
-  return { ...l, wx: x, wz: z, ww: l.w * K, wd: l.d * K };
-});
+
+/** Convert a data file (reference pixels) to world units. Optional parts default to empty. */
+function init(d) {
+  data = d;
+  K = (2 * HALF) / data.size; // reference pixels -> world units
+  const metresPerUnit = (data.metresPerPixel * data.size) / (2 * HALF);
+  STOREY = (3.3 * VEXAG) / metresPerUnit;
+  toWorld = ([px, py]) => [(px - data.origin[0] - data.size / 2) * K, (py - data.origin[1] - data.size / 2) * K];
+  rail = data.rail ?? { corridor: [], tracks: [], offsets: [] };
+  water = polyWorld(data.water ?? []);
+  promenade = polyWorld(data.promenade ?? []);
+  plazas = (data.plazas ?? []).map((c) => {
+    const [x, z] = toWorld([c.x, c.y]);
+    return { x, z, r: c.r * K };
+  });
+  parks = [...(data.parks ?? []).map(polyWorld), ...plazas.map((c) => circle(c))];
+  railCorridor = polyWorld(rail.corridor);
+  roads = data.roads.map((r) => ({ ...r, pts: r.pts.map(toWorld), w: r.width * K * 1.15 }));
+  zones = (data.zones ?? []).map((z) => ({ ...z, poly: polyWorld(z.poly) }));
+  landmarks = (data.landmarks ?? []).map((l) => {
+    const [x, z] = toWorld([l.x, l.y]);
+    return { ...l, wx: x, wz: z, ww: l.w * K, wd: l.d * K };
+  });
+  hillPoly = data.hill ? polyWorld(data.hill.poly) : null; // wooded hillside, no buildings
+  hillHeightMax = data.hill?.height ?? 0;
+  trackLines = rail.tracks.length ? rail.offsets.map((o) => offsetPolyline(rail.tracks.map(toWorld), o * K)) : [];
+}
+
+/** Height of the wooded hillside at (x, z): 0 outside, rising smoothly with depth into the hill polygon. */
+const hillAt = (x, z) => (hillPoly ? hillHeightMax * smoothstep(0, 1.5, -signedDistance(x, z, hillPoly)) : 0);
 
 /** Distance from the coast: positive over land (outside the water polygon), negative in the water. */
 const landDistance = (x, z) => signedDistance(x, z, water);
 
 /** Ground height: flat land with a short slope down into the water. */
 function groundHeight(x, z) {
-  return -0.55 + (LAND_Y + 0.55) * smoothstep(-0.14, 0.04, landDistance(x, z));
+  return -0.55 + (LAND_Y + 0.55) * smoothstep(-0.14, 0.04, landDistance(x, z)) + hillAt(x, z);
 }
 
 const PALETTE = ['#cfc9bd', '#bdb7aa', '#aab7c2', '#d1bfa8', '#b4bcc4', '#a3a8b0', '#d6cbb6', '#9fb8cf', '#b5c8b9'];
@@ -65,6 +76,12 @@ const zoneAt = (x, z) => zones.find((q) => inPolygon(x, z, q.poly))?.name ?? '';
 /** Decide the facade style and colour of a building. Uses its own generator: the layout never changes. */
 function styleFor(b, r) {
   const name = b.landmark?.name ?? '';
+  const lm = b.landmark;
+  if (lm?.look) {
+    const color = lm.color ?? pick(GLASS_TINTS, r);
+    if (lm.look === 'dots') return { style: 'dots', color };
+    return { style: lm.look, color, special: lm.shape };
+  }
   if (/MegaBox/.test(name)) return { style: 'megabox' };
   if (b.landmark?.shape === 'octagon') return { style: 'band', color: b.color, round: true, segments: 8 };
   if (b.landmark?.shape === 'round') return { style: 'glass', color: '#5f7f9c', round: true };
@@ -139,7 +156,7 @@ function generateBuildings(rng) {
       const x = cx(i);
       const z = cx(j);
       let ok = landDistance(x, z) > 0.12 && !inPolygon(x, z, promenade) && !inPolygon(x, z, railCorridor);
-      if (ok) ok = !parks.some((p) => inPolygon(x, z, p));
+      if (ok) ok = !parks.some((p) => inPolygon(x, z, p)) && !(hillPoly && inPolygon(x, z, hillPoly));
       if (ok) ok = !roads.some((r) => distToPolyline(x, z, r.pts) < r.w / 2 + 0.02);
       free[j * G + i] = ok ? 1 : 0;
     }
@@ -184,7 +201,7 @@ function generateBuildings(rng) {
 }
 
 function buildingGeometries(buildings, rng) {
-  const groups = { grid: [], glass: [], band: [] };
+  const groups = { grid: [], glass: [], band: [], dots: [] };
   const footprints = [];
   const signs = []; // { x, y, z, rotY, w, h }
   const arches = []; // the big arched window of the MegaBox podium
@@ -214,6 +231,29 @@ function buildingGeometries(buildings, rng) {
       b.noDetail = true;
       b.podium = podiumH;
       if (b.landmark?.clock) clock = { x: tx, z: tz, y: roofY };
+      continue;
+    }
+    if (look.special === 'ifc') {
+      // IFC-style tower: a tall shaft that steps in twice and ends in a crown
+      const tiers = [[0, 0.6, 1], [0.6, 0.86, 0.84], [0.86, 1, 0.66]];
+      for (const [f0, f1, k] of tiers) {
+        groups.glass.push(facadeBox({ x: b.x, z: b.z, w: b.w * k, d: b.d * k, h: h * (f1 - f0), y0: y0 + h * f0, color: b.color, offsetU }));
+      }
+      groups.band.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.4, d: b.d * 0.4, h: 0.1, y0: roofY, color: '#c9d2da', plain: true }));
+      groups.band.push(facadeBox({ x: b.x, z: b.z, w: 0.012, d: 0.012, h: 0.35, y0: roofY, color: '#9aa5b1', plain: true }));
+      b.noDetail = true;
+      b.podium = 6 * STOREY;
+      continue;
+    }
+    if (look.special === 'bank') {
+      // Bank of China-style tower: four shafts of different heights, the highest with a mast
+      const shafts = [[-1, -1, 1.0], [1, -1, 0.78], [1, 1, 0.58], [-1, 1, 0.38]];
+      for (const [sx, sz, f] of shafts) {
+        groups.glass.push(facadeBox({ x: b.x + (sx * b.w) / 4, z: b.z + (sz * b.d) / 4, w: b.w / 2, d: b.d / 2, h: h * f, y0, color: b.color, offsetU }));
+      }
+      groups.band.push(facadeBox({ x: b.x - b.w / 4, z: b.z - b.d / 4, w: 0.012, d: 0.012, h: 0.4, y0: roofY, color: '#9aa5b1', plain: true }));
+      b.noDetail = true;
+      b.podium = 6 * STOREY;
       continue;
     }
     const target = groups[look.style];
@@ -308,6 +348,22 @@ function plazaParts() {
   return parts;
 }
 
+/** Finger piers into the harbour, each with a white terminal under a teal roof. */
+function pierParts() {
+  const parts = [];
+  for (const p of data.piers ?? []) {
+    const [x, z] = toWorld([p.x, p.y]);
+    const len = p.len * K;
+    const w = p.w * K;
+    const cz = z + len / 2 - 0.08;
+    parts.push(P(new THREE.BoxGeometry(w, 0.025, len), '#b98a6c', { pos: [x, LAND_Y - 0.01, cz] }));
+    parts.push(P(new THREE.BoxGeometry(w * 0.9, 0.06, len * 0.45), '#eef1f2', { pos: [x, LAND_Y + 0.03, z + len * 0.32 - 0.08] }));
+    parts.push(P(new THREE.BoxGeometry(w * 1.0, 0.012, len * 0.5), '#3aa7a3', { pos: [x, LAND_Y + 0.07, z + len * 0.32 - 0.08] }));
+    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) parts.push(P(new THREE.CylinderGeometry(0.01, 0.01, 0.7, 5), '#59616b', { pos: [x + sx * w * 0.4, -0.2, z + (len * (k + 0.5)) / 3 - 0.08] }));
+  }
+  return parts;
+}
+
 /** Offset a polyline sideways by `off` units (used for the parallel rail tracks). */
 function offsetPolyline(pts, off) {
   return pts.map((p, i) => {
@@ -318,7 +374,6 @@ function offsetPolyline(pts, off) {
   });
 }
 
-const trackLines = rail.tracks.length ? rail.offsets.map((o) => offsetPolyline(rail.tracks.map(toWorld), o * K)) : [];
 
 function railParts() {
   const parts = [];
@@ -346,6 +401,18 @@ function treeParts(rng) {
       const x = x0 + rng() * (x1 - x0);
       const z = z0 + rng() * (z1 - z0);
       if (inPolygon(x, z, poly)) tree(x, z, 0.8 + rng() * 0.5);
+    }
+  }
+  // the wooded hillside
+  if (hillPoly) {
+    for (let k = 0; k < 320; k++) {
+      const x = (rng() * 2 - 1) * (HALF - 0.1);
+      const z = -HALF + 0.1 + rng() * (HALF * 0.9);
+      if (!inPolygon(x, z, hillPoly) || -signedDistance(x, z, hillPoly) < 0.12) continue;
+      const y = groundHeight(x, z);
+      const s = 0.9 + rng() * 0.9;
+      parts.push(P(new THREE.CylinderGeometry(0.01 * s, 0.014 * s, 0.08 * s, 5), '#6e5238', { pos: [x, y + 0.03 * s, z] }));
+      parts.push(P(new THREE.ConeGeometry(0.06 * s, 0.2 * s, 6), rng() < 0.5 ? '#2f7a45' : '#3f8f4e', { pos: [x, y + 0.14 * s, z] }));
     }
   }
   // street trees along the big roads
@@ -472,7 +539,8 @@ function createTraffic() {
 
 // ---- the world --------------------------------------------------------------------------------
 
-export function createKowloonBay() {
+function createRealMap(d, id) {
+  init(d);
   const rng = mulberry32(1997);
   const buildings = generateBuildings(rng);
   const { groups, footprints, clock, signs, arches } = buildingGeometries(buildings, rng);
@@ -503,8 +571,9 @@ export function createKowloonBay() {
       const x = pos.getX(i);
       const z = pos.getZ(i);
       if (inPolygon(x, z, railCorridor)) c.set('#6d6862');
+      else if (hillPoly && inPolygon(x, z, hillPoly)) c.set('#4f8a4c').lerp(new THREE.Color('#3f7a45'), smoothstep(0.1, 0.9, pos.getY(i) - LAND_Y));
       else if (parks.some((p) => inPolygon(x, z, p))) c.set('#5e9d58');
-      else if (inPolygon(x, z, promenade)) c.set('#8f8da6');
+      else if (inPolygon(x, z, promenade)) c.set(data.promenadeColor ?? '#8f8da6');
       else c.set('#a7acb3');
       if (landDistance(x, z) < 0.03) c.lerp(new THREE.Color('#8c7f6a'), 0.6); // sea wall / beach edge
       c.multiplyScalar((1 + 0.03 * Math.sin(x * 11 + z * 7)) * ao(x, z));
@@ -522,6 +591,7 @@ export function createKowloonBay() {
 
   const facadeMaterials = {
     grid: { roughness: 0.45, metalness: 0.15 },
+    dots: { roughness: 0.5, metalness: 0.1 },
     glass: { roughness: 0.18, metalness: 0.3 }, // mirror-like curtain wall
     band: { roughness: 0.5, metalness: 0.1 },
   };
@@ -582,7 +652,7 @@ export function createKowloonBay() {
   }
 
   const roadMesh = new THREE.Mesh(
-    mergeParts([...roadParts(), ...railParts(), ...plazaParts()]),
+    mergeParts([...roadParts(), ...railParts(), ...plazaParts(), ...pierParts()]),
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
   );
   setShadows(roadMesh, false, true);
@@ -590,6 +660,8 @@ export function createKowloonBay() {
   setShadows(treeMesh, true, true);
 
   const traffic = createTraffic();
+  const wheels = plazas.length && data.id === 'central' ? plazas.map((c) => buildWheel(c.x, c.z, LAND_Y, c.r * 1.9)) : [];
+  for (const w of wheels) setShadows(w.group, true, false);
 
   // street lights along the big roads: soft glows at night
   const lampPositions = [];
@@ -699,7 +771,7 @@ export function createKowloonBay() {
   detail.build();
 
   const staticParts = new THREE.Group();
-  staticParts.add(buildingMesh, roadMesh, treeMesh, board.group);
+  staticParts.add(buildingMesh, roadMesh, treeMesh, board.group, ...wheels.map((w) => w.group));
 
   let environmentTexture = null;
   let sceneRef = null;
@@ -709,6 +781,10 @@ export function createKowloonBay() {
     object: new THREE.Group(),
     update(t, dt, env) {
       detail.update(env);
+      for (const w of wheels) {
+        w.spinner.rotation.z = -t * 0.12;
+        for (const holder of w.cabins) holder.rotation.z = t * 0.12;
+      }
       for (const m of buildingMaterials) m.emissiveIntensity = 0.95 * env.night; // lit windows
       glowMaterial.opacity = 0.9 * env.night;
       glow.visible = env.night > 0.01;
@@ -724,7 +800,7 @@ export function createKowloonBay() {
   for (const o of solid) markSolid(o);
 
   return {
-    id: 'kowloon-bay',
+    id,
     parts: [ground, base, sea, foam, { object: staticParts }, { object: detail.group }, traffic, atmosphere],
     solid,
     extras: [glow],
@@ -750,3 +826,6 @@ export function createKowloonBay() {
     debug: { sea, foam, traffic, board, buildings: buildings.length, footprints },
   };
 }
+
+export const createKowloonBay = () => createRealMap(kowloonData, 'kowloon-bay');
+export const createCentral = () => createRealMap(centralData, 'central');

@@ -81,11 +81,13 @@ function resize() {
 const state = (await api.getState()) ?? { mode: 'day', moveMode: false, map: 'hk-mini' };
 
 const lighting = createLighting(scene);
-// The second map (a realistic Kowloon Bay) is loaded only when it is chosen.
+// The realistic maps (Kowloon Bay, Central) are loaded only when chosen.
 const world =
   state.map === 'kowloon-bay'
-    ? (await import('./scene/worlds/kowloonbay.js')).createKowloonBay()
-    : createMiniHK();
+    ? (await import('./scene/worlds/realmap.js')).createKowloonBay()
+    : state.map === 'central'
+      ? (await import('./scene/worlds/realmap.js')).createCentral()
+      : createMiniHK();
 world.configure({ renderer, scene, lighting });
 const animated = world.parts;
 for (const part of world.parts) scene.add(part.object);

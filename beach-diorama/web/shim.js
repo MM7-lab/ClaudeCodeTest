@@ -2,7 +2,7 @@
 // both. State (look and map) is remembered in localStorage when the browser allows it.
 
 const MODES = ['day', 'sunset', 'night'];
-const MAPS = ['hk-mini', 'kowloon-bay'];
+const MAPS = ['hk-mini', 'kowloon-bay', 'central'];
 
 const read = (key, allowed, fallback) => {
   try {

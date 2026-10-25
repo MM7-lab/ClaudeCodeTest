@@ -35,6 +35,7 @@ export function makeFacadeTextures(kind = 'grid') {
   for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) cells.push({ r, c, lit: rng() < 0.3, warm: rng() });
   if (kind === 'glass') return glassTextures(rng);
   if (kind === 'band') return bandTextures(rng);
+  if (kind === 'dots') return dotTextures(rng);
   const win = (ctx, c, r) => ctx.rect(c * 32 + 6, r * 32 + 8, 20, 16);
   const map = canvasTexture((ctx) => {
     ctx.fillStyle = '#ffffff';
@@ -184,4 +185,30 @@ export function facadeRound({ x, z, w, d, h, y0, color, offsetU = 0, segments = 
   }
   g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   return g;
+}
+
+/** Pale wall with a grid of round windows (like Jardine House); about a third are lit at night. */
+function dotTextures(rng) {
+  const cells = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) cells.push({ r, c, lit: rng() < 0.35 });
+  const circle = (ctx, c, r) => {
+    ctx.beginPath();
+    ctx.arc(c * 32 + 16, r * 32 + 16, 9, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  const map = canvasTexture((ctx) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#51657a';
+    for (const { r, c } of cells) circle(ctx, c, r);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    for (const { r, c } of cells) ctx.fillRect(c * 32 + 10, r * 32 + 9, 8, 2);
+  });
+  const emissive = canvasTexture((ctx) => {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#ffd68a';
+    for (const { r, c, lit } of cells) if (lit) circle(ctx, c, r);
+  });
+  return { map, emissive };
 }

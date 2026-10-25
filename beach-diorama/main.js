@@ -7,8 +7,8 @@ const WIN_SIZE = 300;
 const MARGIN = 20;
 const MODES = ['day', 'sunset', 'night'];
 const MODE_LABELS = { day: '日間 (Day)', sunset: '日落 (Sunset)', night: '夜晚 (Night)' };
-const MAPS = ['hk-mini', 'kowloon-bay'];
-const MAP_LABELS = { 'hk-mini': '地圖：迷你香港 (卡通)', 'kowloon-bay': '地圖：九龍灣 (寫實)' };
+const MAPS = ['hk-mini', 'kowloon-bay', 'central'];
+const MAP_LABELS = { 'hk-mini': '地圖：迷你香港 (卡通)', 'kowloon-bay': '地圖：九龍灣 (寫實)', central: '地圖：中環 (寫實)' };
 const DEBUG = Boolean(process.env.DIORAMA_DEBUG);
 
 /**

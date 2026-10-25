@@ -232,12 +232,9 @@ function buildTrees(rng) {
 }
 
 /** Observation wheel on the promenade, turning slowly. Its plane faces the harbour. */
-function buildWheel() {
+export function buildWheel(x = WHEEL.x, z = WHEEL.z, baseY = islandHeight(x, z), radius = 0.78) {
   const group = new THREE.Group();
-  const radius = 0.78;
-  const x = WHEEL.x;
-  const z = WHEEL.z;
-  const hubY = islandHeight(x, z) + radius + 0.2;
+  const hubY = baseY + radius + 0.2;
   group.position.set(x, hubY, z);
   group.rotation.y = Math.PI / 2; // wheel plane = the y-z plane
 
