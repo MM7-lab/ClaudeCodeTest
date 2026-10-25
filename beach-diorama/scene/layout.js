@@ -29,10 +29,9 @@ export const BLOCKS = [
 ];
 
 export const LANDMARKS = [
-  { x: 0.9, z: 0.7, h: 4.3, kind: 'spire' }, // the tall harbour-front tower
+  { x: 0.9, z: 0.7, h: 4.3, kind: 'clock' }, // the tall harbour-front tower, with the big clock on top
   { x: 0.9, z: -1.3, h: 3.3, kind: 'stepped' },
 ];
 
-/** The clock tower and the observation wheel stand on the harbour promenade. */
-export const CLOCK_TOWER = { x: 2.2, z: 1.65 };
+/** The observation wheel stands on the harbour promenade. */
 export const WHEEL = { x: 2.0, z: -2.5 };

@@ -1,14 +1,13 @@
 import * as THREE from 'three';
-import { lambert, gridGeometry, smoothstep, setShadows, mergeParts, P, vertexColorMaterial } from './util.js';
+import { lambert, gridGeometry, smoothstep, setShadows } from './util.js';
 
 /**
  * Half the side of the square map: it spans x, z in [-HALF, HALF]. The harbour is the strip
  * x > SHORE_X (20% of the width); the other 80% is the city.
  */
 export const HALF = 4.4;
-const WALL_T = 0.2;
-const WALL_TOP = 0.5;
-const WALL_BOTTOM = -0.6;
+/** Underside of the block; the wooden base plate sits below it. */
+const BLOCK_BOTTOM = -0.6;
 
 /** Mean x of the harbour front: 80% land to its left, 20% sea to its right. */
 export const SHORE_X = -HALF + 2 * HALF * 0.8;
@@ -119,25 +118,59 @@ export function createIsland() {
   return { object: mesh };
 }
 
-/** Four thin walls around the square map, on top of a wooden base plate. */
+const EARTH_TOP = new THREE.Color('#b08c60');
+const EARTH_BOTTOM = new THREE.Color('#6d5036');
+const WATER_TOP = new THREE.Color('#58b9dc');
+const WATER_BOTTOM = new THREE.Color('#1d628f');
+
+/**
+ * No walls: the map is a cut-away block. Its four sides show layers of earth under the city
+ * and a slab of water under the harbour, standing on a wooden base plate.
+ */
 export function createBase() {
   const group = new THREE.Group();
-  const height = WALL_TOP - WALL_BOTTOM;
-  const centreY = (WALL_TOP + WALL_BOTTOM) / 2;
-  const outer = HALF + WALL_T;
-  const wallParts = [
-    [0, -HALF - WALL_T / 2, 2 * outer, WALL_T], // back
-    [0, HALF + WALL_T / 2, 2 * outer, WALL_T], // front
-    [-HALF - WALL_T / 2, 0, WALL_T, 2 * HALF], // left
-    [HALF + WALL_T / 2, 0, WALL_T, 2 * HALF], // right
-  ].map(([x, z, w, d]) => P(new THREE.BoxGeometry(w, height, d), '#fdf1dc', { pos: [x, centreY, z] }));
-  const walls = new THREE.Mesh(mergeParts(wallParts), vertexColorMaterial);
-  const plate = new THREE.Mesh(
-    new THREE.BoxGeometry(2 * outer + 0.8, 0.22, 2 * outer + 0.8),
-    lambert('#b97b4b'),
+
+  // Perimeter, walked round once, sampled finely enough to follow the ground profile.
+  const n = 44;
+  const ring = [];
+  for (let i = 0; i < n; i++) ring.push([-HALF + (2 * HALF * i) / n, -HALF]); // back edge
+  for (let i = 0; i < n; i++) ring.push([HALF, -HALF + (2 * HALF * i) / n]); // right (harbour)
+  for (let i = 0; i < n; i++) ring.push([HALF - (2 * HALF * i) / n, HALF]); // front edge
+  for (let i = 0; i < n; i++) ring.push([-HALF, HALF - (2 * HALF * i) / n]); // left (ridge)
+
+  const positions = new Float32Array(ring.length * 2 * 6);
+  const colors = new Float32Array(ring.length * 2 * 6);
+  const c = new THREE.Color();
+  ring.forEach(([x, z], i) => {
+    const ground = islandHeight(x, z);
+    const top = Math.max(ground, 0); // water surface is y = 0
+    const land = smoothstep(-0.02, 0.12, ground);
+    positions.set([x, top, z, x, BLOCK_BOTTOM, z], i * 6);
+    c.copy(WATER_TOP).lerp(EARTH_TOP, land);
+    colors.set([c.r, c.g, c.b], i * 6);
+    c.copy(WATER_BOTTOM).lerp(EARTH_BOTTOM, land);
+    colors.set([c.r, c.g, c.b], i * 6 + 3);
+  });
+  const indices = [];
+  const count = ring.length;
+  for (let i = 0; i < count; i++) {
+    const a = i * 2;
+    const b = ((i + 1) % count) * 2;
+    indices.push(a, a + 1, b, a + 1, b + 1, b);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const skirt = new THREE.Mesh(
+    geometry,
+    new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }),
   );
-  plate.position.y = WALL_BOTTOM - 0.11;
-  group.add(walls, plate);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(2 * HALF + 0.8, 0.22, 2 * HALF + 0.8), lambert('#b97b4b'));
+  plate.position.y = BLOCK_BOTTOM - 0.11;
+  group.add(skirt, plate);
   setShadows(group, false, true);
   return { object: group };
 }

@@ -11,7 +11,8 @@ const ROWS = 44; // along the shoreline
  */
 export function waveHeight(x, z, t) {
   const d = x - shoreX(z); // distance seaward of the shoreline
-  const amp = 0.04 + 0.065 * smoothstep(0.2, 1.4, d);
+  const edge = Math.min(HALF - x, HALF - Math.abs(z)); // flat where the water meets the cut-away sides
+  const amp = (0.04 + 0.065 * smoothstep(0.2, 1.4, d)) * smoothstep(0, 0.5, edge);
   const w =
     0.5 * Math.sin(1.05 * x + 0.62 * z + 1.25 * t) +
     0.28 * Math.sin(-0.71 * x + 1.38 * z + 1.8 * t + 1.3) +
@@ -23,9 +24,9 @@ export function waveHeight(x, z, t) {
 export function createSea() {
   // Rectangular grid whose left edge follows the shoreline (hidden under the sand).
   const geometry = gridGeometry(COLS, ROWS, (i, j) => {
-    const z = -HALF + 0.02 + ((2 * HALF - 0.04) * j) / ROWS;
+    const z = -HALF + (2 * HALF * j) / ROWS;
     const x0 = shoreX(z) - 0.6;
-    const x1 = HALF - 0.02;
+    const x1 = HALF;
     return [x0 + ((x1 - x0) * i) / COLS, 0, z];
   });
   const position = geometry.getAttribute('position');

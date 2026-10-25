@@ -3,10 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { HIT_LAYER, markSolid } from './scene/util.js';
 import { createBase, createIsland } from './scene/island.js';
 import { createFoam, createSea } from './scene/sea.js';
-import { createBoat } from './scene/boat.js';
+import { createFerry } from './scene/ferry.js';
 import { createCity } from './scene/city.js';
 import { createTraffic } from './scene/traffic.js';
-import { createNight } from './scene/night.js';
 import { MODES, createLighting } from './scene/lighting.js';
 
 const api = window.diorama;
@@ -17,7 +16,7 @@ const FOV = 32;
 // Sphere around TARGET that contains the whole diorama and the tallest tower.
 // Keeping the camera at least this far away (for any rotation) keeps the island fully in view.
 const TARGET = new THREE.Vector3(0, 0.4, 0);
-const BOUNDING_RADIUS = 7.25;
+const BOUNDING_RADIUS = 7.0;
 const DEFAULT_VIEW = { azimuth: 0.65, polar: 1.0, zoom: 1.04 }; // zoom is relative to the fit distance
 const MAX_ZOOM_OUT = 1.7;
 
@@ -68,7 +67,6 @@ function resize() {
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(w, h, false);
-  night.setPixelRatio(pixelRatio);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   updateZoomLimits();
@@ -81,19 +79,17 @@ const island = createIsland();
 const base = createBase();
 const sea = createSea();
 const foam = createFoam();
-const boat = createBoat();
+const ferry = createFerry();
 const city = createCity();
 const traffic = createTraffic();
-const night = createNight();
 
-const animated = [sea, foam, city, traffic, boat, night];
-for (const part of [island, base, sea, foam, city, traffic, boat]) scene.add(part.object);
-scene.add(night.object);
+const animated = [sea, foam, city, traffic, ferry];
+for (const part of [island, base, sea, foam, city, traffic, ferry]) scene.add(part.object);
 
-// Everything except the stars and the soft glows counts as "the diorama" for click-through hit testing.
-for (const part of [island, base, sea, city, traffic, boat]) markSolid(part.object);
-markSolid(lighting.bodies);
+// Everything counts as "the diorama" for click-through hit testing.
+for (const part of [island, base, sea, city, traffic, ferry]) markSolid(part.object);
 
+city.setCamera(camera);
 resize();
 setView(DEFAULT_VIEW.azimuth, DEFAULT_VIEW.polar, fitDistance() * DEFAULT_VIEW.zoom);
 window.addEventListener('resize', resize);
@@ -224,19 +220,6 @@ api.onMode((mode) => lighting.setMode(mode));
 api.onMoveMode(setMoveMode);
 api.onResetView(resetView);
 
-// ---- digital clock (local time, HH:MM) ----
-
-const clockElement = document.getElementById('clock');
-let shownMinute = '';
-function updateClock() {
-  const now = new Date();
-  const text = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  if (text !== shownMinute) {
-    shownMinute = text;
-    clockElement.textContent = text;
-  }
-}
-
 // ---- main loop (capped at 30 fps) -------------------------------------------------------------
 
 let simTime = 0;
@@ -248,7 +231,6 @@ function renderFrame(dt) {
   const env = lighting.update(dt);
   for (const part of animated) part.update(simTime, dt, env);
   stepResetAnim(dt);
-  updateClock();
   controls.update();
   renderer.render(scene, camera);
 }
@@ -281,5 +263,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, boat, night } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, ferry } };
 }
