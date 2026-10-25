@@ -30,7 +30,12 @@ const polyWorld = (poly) => poly.map(toWorld);
 const rail = data.rail ?? { corridor: [], tracks: [], offsets: [] };
 const water = polyWorld(data.water ?? []);
 const promenade = polyWorld(data.promenade ?? []);
-const parks = (data.parks ?? []).map(polyWorld);
+const plazas = (data.plazas ?? []).map((c) => {
+  const [x, z] = toWorld([c.x, c.y]);
+  return { x, z, r: c.r * K };
+});
+const circle = (c, n = 28) => Array.from({ length: n }, (_, i) => [c.x + Math.cos((i / n) * Math.PI * 2) * c.r, c.z + Math.sin((i / n) * Math.PI * 2) * c.r]);
+const parks = [...(data.parks ?? []).map(polyWorld), ...plazas.map((c) => circle(c))];
 const railCorridor = polyWorld(rail.corridor);
 const roads = data.roads.map((r) => ({ ...r, pts: r.pts.map(toWorld), w: r.width * K * 1.15 }));
 const zones = (data.zones ?? []).map((z) => ({ ...z, poly: polyWorld(z.poly) }));
@@ -61,7 +66,10 @@ const zoneAt = (x, z) => zones.find((q) => inPolygon(x, z, q.poly))?.name ?? '';
 function styleFor(b, r) {
   const name = b.landmark?.name ?? '';
   if (/MegaBox/.test(name)) return { style: 'megabox' };
-  if (/兒童醫院|MTR|Depot|淘大/.test(name)) return { style: 'band', color: '#e6e2d8' };
+  if (b.landmark?.shape === 'octagon') return { style: 'band', color: b.color, round: true, segments: 8 };
+  if (b.landmark?.shape === 'round') return { style: 'glass', color: '#5f7f9c', round: true };
+  if (/Depot/.test(name)) return { style: 'band', color: '#9fb8cf', roof: '#6fa0d8' }; // blue-roofed sheds
+  if (/兒童醫院|MTR|淘大/.test(name)) return { style: 'band', color: '#e6e2d8' };
   if (/君立|歷山/.test(name)) return { style: 'glass', color: pick(GLASS_TINTS, r) };
   const zone = zoneAt(b.x, b.z);
   if (b.storeys >= 24 || (zone === 'commercial centre' && b.storeys >= 18 && r() < 0.8)) return { style: 'glass', color: pick(GLASS_TINTS, r) };
@@ -179,6 +187,7 @@ function buildingGeometries(buildings, rng) {
   const groups = { grid: [], glass: [], band: [] };
   const footprints = [];
   const signs = []; // { x, y, z, rotY, w, h }
+  const arches = []; // the big arched window of the MegaBox podium
   const srng = mulberry32(555);
   let clock = null;
   for (const b of buildings) {
@@ -193,14 +202,15 @@ function buildingGeometries(buildings, rng) {
     if (look.style === 'megabox') {
       // MegaBox: a rounded red-orange podium with a tall glass tower rising behind it
       const podiumH = 13 * STOREY;
-      groups.band.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h: podiumH, y0, color: '#d9472b', offsetU }));
+      groups.band.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h: podiumH, y0, color: '#d9472b', offsetU, segments: 8 }));
       groups.band.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.94, d: b.d * 0.94, h: 0.02, y0: y0 + podiumH, color: '#c9cdd2', plain: true }));
       const tx = b.x - b.w * 0.2;
       const tz = b.z - b.d * 0.2;
       groups.glass.push(facadeBox({ x: tx, z: tz, w: b.w * 0.62, d: b.d * 0.62, h, y0, color: '#6fa8ae', offsetU }));
       groups.glass.push(facadeBox({ x: tx + b.w * 0.4, z: tz + b.d * 0.05, w: b.w * 0.34, d: b.d * 0.5, h: h * 0.74, y0, color: '#3d5a78', offsetU }));
-      signs.push({ x: b.x, y: y0 + podiumH * 0.78, z: b.z + b.d / 2 + 0.004, rotY: 0, w: b.w * 0.4, h: podiumH * 0.26 });
-      signs.push({ x: b.x + b.w / 2 + 0.004, y: y0 + podiumH * 0.78, z: b.z, rotY: Math.PI / 2, w: b.d * 0.4, h: podiumH * 0.26 });
+      signs.push({ x: b.x, y: y0 + podiumH * 0.78, z: b.z + b.d / 2 + 0.004, rotY: 0, w: b.w * 0.34, h: podiumH * 0.26 });
+      signs.push({ x: b.x + b.w / 2 + 0.004, y: y0 + podiumH * 0.78, z: b.z, rotY: Math.PI / 2, w: b.d * 0.34, h: podiumH * 0.26 });
+      for (const sg of signs.slice(-2)) arches.push({ ...sg, y: y0 + podiumH * 0.42, w: sg.w * 1.0, h: podiumH * 0.4 });
       b.noDetail = true;
       b.podium = podiumH;
       if (b.landmark?.clock) clock = { x: tx, z: tz, y: roofY };
@@ -208,7 +218,7 @@ function buildingGeometries(buildings, rng) {
     }
     const target = groups[look.style];
     if (look.round) {
-      target.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h, y0, color: b.color, offsetU }));
+      target.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h, y0, color: b.color, offsetU, segments: look.segments }));
       b.noDetail = true;
     } else if (b.storeys >= 18 && !b.landmark && rng() < 0.55) {
       // podium-style setback: full footprint to 65%, a narrower shaft above
@@ -237,8 +247,12 @@ function buildingGeometries(buildings, rng) {
       );
     }
     if (b.landmark?.clock) clock = { x: b.x, z: b.z, y: roofY };
+    // flat concrete roof slab with a parapet edge, as on most of the real blocks
+    if (b.storeys <= 22 && !look.round) {
+      groups.band.push(facadeBox({ x: b.x, z: b.z, w: b.w + 0.008, d: b.d + 0.008, h: 0.008, y0: roofY, color: look.roof ?? '#8e9094', plain: true, rot: b.rot }));
+    }
   }
-  return { groups, footprints, clock, signs };
+  return { groups, footprints, clock, signs, arches };
 }
 
 // ---- roads, rail, trees -----------------------------------------------------------------------
@@ -272,6 +286,22 @@ function roadParts() {
       for (let s = 0.1; s < total - 0.1; s += 0.3) {
         pointAlong(r.pts, s, q);
         parts.push(P(new THREE.BoxGeometry(0.012, 0.014, 0.12), '#d8d4c8', { pos: [q.x, y + 0.002, q.z], rot: [0, Math.atan2(q.dx, q.dz), 0] }));
+      }
+    }
+  }
+  return parts;
+}
+
+/** Zero-carbon park: a pink ring path, a grey paved square and rows of blue solar panels. */
+function plazaParts() {
+  const parts = [];
+  for (const c of plazas) {
+    const y = LAND_Y + 0.004;
+    parts.push(P(new THREE.RingGeometry(c.r * 0.8, c.r * 0.93, 40), '#dcb4a2', { pos: [c.x, y, c.z], rot: [-Math.PI / 2, 0, 0] }));
+    parts.push(P(new THREE.BoxGeometry(c.r * 0.7, 0.006, c.r * 0.7), '#9a9ca2', { pos: [c.x + c.r * 0.3, y, c.z + c.r * 0.1], rot: [0, 0.3, 0] }));
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 3; j++) {
+        parts.push(P(new THREE.BoxGeometry(c.r * 0.34, 0.006, c.r * 0.2), '#2b4a90', { pos: [c.x - c.r * 0.5 + i * c.r * 0.18, y + 0.02 + j * 0.002, c.z - c.r * 0.3 + j * c.r * 0.28], rot: [0.18, -0.55, 0] }));
       }
     }
   }
@@ -319,7 +349,7 @@ function treeParts(rng) {
     }
   }
   // street trees along the big roads
-  for (const r of roads.filter((q) => q.kind === 'major')) {
+  for (const r of roads.filter((q) => q.kind === 'major' || q.name === '宏照道')) {
     const total = polylineLength(r.pts);
     const q = { x: 0, z: 0, dx: 0, dz: 1 };
     for (let s = 0.2, side = 1; s < total - 0.2; s += 0.45, side = -side) {
@@ -445,7 +475,7 @@ function createTraffic() {
 export function createKowloonBay() {
   const rng = mulberry32(1997);
   const buildings = generateBuildings(rng);
-  const { groups, footprints, clock, signs } = buildingGeometries(buildings, rng);
+  const { groups, footprints, clock, signs, arches } = buildingGeometries(buildings, rng);
 
   // baked occlusion on the ground around buildings
   const ao = (x, z) => {
@@ -525,7 +555,7 @@ export function createKowloonBay() {
     ctx.fillStyle = '#d9472b';
     ctx.fillRect(0, 0, 256, 96);
     ctx.fillStyle = '#ffffff';
-    ctx.font = '700 64px Arial, sans-serif';
+    ctx.font = '700 50px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('megaBOX', 128, 50);
@@ -542,9 +572,17 @@ export function createKowloonBay() {
       buildingMesh.add(plane);
     }
   }
+  const archMaterial = new THREE.MeshStandardMaterial({ color: '#6c9a8e', roughness: 0.2, metalness: 0.4, side: THREE.DoubleSide });
+  for (const ar of arches) {
+    const arch = new THREE.Mesh(new THREE.CircleGeometry(ar.w / 2, 24, 0, Math.PI), archMaterial);
+    arch.scale.y = ar.h / (ar.w / 2);
+    arch.position.set(ar.x + Math.sin(ar.rotY) * 0.002, ar.y - ar.h / 2, ar.z + Math.cos(ar.rotY) * 0.002);
+    arch.rotation.y = ar.rotY;
+    buildingMesh.add(arch);
+  }
 
   const roadMesh = new THREE.Mesh(
-    mergeParts([...roadParts(), ...railParts()]),
+    mergeParts([...roadParts(), ...railParts(), ...plazaParts()]),
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
   );
   setShadows(roadMesh, false, true);

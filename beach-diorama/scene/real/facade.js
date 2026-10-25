@@ -164,7 +164,9 @@ function bandTextures(rng) {
 /** Like facadeBox but with a rounded (elliptical) plan, for curved corner buildings. */
 export function facadeRound({ x, z, w, d, h, y0, color, offsetU = 0, segments = 28 }) {
   const g = new THREE.CylinderGeometry(0.5, 0.5, h, segments);
-  g.scale(w, 1, d);
+  const fill = segments === 8 ? 1 / Math.cos(Math.PI / 8) : 1; // octagon: flat sides touch the footprint
+  if (segments === 8) g.rotateY(Math.PI / 8);
+  g.scale(w * fill, 1, d * fill);
   g.translate(x, y0 + h / 2, z);
   const uv = g.getAttribute('uv');
   const pos = g.getAttribute('position');

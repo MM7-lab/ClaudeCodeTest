@@ -49,8 +49,10 @@ export default {
     { name: '', kind: 'minor', width: 7, pts: [[330, 560], [440, 556]] },
   ],
 
+  // Circular plaza with solar canopies and a pink path (the zero-carbon park next to MegaBox).
+  plazas: [{ x: 384, y: 532, r: 44 }],
+
   parks: [
-    [[335, 486], [432, 486], [432, 602], [335, 602]], // pitch next to MegaBox
     [[195, 20], [392, 20], [392, 102], [195, 102]], // school fields (north)
     [[396, 20], [582, 20], [582, 72], [396, 72]],
     [[225, 356], [300, 356], [300, 400], [225, 400]],
@@ -74,6 +76,8 @@ export default {
     { name: '九龍灣站 Kowloon Bay MTR', x: 812, y: 342, w: 46, d: 26, storeys: 3, color: '#d9dde2' },
     { name: '淘大商場', x: 905, y: 215, w: 60, d: 70, storeys: 8, color: '#e2d8c8' },
     { name: '車廠 Depot', x: 748, y: 520, w: 34, d: 130, storeys: 2, color: '#b9bdc2' },
+    { name: '企業廣場 Enterprise Square (octagon)', x: 300, y: 420, w: 56, d: 52, storeys: 30, color: '#b08968', shape: 'octagon' },
+    { name: '弧形塔 curved tower', x: 548, y: 600, w: 46, d: 36, storeys: 40, color: '#5a6f86', shape: 'round' },
   ],
 
   // Typical storeys for generated buildings in an area; the first matching zone wins.
