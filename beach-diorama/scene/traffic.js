@@ -5,11 +5,11 @@ import { GROUND_Y } from './island.js';
 
 // Roads, tram rails, double-decker trams and red taxis driving round the ring roads.
 
-const ROAD_Y = GROUND_Y + 0.006;
+export const ROAD_Y = GROUND_Y + 0.006;
 const ASPHALT = '#5d636d';
 
 /** Closed rounded-rectangle outline, offset outwards by `off` (negative = inwards). */
-function ringPoints(ring, off = 0, arcSteps = 8) {
+export function ringPoints(ring, off = 0, arcSteps = 8) {
   const x0 = ring.x0 - off;
   const x1 = ring.x1 + off;
   const z0 = ring.z0 - off;
@@ -54,6 +54,10 @@ function stripParts(points, width, color, y, closed = true) {
 
 function buildRoads() {
   const parts = [];
+  // pavements: a slightly wider, lighter strip under every road
+  parts.push(...stripParts(ringPoints(OUTER_RING), OUTER_RING.width + 0.07, '#b9bcc2', ROAD_Y - 0.005));
+  parts.push(...stripParts(ringPoints(INNER_RING), INNER_RING.width + 0.07, '#b9bcc2', ROAD_Y - 0.005));
+  for (const s of CROSS_STREETS) parts.push(...stripParts([[s.x0, s.z0], [s.x1, s.z1]], s.width + 0.07, '#b9bcc2', ROAD_Y - 0.005, false));
   parts.push(...stripParts(ringPoints(OUTER_RING), OUTER_RING.width, '#555b65', ROAD_Y));
   parts.push(...stripParts(ringPoints(INNER_RING), INNER_RING.width, ASPHALT, ROAD_Y));
   // tram rails on both sides of the outer ring's centre line
@@ -63,6 +67,25 @@ function buildRoads() {
   for (const s of CROSS_STREETS) {
     parts.push(...stripParts([[s.x0, s.z0], [s.x1, s.z1]], s.width, ASPHALT, ROAD_Y, false));
   }
+  // dashed white centre line on the inner ring and the cross streets
+  const dashes = (pts, closed) => {
+    const n = pts.length;
+    for (let i = 0; i < (closed ? n : n - 1); i++) {
+      const [ax, az] = pts[i];
+      const [bx, bz] = pts[(i + 1) % n];
+      const len = Math.hypot(bx - ax, bz - az);
+      const count = Math.floor(len / 0.2);
+      for (let k = 0; k < count; k++) {
+        const f = (k + 0.5) / count;
+        parts.push(P(new THREE.BoxGeometry(0.012, 0.004, 0.09), '#e6e3d8', {
+          pos: [ax + (bx - ax) * f, ROAD_Y + 0.012, az + (bz - az) * f],
+          rot: [0, Math.atan2(bx - ax, bz - az), 0],
+        }));
+      }
+    }
+  };
+  dashes(ringPoints(INNER_RING), true);
+  for (const s of CROSS_STREETS) dashes([[s.x0, s.z0], [s.x1, s.z1]], false);
   return parts;
 }
 
@@ -80,6 +103,24 @@ function tramGeometry() {
     P(new THREE.BoxGeometry(0.22, 0.025, 0.66), '#d9dde2', { pos: [0, 0.41, 0] }), // roof
     P(new THREE.BoxGeometry(0.012, 0.1, 0.012), '#555b65', { pos: [0, 0.47, -0.05], rot: [0.5, 0, 0] }), // trolley pole
   ]);
+}
+
+/** Double-decker bus: red lower deck, cream band, upper deck with a window ribbon. */
+export function busGeometry() {
+  const glass = '#26323f';
+  const wheel = new THREE.CylinderGeometry(0.036, 0.036, 0.03, 8);
+  const parts = [
+    P(new THREE.BoxGeometry(0.2, 0.15, 0.5), '#c8242b', { pos: [0, 0.11, 0] }),
+    P(new THREE.BoxGeometry(0.206, 0.05, 0.42), glass, { pos: [0, 0.13, -0.01] }),
+    P(new THREE.BoxGeometry(0.204, 0.018, 0.5), '#f0e8d0', { pos: [0, 0.195, 0] }),
+    P(new THREE.BoxGeometry(0.196, 0.11, 0.48), '#c8242b', { pos: [0, 0.255, 0] }),
+    P(new THREE.BoxGeometry(0.202, 0.05, 0.42), glass, { pos: [0, 0.265, -0.01] }),
+    P(new THREE.BoxGeometry(0.19, 0.012, 0.47), '#dfe3e7', { pos: [0, 0.316, 0] }),
+  ];
+  for (const sx of [-0.1, 0.1]) {
+    for (const sz of [-0.16, 0.16]) parts.push(P(wheel, '#22262b', { pos: [sx, 0.036, sz], rot: [0, 0, Math.PI / 2] }));
+  }
+  return mergeParts(parts);
 }
 
 /** Red taxi: red body, silver roof, roof sign, four wheels. */
@@ -134,15 +175,17 @@ export function createTraffic() {
   const innerLoop = loopFor(INNER_RING, true);
   const tramGeo = tramGeometry();
   const taxiGeo = taxiGeometry();
+  const busGeo = busGeometry();
 
   const lightMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
   const tramLights = lightsGeometry(0.13, 0.36, 0.1, 0.05);
   const taxiLights = lightsGeometry(0.1, 0.19, 0.075, 0.035);
+  const busLights = lightsGeometry(0.1, 0.25, 0.09, 0.04);
 
   const vehicles = [];
   const add = (geometry, loop, fraction, speed) => {
     const mesh = new THREE.Mesh(geometry, vertexColorMaterial);
-    mesh.add(new THREE.Mesh(geometry === tramGeo ? tramLights : taxiLights, lightMaterial));
+    mesh.add(new THREE.Mesh(geometry === tramGeo ? tramLights : geometry === busGeo ? busLights : taxiLights, lightMaterial));
     setShadows(mesh, true, false);
     group.add(mesh);
     vehicles.push({ mesh, loop, start: fraction * loop.length, speed });
@@ -153,6 +196,7 @@ export function createTraffic() {
   for (const f of [0, 0.5]) add(tramGeo, outerLoop, f, SPEED);
   for (const f of [0.12, 0.34, 0.56, 0.78]) add(taxiGeo, outerLoop, f, SPEED);
   for (const f of [0.1, 0.6]) add(taxiGeo, innerLoop, f, 0.55);
+  for (const f of [0.35, 0.85]) add(busGeo, innerLoop, f, 0.55); // same speed as the inner taxis: gaps never close
 
   const p0 = { x: 0, z: 0 };
   const p1 = { x: 0, z: 0 };

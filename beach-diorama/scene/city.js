@@ -75,6 +75,7 @@ function buildTowers(rng) {
   const signs = [];
   const vSigns = []; // [x, y, z, column]
   footprints.length = 0;
+  const list = []; // every tower, for the street-level detail layer
 
   /** One shaft: body, ribbon windows and a bottom-darkened base. Returns the roof height. */
   const column = (x, z, w, d, h, color, y0) => {
@@ -95,6 +96,7 @@ function buildTowers(rng) {
     const y0 = islandHeight(x, z) - 0.02;
     const color = BODY_COLORS[Math.floor(rng() * BODY_COLORS.length)];
     footprints.push({ x, z, hw: w / 2 + 0.04, hd: d / 2 + 0.04 });
+    list.push({ x, z, w, d, h, y0, kind });
     bodies.push(P(new THREE.BoxGeometry(w + 0.08, 0.1, d + 0.08), '#aeb4bc', { pos: [x, y0 + 0.05, z] })); // plinth
 
     if (kind === 'prism') {
@@ -162,7 +164,7 @@ function buildTowers(rng) {
       }
     }
   }
-  return { bodies, windows, signs, vSigns };
+  return { bodies, windows, signs, vSigns, list };
 }
 
 /** Street lamps along the promenade and the front and back roads. */
@@ -262,7 +264,7 @@ export function createCity() {
   const rng = mulberry32(2046);
   const group = new THREE.Group();
 
-  const { bodies, windows, signs, vSigns } = buildTowers(rng);
+  const { bodies, windows, signs, vSigns, list: towers } = buildTowers(rng);
   const bodyMesh = new THREE.Mesh(mergeParts(bodies), vertexColorMaterial);
   setShadows(bodyMesh, true, true);
 
@@ -312,6 +314,7 @@ export function createCity() {
 
   return {
     object: group,
+    towers,
     /** Glow sprites around the lamps; added to the scene separately so clicks pass through them. */
     glow: glowHolder,
     /** Baked ambient occlusion for the ground: pass to createIsland. */

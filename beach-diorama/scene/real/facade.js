@@ -12,8 +12,10 @@ export const TILE_H = 0.151;
 function canvasTexture(draw, colorSpace = THREE.SRGBColorSpace) {
   if (typeof document === 'undefined') return null; // no canvas outside the browser
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  draw(canvas.getContext('2d'));
+  canvas.width = canvas.height = 256; // drawn in a 128 x 128 design space, so close-ups stay crisp
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+  draw(ctx);
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = colorSpace;
@@ -40,6 +42,12 @@ export function makeFacadeTextures() {
       ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; // glint along the top edge
       ctx.fillRect(c * 32 + 6, r * 32 + 8, 20, 2);
+      ctx.fillStyle = 'rgba(235,240,245,0.9)'; // frame, mullion and sill
+      ctx.fillRect(c * 32 + 15, r * 32 + 8, 1.5, 16);
+      ctx.fillRect(c * 32 + 4, r * 32 + 24, 24, 2.5);
+      ctx.strokeStyle = 'rgba(235,240,245,0.8)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(c * 32 + 6, r * 32 + 8, 20, 16);
     }
     ctx.fillStyle = 'rgba(0,0,0,0.12)'; // floor slab lines
     for (let r = 0; r < 4; r++) ctx.fillRect(0, r * 32 + 28, 128, 2);

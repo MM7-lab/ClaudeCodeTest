@@ -5,7 +5,8 @@ import { P, gridGeometry, makeLoop, markSolid, mergeParts, mulberry32, setShadow
 import { HALF, createBase } from '../island.js';
 import { createClockBoard } from '../clockboard.js';
 import { glowTexture } from '../textures.js';
-import { lightsGeometry, taxiGeometry } from '../traffic.js';
+import { busGeometry, lightsGeometry, taxiGeometry } from '../traffic.js';
+import { bench, buildingDetails, busStop, createDetailLayer, crosswalk, lampPost, post, trafficLight } from '../details.js';
 import { createCoastFoam, createRealSea } from '../real/water.js';
 import { facadeBox, makeFacadeTextures } from '../real/facade.js';
 import { distToPolyline, inPolygon, pointAlong, polylineLength, signedDistance, smoothClosed } from '../real/geo.js';
@@ -166,6 +167,7 @@ function buildingGeometries(buildings, rng) {
     if (b.storeys >= 18 && !b.landmark && rng() < 0.55) {
       // podium-style setback: full footprint to 65%, a narrower shaft above
       const h1 = h * 0.65;
+      b.podium = h1; // street-level details only go on the wide lower part
       geos.push(facadeBox({ x: b.x, z: b.z, w: b.w, d: b.d, h: h1, y0, color: b.color, offsetU, rot: b.rot }));
       geos.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.8, d: b.d * 0.8, h: h - h1, y0: y0 + h1, color: b.color, offsetU, rot: b.rot }));
     } else {
@@ -212,6 +214,9 @@ function roadParts() {
   for (const r of roads) {
     const y = LAND_Y + ROAD_LIFT[r.kind];
     const color = ROAD_COLORS[r.kind];
+    // pavement: a wider, lighter strip just under the carriageway
+    for (let i = 1; i < r.pts.length; i++) parts.push(segmentBox(r.pts[i - 1], r.pts[i], r.w + 0.05, '#b7babf', LAND_Y + 0.0005));
+    for (const p of r.pts) parts.push(P(joint, '#b7babf', { pos: [p[0], LAND_Y + 0.0005, p[1]], scale: [r.w + 0.05, 1, r.w + 0.05] }));
     for (let i = 1; i < r.pts.length; i++) parts.push(segmentBox(r.pts[i - 1], r.pts[i], r.w, color, y));
     for (const p of r.pts) parts.push(P(joint, color, { pos: [p[0], y, p[1]], scale: [r.w, 1, r.w] }));
     if (r.kind === 'major') {
@@ -316,6 +321,17 @@ function createTraffic() {
     setShadows(mesh, true, false);
     group.add(mesh);
     taxis.push({ mesh, start: (i / 6) * loop.length });
+  }
+  // Double-decker buses between the taxis: same speed, so the gaps never close.
+  const busGeo = busGeometry();
+  const busLights = lightsGeometry(0.1, 0.25, 0.09, 0.04);
+  for (let i = 0; loop && i < 3; i++) {
+    const mesh = new THREE.Mesh(busGeo, taxiMat);
+    mesh.add(new THREE.Mesh(busLights, lightMat));
+    mesh.scale.setScalar(0.36);
+    setShadows(mesh, true, false);
+    group.add(mesh);
+    taxis.push({ mesh, start: ((2 * i + 1.5) / 6) * loop.length });
   }
 
   // MTR trains: white cars with a green stripe, cut off cleanly at the edges of the map.
@@ -481,6 +497,81 @@ export function createKowloonBay() {
   const board = createClockBoard({ x: clock?.x ?? 0, y: clock?.y ?? 1, z: clock?.z ?? 0, scale: 0.5 });
   const camera = { position: new THREE.Vector3(0, 10, 10) };
 
+  // ---- street-level detail: shown only when the camera has zoomed in ----
+  const detail = createDetailLayer({ material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.1 }), cell: 2.0 });
+  const drng = mulberry32(3131); // own generator, so the layout above never changes
+  for (const b of buildings) {
+    const { lit, glow } = buildingDetails({
+      w: b.w,
+      d: b.d,
+      h: b.podium ?? b.storeys * STOREY,
+      y0: LAND_Y - 0.01,
+      floorH: STOREY,
+      size: STOREY * 1.7, // exaggerated, like the building heights
+      rng: drng,
+      roof: !b.podium,
+    });
+    detail.local(b.x, b.z, b.rot ?? 0, lit, glow);
+  }
+  const roadY = (r) => LAND_Y + ROAD_LIFT[r.kind] + 0.006;
+  const onLand = (x, z) => Math.abs(x) < HALF - 0.1 && Math.abs(z) < HALF - 0.1 && landDistance(x, z) > 0.12 && !inPolygon(x, z, promenade);
+  const clearOfRoads = (x, z, except, pad = 0.03) => !roads.some((o) => o !== except && distToPolyline(x, z, o.pts) < o.w / 2 + pad);
+  const q = { x: 0, z: 0, dx: 0, dz: 1 };
+  for (const r of roads) {
+    const total = polylineLength(r.pts);
+    const y = roadY(r);
+    // lamp posts on one side, bus stops on the other, extra trees on both
+    const step = r.kind === 'major' ? 0.42 : 0.6;
+    for (let s = 0.15, n = 0; s < total - 0.15; s += step, n++) {
+      pointAlong(r.pts, s, q);
+      const lx = q.x - q.dz * (r.w / 2 + 0.02);
+      const lz = q.z + q.dx * (r.w / 2 + 0.02);
+      if (onLand(lx, lz) && clearOfRoads(lx, lz, r, 0.01)) detail.world(lx, lz, lampPost(lx, LAND_Y, lz, 0.32, Math.atan2(q.dz, -q.dx) + Math.PI));
+      const rx = q.x + q.dz * (r.w / 2 + 0.03);
+      const rz = q.z - q.dx * (r.w / 2 + 0.03);
+      if (!onLand(rx, rz) || !clearOfRoads(rx, rz, r, 0.01)) continue;
+      if (r.kind === 'major' && n % 4 === 2) detail.world(rx, rz, busStop(rx, LAND_Y, rz, Math.atan2(q.dx, q.dz) - Math.PI / 2, 0.32));
+      else if (n % 2 === 1) {
+        detail.world(rx, rz, [post(0.007, 0.07, '#6e5238', rx, LAND_Y, rz), P(new THREE.IcosahedronGeometry(0.045, 1), drng() < 0.5 ? '#4f8f4e' : '#5fa35a', { pos: [rx, LAND_Y + 0.1, rz] })]);
+      }
+    }
+    // a zebra crossing and traffic lights where this road runs into another one
+    for (const [end, dir] of [[r.pts[0], 1], [r.pts[r.pts.length - 1], -1]]) {
+      const other = roads.find((o) => o !== r && distToPolyline(end[0], end[1], o.pts) < o.w / 2 + 0.12);
+      if (!other) continue;
+      const k = dir === 1 ? 0 : r.pts.length - 1;
+      const nb = r.pts[dir === 1 ? Math.min(1, r.pts.length - 1) : Math.max(0, r.pts.length - 2)];
+      const len = Math.hypot(nb[0] - r.pts[k][0], nb[1] - r.pts[k][1]) || 1;
+      const dx = (nb[0] - r.pts[k][0]) / len;
+      const dz = (nb[1] - r.pts[k][1]) / len;
+      const back = other.w / 2 + 0.07;
+      if (len < back + 0.05) continue;
+      const cx = end[0] + dx * back;
+      const cz = end[1] + dz * back;
+      detail.world(cx, cz, crosswalk(cx, y + 0.002, cz, dx, dz, r.w, 0.6));
+      for (const sgn of [-1, 1]) {
+        const px = cx + -dz * sgn * (r.w / 2 + 0.03) - dx * 0.05;
+        const pz = cz + dx * sgn * (r.w / 2 + 0.03) - dz * 0.05;
+        if (onLand(px, pz)) detail.world(px, pz, trafficLight(px, y, pz, 0.36));
+      }
+    }
+  }
+  // benches and a few more trees in the parks
+  for (const poly of parks) {
+    const xs = poly.map((p) => p[0]);
+    const zs = poly.map((p) => p[1]);
+    for (let n = 0; n < 6; n++) {
+      const x = Math.min(...xs) + drng() * (Math.max(...xs) - Math.min(...xs));
+      const z = Math.min(...zs) + drng() * (Math.max(...zs) - Math.min(...zs));
+      if (!inPolygon(x, z, poly)) continue;
+      if (n % 2) detail.world(x, z, bench(x, LAND_Y, z, drng() * Math.PI, 0.3));
+      else {
+        detail.world(x, z, [post(0.01, 0.1, '#6e5238', x, LAND_Y, z), P(new THREE.IcosahedronGeometry(0.07, 1), '#4f9d4e', { pos: [x, LAND_Y + 0.15, z] })]);
+      }
+    }
+  }
+  detail.build();
+
   const staticParts = new THREE.Group();
   staticParts.add(buildingMesh, roadMesh, treeMesh, board.group);
 
@@ -491,6 +582,7 @@ export function createKowloonBay() {
   const atmosphere = {
     object: new THREE.Group(),
     update(t, dt, env) {
+      detail.update(env);
       buildingMaterial.emissiveIntensity = 0.95 * env.night; // lit windows
       glowMaterial.opacity = 0.9 * env.night;
       glow.visible = env.night > 0.01;
@@ -507,13 +599,14 @@ export function createKowloonBay() {
 
   return {
     id: 'kowloon-bay',
-    parts: [ground, base, sea, foam, { object: staticParts }, traffic, atmosphere],
+    parts: [ground, base, sea, foam, { object: staticParts }, { object: detail.group }, traffic, atmosphere],
     solid,
     extras: [glow],
     boundingRadius: 6.9,
     setCamera(cam) {
       camera.position = cam.position;
     },
+    setViewDistance: (distance, fit) => detail.setViewDistance(distance, fit),
     /** Realistic look: filmic tone mapping, image-based reflections, clipping planes for the trains. */
     configure({ renderer, scene, lighting }) {
       lighting.sun.shadow.mapSize.set(1024, 1024); // the realistic look is heavier: keep the shadow map small

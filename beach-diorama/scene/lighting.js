@@ -94,11 +94,13 @@ export function createLighting(scene) {
   let mode = 'day';
 
   const dir = new THREE.Vector3();
+  const shadowCenter = CENTER.clone(); // what the shadow map is centred on
+  let shadowRadius = 6.4;
 
   function apply() {
     env.version++;
     polar(env.azimuth, env.elevation, 1, dir);
-    sun.position.copy(dir).multiplyScalar(20).add(CENTER);
+    sun.position.copy(dir).multiplyScalar(20).add(shadowCenter);
     sun.color.copy(env.sunColor);
     sun.intensity = env.sunIntensity;
     hemi.color.copy(env.skyColor);
@@ -112,6 +114,24 @@ export function createLighting(scene) {
     env,
     fog,
     sun,
+    /**
+     * Keep the shadow map on the part of the scene that is being looked at: the closer the
+     * camera, the smaller (so sharper) the area. Steps, not a continuous zoom, so shadows do not
+     * shimmer while zooming; the centre is snapped for the same reason.
+     */
+    focusShadows(target, distance, fitDistance) {
+      const radius = distance > fitDistance * 0.7 ? 6.4 : distance > fitDistance * 0.35 ? 3.8 : 2.2;
+      if (radius > 6) shadowCenter.copy(CENTER);
+      else shadowCenter.set(Math.round(target.x / 0.25) * 0.25, CENTER.y, Math.round(target.z / 0.25) * 0.25);
+      sun.target.position.copy(shadowCenter);
+      sun.position.copy(dir).multiplyScalar(20).add(shadowCenter);
+      if (radius !== shadowRadius) {
+        shadowRadius = radius;
+        cam.left = cam.bottom = -radius;
+        cam.right = cam.top = radius;
+        cam.updateProjectionMatrix();
+      }
+    },
     get mode() {
       return mode;
     },

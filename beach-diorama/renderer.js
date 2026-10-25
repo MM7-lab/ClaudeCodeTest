@@ -15,6 +15,7 @@ const FOV = 32;
 const TARGET = new THREE.Vector3(0, 0.4, 0);
 const DEFAULT_VIEW = { azimuth: 0.65, polar: 1.0, zoom: 1.04 }; // zoom is relative to the fit distance
 const MAX_ZOOM_OUT = 1.7;
+const MIN_ZOOM = 0.09; // closest distance, relative to the distance that fits the whole map
 
 // ---- renderer, scene, camera ------------------------------------------------------------------
 
@@ -25,7 +26,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(FOV, 1, 0.5, 120);
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 120); // near is small so street level can be reached
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.copy(TARGET);
@@ -33,7 +34,12 @@ controls.enablePan = false;
 controls.enableDamping = true;
 controls.dampingFactor = 0.09;
 controls.rotateSpeed = 0.8;
-controls.zoomSpeed = 0.6;
+controls.zoomSpeed = 1.1;
+// Map-style zoom: the wheel zooms towards the cursor, so you can dive into any street. The point
+// the camera looks at may wander only within a sphere around the map centre.
+controls.zoomToCursor = true;
+controls.cursor.copy(TARGET);
+controls.maxTargetRadius = 4.2;
 controls.minPolarAngle = 0.3; // not quite straight down
 controls.maxPolarAngle = 1.5; // never below the horizon, so never under the island
 controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null };
@@ -47,13 +53,14 @@ function fitDistance() {
 
 function updateZoomLimits() {
   const fit = fitDistance();
-  controls.minDistance = fit;
+  controls.minDistance = fit * MIN_ZOOM;
   controls.maxDistance = fit * MAX_ZOOM_OUT;
 }
 
-function setView(azimuth, polar, distance) {
-  camera.position.setFromSphericalCoords(distance, polar, azimuth).add(TARGET);
-  camera.lookAt(TARGET);
+function setView(azimuth, polar, distance, center = TARGET) {
+  controls.target.copy(center);
+  camera.position.setFromSphericalCoords(distance, polar, azimuth).add(center);
+  camera.lookAt(center);
   controls.update();
 }
 
@@ -96,7 +103,7 @@ const sph = new THREE.Spherical();
 const offset = new THREE.Vector3();
 
 function resetView() {
-  sph.setFromVector3(offset.copy(camera.position).sub(TARGET));
+  sph.setFromVector3(offset.copy(camera.position).sub(controls.target));
   const dAz = THREE.MathUtils.euclideanModulo(DEFAULT_VIEW.azimuth - sph.theta + Math.PI, Math.PI * 2) - Math.PI;
   resetAnim = {
     t: 0,
@@ -105,6 +112,7 @@ function resetView() {
     polar: sph.phi,
     dist: sph.radius,
     toDist: fitDistance() * DEFAULT_VIEW.zoom,
+    from: controls.target.clone(), // the point being looked at glides back to the map centre too
   };
 }
 
@@ -116,6 +124,7 @@ function stepResetAnim(dt) {
     resetAnim.az + resetAnim.dAz * k,
     THREE.MathUtils.lerp(resetAnim.polar, DEFAULT_VIEW.polar, k),
     THREE.MathUtils.lerp(resetAnim.dist, resetAnim.toDist, k),
+    new THREE.Vector3().lerpVectors(resetAnim.from, TARGET, k),
   );
   if (resetAnim.t >= 1) resetAnim = null;
 }
@@ -227,8 +236,17 @@ function renderFrame(dt) {
   for (const part of animated) part.update?.(simTime, dt, env);
   stepResetAnim(dt);
   controls.update();
+  const fit = fitDistance();
+  let distance = camera.position.distanceTo(controls.target);
+  // Zoomed out to the whole map, the view re-centres, so the map is always fully in frame.
+  const recentre = THREE.MathUtils.smoothstep(distance, fit * 0.8, fit * 1.02);
+  if (recentre > 0) controls.target.lerp(TARGET, 0.25 * recentre);
+  controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0.1, 1.2); // zooming to the cursor must not dig into the ground
+  distance = camera.position.distanceTo(controls.target);
+  // Shadows and fine detail follow the zoom: the closer, the smaller and sharper the shadow area.
+  lighting.focusShadows(controls.target, distance, fit);
+  world.setViewDistance?.(distance, fit);
   // Keep the haze relative to the camera, so zooming does not fog the whole diorama.
-  const distance = camera.position.distanceTo(controls.target);
   lighting.fog.near = distance + 1;
   lighting.fog.far = distance + 42;
   renderer.render(scene, camera);
