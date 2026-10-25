@@ -18,6 +18,7 @@ export const PRESETS = {
     seaShallow: C('#86e8e0'), seaMid: C('#40c3d9'), seaDeep: C('#2b97d0'),
     foamColor: C('#ffffff'), foamOpacity: 0.95,
     night: 0,
+    fogColor: C('#cfe6f8'),
   },
   sunset: {
     sunColor: C('#ffb27a'), sunIntensity: 3.1, azimuth: 118, elevation: 11,
@@ -25,6 +26,7 @@ export const PRESETS = {
     seaShallow: C('#ffe9a6'), seaMid: C('#f592a0'), seaDeep: C('#8f5fb0'),
     foamColor: C('#fff0dc'), foamOpacity: 0.85,
     night: 0,
+    fogColor: C('#f5c0a8'),
   },
   night: {
     sunColor: C('#7f95ff'), sunIntensity: 1.1, azimuth: MOON.azimuth, elevation: MOON.elevation,
@@ -32,6 +34,7 @@ export const PRESETS = {
     seaShallow: C('#6f93e6'), seaMid: C('#4466c4'), seaDeep: C('#2a448f'),
     foamColor: C('#9fb2e8'), foamOpacity: 0.7,
     night: 1,
+    fogColor: C('#0b1235'),
   },
 };
 
@@ -67,10 +70,10 @@ function polar(azimuthDeg, elevationDeg, r, out) {
 export function createLighting(scene) {
   const sun = new THREE.DirectionalLight('#ffffff', 1);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(1536, 1536);
   const cam = sun.shadow.camera;
-  cam.left = cam.bottom = -7.6;
-  cam.right = cam.top = 7.6;
+  cam.left = cam.bottom = -6.4; // just big enough for the block and its tallest tower
+  cam.right = cam.top = 6.4;
   cam.near = 1;
   cam.far = 45;
   sun.shadow.bias = -0.0006;
@@ -79,6 +82,9 @@ export function createLighting(scene) {
 
   const hemi = new THREE.HemisphereLight('#ffffff', '#ffffff', 1);
   scene.add(sun, sun.target, hemi);
+  // Faint distance haze, tinted per look. The renderer keeps near/far relative to the camera.
+  const fog = new THREE.Fog('#ffffff', 20, 60);
+  scene.fog = fog;
 
   const env = cloneEnv(PRESETS.day);
   env.version = 0; // bumped on every change so consumers can skip work while nothing moves
@@ -98,11 +104,13 @@ export function createLighting(scene) {
     hemi.color.copy(env.skyColor);
     hemi.groundColor.copy(env.groundColor);
     hemi.intensity = env.hemiIntensity;
+    fog.color.copy(env.fogColor);
   }
   apply();
 
   return {
     env,
+    fog,
     get mode() {
       return mode;
     },

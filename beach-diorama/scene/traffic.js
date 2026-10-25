@@ -98,6 +98,16 @@ function taxiGeometry() {
   return mergeParts(parts);
 }
 
+/** Head and tail lights for a vehicle of the given half width and half length (unlit, glow at night). */
+function lightsGeometry(halfWidth, halfLength, y, size) {
+  const parts = [];
+  for (const sx of [-1, 1]) {
+    parts.push(P(new THREE.BoxGeometry(size, size, 0.012), '#fff3c4', { pos: [sx * halfWidth * 0.62, y, halfLength + 0.004] })); // headlights
+    parts.push(P(new THREE.BoxGeometry(size, size, 0.012), '#ff3030', { pos: [sx * halfWidth * 0.62, y, -halfLength - 0.004] })); // tail lights
+  }
+  return mergeParts(parts);
+}
+
 /** Vehicles keep driving round their ring at a constant speed. */
 export function createTraffic() {
   const group = new THREE.Group();
@@ -125,9 +135,14 @@ export function createTraffic() {
   const tramGeo = tramGeometry();
   const taxiGeo = taxiGeometry();
 
+  const lightMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const tramLights = lightsGeometry(0.13, 0.36, 0.1, 0.05);
+  const taxiLights = lightsGeometry(0.1, 0.19, 0.075, 0.035);
+
   const vehicles = [];
   const add = (geometry, loop, fraction, speed) => {
     const mesh = new THREE.Mesh(geometry, vertexColorMaterial);
+    mesh.add(new THREE.Mesh(geometry === tramGeo ? tramLights : taxiLights, lightMaterial));
     setShadows(mesh, true, false);
     group.add(mesh);
     vehicles.push({ mesh, loop, start: fraction * loop.length, speed });
@@ -143,7 +158,8 @@ export function createTraffic() {
   const p1 = { x: 0, z: 0 };
   return {
     object: group,
-    update(t) {
+    update(t, dt, env) {
+      lightMaterial.color.setScalar(0.3 + 0.7 * env.night); // dim by day, bright at night
       for (const v of vehicles) {
         const s = v.start + t * v.speed;
         v.loop.at(s, p0);

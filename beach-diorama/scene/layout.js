@@ -30,7 +30,8 @@ export const BLOCKS = [
 
 export const LANDMARKS = [
   { x: 0.9, z: 0.7, h: 4.3, kind: 'clock' }, // the tall harbour-front tower, with the big clock on top
-  { x: 0.9, z: -1.3, h: 3.3, kind: 'stepped' },
+  { x: 0.9, z: -1.3, h: 3.4, kind: 'prism' }, // faceted prism tower, in the spirit of the Bank of China
+  { x: 0.9, z: 2.1, h: 3.7, kind: 'crown' }, // tapered crown and spire, in the spirit of IFC
 ];
 
 /** The observation wheel stands on the harbour promenade. */

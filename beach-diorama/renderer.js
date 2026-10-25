@@ -6,6 +6,7 @@ import { createFoam, createSea } from './scene/sea.js';
 import { createFerry } from './scene/ferry.js';
 import { createCity } from './scene/city.js';
 import { createTraffic } from './scene/traffic.js';
+import { createHarbourLights } from './scene/harbourlights.js';
 import { MODES, createLighting } from './scene/lighting.js';
 
 const api = window.diorama;
@@ -75,16 +76,18 @@ function resize() {
 // ---- the diorama ------------------------------------------------------------------------------
 
 const lighting = createLighting(scene);
-const island = createIsland();
+const city = createCity();
+const island = createIsland({ ao: city.ao });
 const base = createBase();
 const sea = createSea();
 const foam = createFoam();
 const ferry = createFerry();
-const city = createCity();
 const traffic = createTraffic();
+const harbourLights = createHarbourLights();
 
-const animated = [sea, foam, city, traffic, ferry];
-for (const part of [island, base, sea, foam, city, traffic, ferry]) scene.add(part.object);
+const animated = [sea, foam, city, traffic, ferry, harbourLights];
+for (const part of [island, base, sea, foam, city, traffic, ferry, harbourLights]) scene.add(part.object);
+scene.add(city.glow); // lamp glows are not solid: clicks pass through them
 
 // Everything counts as "the diorama" for click-through hit testing.
 for (const part of [island, base, sea, city, traffic, ferry]) markSolid(part.object);
@@ -232,6 +235,10 @@ function renderFrame(dt) {
   for (const part of animated) part.update(simTime, dt, env);
   stepResetAnim(dt);
   controls.update();
+  // Keep the haze relative to the camera, so zooming does not fog the whole diorama.
+  const distance = camera.position.distanceTo(controls.target);
+  lighting.fog.near = distance + 1;
+  lighting.fog.far = distance + 42;
   renderer.render(scene, camera);
 }
 
@@ -263,5 +270,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, ferry } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, ferry, harbourLights } };
 }

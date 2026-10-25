@@ -93,8 +93,11 @@ function groundColor(x, y, z, out) {
   return out;
 }
 
-/** Ground heightfield over the whole square; the part below the sea is hidden by the water. */
-export function createIsland() {
+/**
+ * Ground heightfield over the whole square; the part below the sea is hidden by the water.
+ * `ao(x, z)` (optional) returns 0..1 baked occlusion, used to darken the ground near buildings.
+ */
+export function createIsland({ ao = () => 1 } = {}) {
   const n = 44;
   const geometry = gridGeometry(n, n, (i, j) => {
     const x = -HALF + (2 * HALF * i) / n;
@@ -108,7 +111,7 @@ export function createIsland() {
     const x = position.getX(i);
     const z = position.getZ(i);
     groundColor(x, position.getY(i), z, c);
-    c.multiplyScalar(1 + 0.04 * Math.sin(x * 7.3 + z * 5.1)); // subtle mottling
+    c.multiplyScalar((1 + 0.04 * Math.sin(x * 7.3 + z * 5.1)) * ao(x, z)); // mottling and baked AO
     colors.set([c.r, c.g, c.b], i * 3);
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));

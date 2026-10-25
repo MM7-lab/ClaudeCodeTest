@@ -1,12 +1,15 @@
 import * as THREE from 'three';
-import { P, mergeParts, setShadows, vertexColorMaterial } from './util.js';
+import { P, mergeParts, setShadows, smoothstep, vertexColorMaterial } from './util.js';
 import { waveHeight } from './sea.js';
 
-// A Star Ferry style double-deck ferry shuttling up and down Victoria Harbour.
-const LOOP_CX = 3.62;
-const LOOP_RX = 0.32;
-const LOOP_RZ = 3.15;
-const LOOP_SPEED = 0.1; // rad/s, about 63 s per lap
+// A Star Ferry style double-ended ferry shuttling between two piers on Victoria Harbour:
+// dock, pause, depart, cross, dock again. Being double-ended, it never turns round; it just
+// sets off the other way.
+const BERTH_X = 3.5; // the ferry lies alongside the pier tips here
+const PIER_Z = 2.75; // the two piers are at z = -PIER_Z and +PIER_Z
+const DOCK_SECONDS = 6;
+const TRAVEL_SECONDS = 14;
+const CYCLE = 2 * (DOCK_SECONDS + TRAVEL_SECONDS);
 const HALF_LENGTH = 0.78;
 const HALF_WIDTH = 0.22;
 
@@ -14,53 +17,101 @@ const GREEN = '#1f7a4d';
 const WHITE = '#f3f3ee';
 const GLASS = '#25323f';
 
-/** Hull seen from above: flat stern, pointed bow (+Z). Extruded upwards by `height`. */
+/** Hull seen from above: pointed at both ends. Extruded upwards by `height`. */
 function hullGeometry(height) {
   const shape = new THREE.Shape();
-  shape.moveTo(-HALF_WIDTH, -HALF_LENGTH);
-  shape.lineTo(HALF_WIDTH, -HALF_LENGTH);
+  shape.moveTo(0, -HALF_LENGTH);
+  shape.lineTo(HALF_WIDTH + 0.01, -HALF_LENGTH * 0.45);
   shape.lineTo(HALF_WIDTH + 0.01, HALF_LENGTH * 0.45);
   shape.lineTo(0, HALF_LENGTH);
   shape.lineTo(-HALF_WIDTH - 0.01, HALF_LENGTH * 0.45);
+  shape.lineTo(-HALF_WIDTH - 0.01, -HALF_LENGTH * 0.45);
   shape.closePath();
   const g = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
-  // The shape lives in x/y with the extrusion along z: turn it so y becomes -z and z becomes up.
-  g.rotateX(-Math.PI / 2);
-  g.rotateY(Math.PI);
+  g.rotateX(-Math.PI / 2); // the extrusion becomes "up"
   return g;
 }
 
 function buildFerry() {
   const lowerH = 0.14;
-  const parts = [
-    P(hullGeometry(lowerH), GREEN, { pos: [0, -0.04, 0] }), // green hull
-    P(new THREE.BoxGeometry(HALF_WIDTH * 2 + 0.03, 0.025, HALF_LENGTH * 1.5), '#e8e2cc', { pos: [0, lowerH - 0.025, -0.12] }), // deck edge
-    // lower cabin: white with a ribbon of windows
-    P(new THREE.BoxGeometry(0.4, 0.13, 1.1), WHITE, { pos: [0, lowerH + 0.045, -0.12] }),
-    P(new THREE.BoxGeometry(0.408, 0.06, 1.0), GLASS, { pos: [0, lowerH + 0.06, -0.12] }),
-    // upper cabin, a little shorter, with a green roof
-    P(new THREE.BoxGeometry(0.34, 0.12, 0.85), WHITE, { pos: [0, lowerH + 0.17, -0.1] }),
-    P(new THREE.BoxGeometry(0.348, 0.055, 0.76), GLASS, { pos: [0, lowerH + 0.185, -0.1] }),
-    P(new THREE.BoxGeometry(0.38, 0.03, 0.92), GREEN, { pos: [0, lowerH + 0.245, -0.1] }),
-    // wheelhouse, funnel and mast
-    P(new THREE.BoxGeometry(0.2, 0.09, 0.26), WHITE, { pos: [0, lowerH + 0.31, 0.2] }),
-    P(new THREE.BoxGeometry(0.208, 0.04, 0.268), GLASS, { pos: [0, lowerH + 0.32, 0.2] }),
-    P(new THREE.CylinderGeometry(0.045, 0.055, 0.2, 8), '#f3f3ee', { pos: [0, lowerH + 0.37, -0.45] }),
-    P(new THREE.CylinderGeometry(0.047, 0.047, 0.05, 8), '#20252b', { pos: [0, lowerH + 0.495, -0.45] }),
-    P(new THREE.CylinderGeometry(0.01, 0.014, 0.28, 5), '#8d98a5', { pos: [0, lowerH + 0.5, 0.2] }),
-    // bow rail
-    P(new THREE.BoxGeometry(0.012, 0.05, 0.2), '#cfd6dd', { pos: [0, lowerH + 0.02, 0.56] }),
+  const body = [
+    P(hullGeometry(lowerH), GREEN, { pos: [0, -0.04, 0] }),
+    P(new THREE.BoxGeometry(HALF_WIDTH * 2 + 0.03, 0.025, HALF_LENGTH * 1.5), '#e8e2cc', { pos: [0, lowerH - 0.025, 0] }), // deck edge
+    P(new THREE.BoxGeometry(0.4, 0.13, 1.1), WHITE, { pos: [0, lowerH + 0.045, 0] }), // lower cabin
+    P(new THREE.BoxGeometry(0.34, 0.12, 0.85), WHITE, { pos: [0, lowerH + 0.17, 0] }), // upper cabin
+    P(new THREE.BoxGeometry(0.38, 0.03, 0.92), GREEN, { pos: [0, lowerH + 0.245, 0] }), // green roof
+    P(new THREE.CylinderGeometry(0.045, 0.055, 0.2, 8), WHITE, { pos: [0, lowerH + 0.37, 0] }), // funnel
+    P(new THREE.CylinderGeometry(0.047, 0.047, 0.05, 8), '#20252b', { pos: [0, lowerH + 0.495, 0] }),
+    P(new THREE.CylinderGeometry(0.01, 0.014, 0.22, 5), '#8d98a5', { pos: [0, lowerH + 0.5, 0.3] }),
+    P(new THREE.CylinderGeometry(0.01, 0.014, 0.22, 5), '#8d98a5', { pos: [0, lowerH + 0.5, -0.3] }),
   ];
+  const wheelhouses = [-0.33, 0.33].flatMap((z) => [
+    P(new THREE.BoxGeometry(0.2, 0.09, 0.2), WHITE, { pos: [0, lowerH + 0.31, z] }),
+  ]);
+  // Window ribbons are unlit, so they can glow at night.
+  const windows = [
+    P(new THREE.BoxGeometry(0.408, 0.06, 1.0), GLASS, { pos: [0, lowerH + 0.06, 0] }),
+    P(new THREE.BoxGeometry(0.348, 0.055, 0.76), GLASS, { pos: [0, lowerH + 0.185, 0] }),
+    ...[-0.33, 0.33].map((z) => P(new THREE.BoxGeometry(0.208, 0.04, 0.208), GLASS, { pos: [0, lowerH + 0.32, z] })),
+  ];
+
   const ferry = new THREE.Group();
-  ferry.add(new THREE.Mesh(mergeParts(parts), vertexColorMaterial));
+  ferry.add(new THREE.Mesh(mergeParts([...body, ...wheelhouses]), vertexColorMaterial));
+  const windowMaterial = new THREE.MeshBasicMaterial({ color: 0x25323f });
+  ferry.add(new THREE.Mesh(mergeParts(windows), windowMaterial));
   setShadows(ferry, true, false);
-  return ferry;
+  return { ferry, windowMaterial };
 }
 
-/** The ferry sails the harbour on a long narrow oval, rocking with the waves. */
+/** Two thin white trails diverging behind the stern (local -z) plus a centre trail. */
+function buildWake() {
+  const y = 0.03;
+  const quad = (x0, z0, x1, z1, w) => [
+    x0 - w, y, z0, x0 + w, y, z0, x1 + w, y, z1,
+    x0 - w, y, z0, x1 + w, y, z1, x1 - w, y, z1,
+  ];
+  const back = -HALF_LENGTH * 0.9;
+  const positions = [
+    ...quad(0, back, 0, back - 1.1, 0.07),
+    ...quad(0.12, back, 0.55, back - 1.0, 0.03),
+    ...quad(-0.12, back, -0.55, back - 1.0, 0.03),
+  ];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  return new THREE.Mesh(g, material);
+}
+
+/** A small pier: deck, posts, a shed and a gangway towards the berth. */
+function buildPier(z) {
+  const x0 = 2.5;
+  const x1 = 3.12;
+  const cx = (x0 + x1) / 2;
+  const deckY = 0.13;
+  const parts = [
+    P(new THREE.BoxGeometry(x1 - x0, 0.05, 0.3), '#8a8f96', { pos: [cx, deckY, z] }),
+    P(new THREE.BoxGeometry(0.3, 0.17, 0.26), '#f1ece0', { pos: [x0 + 0.17, deckY + 0.11, z] }), // shed
+    P(new THREE.BoxGeometry(0.34, 0.03, 0.3), '#1f7a4d', { pos: [x0 + 0.17, deckY + 0.205, z] }), // green roof
+    P(new THREE.BoxGeometry(0.2, 0.025, 0.14), '#6b7480', { pos: [x1 + 0.1, deckY - 0.01, z] }), // gangway
+  ];
+  for (const px of [x0 + 0.2, x1 - 0.05]) {
+    for (const pz of [-0.12, 0.12]) parts.push(P(new THREE.CylinderGeometry(0.02, 0.02, 0.45, 5), '#59616b', { pos: [px, deckY - 0.2, z + pz] }));
+  }
+  return new THREE.Mesh(mergeParts(parts), vertexColorMaterial);
+}
+
+const _c = new THREE.Color();
+const WARM = new THREE.Color('#ffcf6e');
+
+/** Ferry plus its two piers. Timeline: dock, depart, cross, dock, depart back, ... */
 export function createFerry() {
-  const ferry = buildFerry();
+  const group = new THREE.Group();
+  const { ferry, windowMaterial } = buildFerry();
   ferry.rotation.order = 'YXZ';
+  const wake = buildWake();
+  ferry.add(wake);
+  group.add(buildPier(-PIER_Z), buildPier(PIER_Z), ferry);
+  setShadows(group, true, true);
   const sample = new THREE.Vector3();
 
   function heightAtLocal(heading, lx, lz, x, z, t) {
@@ -72,13 +123,21 @@ export function createFerry() {
   }
 
   return {
-    object: ferry,
-    update(t) {
-      const a = t * LOOP_SPEED + 1.2;
-      const x = LOOP_CX + LOOP_RX * Math.cos(a);
-      const z = LOOP_RZ * Math.sin(a);
-      // Moving with increasing a: velocity is (-RX sin a, RZ cos a); the ferry faces +Z.
-      const heading = Math.atan2(-LOOP_RX * Math.sin(a), LOOP_RZ * Math.cos(a));
+    object: group,
+    /** The ferry itself (for tests and for the camera look-at). */
+    ferry,
+    update(t, dt, env) {
+      // Where are we in the cycle? Two legs, each preceded by a pause at the pier.
+      const p = ((t + 3) % CYCLE + CYCLE) % CYCLE;
+      const leg = Math.floor(p / (DOCK_SECONDS + TRAVEL_SECONDS)); // 0: north -> south, 1: back
+      const q = p - leg * (DOCK_SECONDS + TRAVEL_SECONDS);
+      const dir = leg === 0 ? 1 : -1; // +z first
+      const u = Math.min(1, Math.max(0, (q - DOCK_SECONDS) / TRAVEL_SECONDS));
+      const eased = smoothstep(0, 1, u);
+      const z = dir * (-PIER_Z + 2 * PIER_Z * eased);
+      const speed = Math.min(1, ((2 * PIER_Z * 6 * u * (1 - u)) / TRAVEL_SECONDS) / 0.55);
+      const x = BERTH_X + 0.03 * Math.sin(t * 0.3) * speed;
+      const heading = dir > 0 ? 0 : Math.PI;
 
       const hBow = heightAtLocal(heading, 0, HALF_LENGTH, x, z, t);
       const hStern = heightAtLocal(heading, 0, -HALF_LENGTH, x, z, t);
@@ -91,6 +150,11 @@ export function createFerry() {
       // A big ferry rolls less than a sailboat: keep the rocking gentle.
       ferry.rotation.x = -Math.atan2(hBow - hStern, HALF_LENGTH * 2) * 1.2;
       ferry.rotation.z = Math.atan2(hLeft - hRight, HALF_WIDTH * 2) * 1.2;
+
+      wake.material.opacity = 0.55 * speed;
+      // Windows reflect the sky by day and glow at night.
+      _c.copy(env.skyColor).multiplyScalar(0.4).lerp(WARM, Math.pow(env.night, 0.7));
+      windowMaterial.color.copy(_c);
     },
   };
 }

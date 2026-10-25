@@ -84,11 +84,13 @@ export function mergeParts(parts) {
     if (!g.getAttribute('normal')) g.computeVertexNormals();
     const c = new THREE.Color(color);
     const count = g.getAttribute('position').count;
+    const shade = g.getAttribute('color'); // optional per-vertex shading set by bottomShade()
     const colors = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
+      const k = shade ? shade.getX(i) : 1;
+      colors[i * 3] = c.r * k;
+      colors[i * 3 + 1] = c.g * k;
+      colors[i * 3 + 2] = c.b * k;
     }
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     return g;
@@ -152,4 +154,19 @@ export function makeLoop(fn, samples = 400) {
       return out;
     },
   };
+}
+
+/**
+ * Baked ambient occlusion for a box-like piece: vertices near the bottom get darker, as if the
+ * ground shadowed the lowest floors. Call before handing the geometry to mergeParts.
+ */
+export function bottomShade(geometry, yBottom, yTop, minFactor = 0.72, reach = 0.5) {
+  const pos = geometry.getAttribute('position');
+  const shade = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const k = THREE.MathUtils.lerp(minFactor, 1, smoothstep(yBottom, Math.min(yTop, yBottom + reach), pos.getY(i)));
+    shade.set([k, k, k], i * 3);
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(shade, 3));
+  return geometry;
 }
