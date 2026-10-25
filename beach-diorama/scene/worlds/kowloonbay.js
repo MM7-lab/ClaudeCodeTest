@@ -500,7 +500,9 @@ export function createKowloonBay() {
     },
   };
 
-  const solid = [ground.object, base.object, sea.object, staticParts, traffic.object];
+  // Trains are clipped at the map edge, but the raycaster ignores clipping, so vehicles are not
+  // solid: they run on the ground, which is.
+  const solid = [ground.object, base.object, sea.object, staticParts];
   for (const o of solid) markSolid(o);
 
   return {

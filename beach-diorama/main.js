@@ -121,6 +121,19 @@ function setIgnore(ignore) {
   else win.setIgnoreMouseEvents(false);
 }
 
+/**
+ * A freshly loaded page (first load, or a reload after switching map) starts out believing the
+ * window ignores the mouse and only reports changes, so main must put the window back into that
+ * state; otherwise a window left capturing the mouse would block the desktop until the cursor
+ * happened to cross the diorama.
+ */
+function resetIgnoreAfterLoad() {
+  ignoring = null; // forget the cached state so setIgnore really applies
+  cursorWasInside = false;
+  if (moveMode) setIgnore(false);
+  else if (clickThrough !== 'off') setIgnore(true);
+}
+
 function startCursorPolling() {
   pollTimer = setInterval(() => {
     if (!win || win.isDestroyed() || !win.isVisible() || moveMode) return;
@@ -247,6 +260,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 
+  win.webContents.on('did-finish-load', resetIgnoreAfterLoad);
   win.once('ready-to-show', () => win.showInactive());
   win.on('closed', () => {
     win = null;
@@ -292,7 +306,7 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-removed', reposition);
     screen.on('display-metrics-changed', reposition);
 
-    if (DEBUG) global.__dioramaDebug = { buildMenu, setMoveMode, getWin: () => win, getSettings: () => settings, clickThrough, isIgnoring: () => ignoring };
+    if (DEBUG) global.__dioramaDebug = { buildMenu, setMoveMode, getWin: () => win, getSettings: () => settings, clickThrough, isIgnoring: () => ignoring, setIgnore };
   });
 
   app.on('window-all-closed', () => app.quit());

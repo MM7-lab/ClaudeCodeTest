@@ -2,14 +2,16 @@
 //
 // SOURCE AND ACCURACY: traced by eye from one Google Maps screenshot (dark theme, Chinese
 // labels) given by the project owner; the screenshot itself is not included. Roads, parks,
-// the coast and the named buildings are placed where they appear on that screenshot, within
-// a few percent. Building storeys are ESTIMATES. To replace this with surveyed data, run
-// tools/osm-to-map.mjs on an OpenStreetMap (Overpass) export of the same area.
+// the coast and the named buildings are placed where they appear on that screenshot, as best
+// as could be judged by eye: the error was NOT measured. Building storeys are ESTIMATES, and
+// so is the scale. To replace this with better data, run tools/osm-to-map.mjs on an
+// OpenStreetMap (Overpass) export of the same area. Because it derives from a Google Maps
+// screenshot, use the OSM route before publishing this data widely.
 //
 // All coordinates are pixels of a 923 x 923 reference square (x to the right, y down; the
 // top-left corner is the north-west corner of the map). `size` is its side in pixels and
-// `metresPerPixel` converts to real distances (about 1.5 m per pixel, so the square is
-// roughly 1.4 km across).
+// `metresPerPixel` converts to real distances (an ESTIMATE of about 1.5 m per pixel, so the
+// square is very roughly 1.4 km across).
 
 export default {
   id: 'kowloon-bay',
