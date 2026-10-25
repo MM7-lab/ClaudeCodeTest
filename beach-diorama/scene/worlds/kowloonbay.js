@@ -8,7 +8,7 @@ import { glowTexture } from '../textures.js';
 import { busGeometry, lightsGeometry, taxiGeometry } from '../traffic.js';
 import { bench, buildingDetails, busStop, createDetailLayer, crosswalk, lampPost, post, trafficLight } from '../details.js';
 import { createCoastFoam, createRealSea } from '../real/water.js';
-import { facadeBox, makeFacadeTextures } from '../real/facade.js';
+import { facadeBox, facadeRound, makeFacadeTextures } from '../real/facade.js';
 import { distToPolyline, inPolygon, pointAlong, polylineLength, signedDistance, smoothClosed } from '../real/geo.js';
 import data from '../real/kowloonbay.data.js';
 
@@ -48,6 +48,27 @@ function groundHeight(x, z) {
 }
 
 const PALETTE = ['#cfc9bd', '#bdb7aa', '#aab7c2', '#d1bfa8', '#b4bcc4', '#a3a8b0', '#d6cbb6', '#9fb8cf', '#b5c8b9'];
+
+// Looks taken from photos of the area: dark mirror-glass and teal/blue curtain-wall towers, beige and
+// brown office blocks with ribbon windows (some with curved corners), cream and pink housing slabs.
+const GLASS_TINTS = ['#5a7aa8', '#2c3a50', '#4aa3a8', '#6aa6d8', '#6fb0a0', '#4a78b0', '#3d5a78'];
+const BAND_TINTS = ['#cdb48f', '#b09379', '#c9c9c4', '#e4e0d6', '#a9a5a0', '#c2a47f'];
+const HOUSE_TINTS = ['#ecd3c2', '#e0bfae', '#efe7d6', '#d9c0b5', '#e8dcc8'];
+const pick = (list, r) => list[Math.floor(r() * list.length)];
+const zoneAt = (x, z) => zones.find((q) => inPolygon(x, z, q.poly))?.name ?? '';
+
+/** Decide the facade style and colour of a building. Uses its own generator: the layout never changes. */
+function styleFor(b, r) {
+  const name = b.landmark?.name ?? '';
+  if (/MegaBox/.test(name)) return { style: 'megabox' };
+  if (/兒童醫院|MTR|Depot|淘大/.test(name)) return { style: 'band', color: '#e6e2d8' };
+  if (/君立|歷山/.test(name)) return { style: 'glass', color: pick(GLASS_TINTS, r) };
+  const zone = zoneAt(b.x, b.z);
+  if (b.storeys >= 24 || (zone === 'commercial centre' && b.storeys >= 18 && r() < 0.8)) return { style: 'glass', color: pick(GLASS_TINTS, r) };
+  if (zone === 'housing near Camlux') return { style: 'grid', color: pick(HOUSE_TINTS, r) };
+  if (b.storeys <= 12) return { style: 'band', color: pick(BAND_TINTS, r), round: b.w > 0.14 && b.d > 0.14 && r() < 0.18 };
+  return r() < 0.5 ? { style: 'band', color: pick(BAND_TINTS, r) } : { style: 'grid', color: pick(HOUSE_TINTS, r) };
+}
 
 // ---- buildings --------------------------------------------------------------------------------
 
@@ -155,8 +176,10 @@ function generateBuildings(rng) {
 }
 
 function buildingGeometries(buildings, rng) {
-  const geos = [];
+  const groups = { grid: [], glass: [], band: [] };
   const footprints = [];
+  const signs = []; // { x, y, z, rotY, w, h }
+  const srng = mulberry32(555);
   let clock = null;
   for (const b of buildings) {
     const y0 = LAND_Y - 0.01;
@@ -164,20 +187,43 @@ function buildingGeometries(buildings, rng) {
     const offsetU = rng();
     footprints.push({ x: b.x, z: b.z, hw: b.w / 2 + 0.03, hd: b.d / 2 + 0.03 });
     let roofY = y0 + h;
-    if (b.storeys >= 18 && !b.landmark && rng() < 0.55) {
+    const look = styleFor(b, srng);
+    b.color = look.color ?? b.color;
+    b.upper = look.style === 'glass' ? 'none' : look.style === 'band' ? 'ac' : 'all';
+    if (look.style === 'megabox') {
+      // MegaBox: a rounded red-orange podium with a tall glass tower rising behind it
+      const podiumH = 13 * STOREY;
+      groups.band.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h: podiumH, y0, color: '#d9472b', offsetU }));
+      groups.band.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.94, d: b.d * 0.94, h: 0.02, y0: y0 + podiumH, color: '#c9cdd2', plain: true }));
+      const tx = b.x - b.w * 0.2;
+      const tz = b.z - b.d * 0.2;
+      groups.glass.push(facadeBox({ x: tx, z: tz, w: b.w * 0.62, d: b.d * 0.62, h, y0, color: '#6fa8ae', offsetU }));
+      groups.glass.push(facadeBox({ x: tx + b.w * 0.4, z: tz + b.d * 0.05, w: b.w * 0.34, d: b.d * 0.5, h: h * 0.74, y0, color: '#3d5a78', offsetU }));
+      signs.push({ x: b.x, y: y0 + podiumH * 0.78, z: b.z + b.d / 2 + 0.004, rotY: 0, w: b.w * 0.4, h: podiumH * 0.26 });
+      signs.push({ x: b.x + b.w / 2 + 0.004, y: y0 + podiumH * 0.78, z: b.z, rotY: Math.PI / 2, w: b.d * 0.4, h: podiumH * 0.26 });
+      b.noDetail = true;
+      b.podium = podiumH;
+      if (b.landmark?.clock) clock = { x: tx, z: tz, y: roofY };
+      continue;
+    }
+    const target = groups[look.style];
+    if (look.round) {
+      target.push(facadeRound({ x: b.x, z: b.z, w: b.w, d: b.d, h, y0, color: b.color, offsetU }));
+      b.noDetail = true;
+    } else if (b.storeys >= 18 && !b.landmark && rng() < 0.55) {
       // podium-style setback: full footprint to 65%, a narrower shaft above
       const h1 = h * 0.65;
       b.podium = h1; // street-level details only go on the wide lower part
-      geos.push(facadeBox({ x: b.x, z: b.z, w: b.w, d: b.d, h: h1, y0, color: b.color, offsetU, rot: b.rot }));
-      geos.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.8, d: b.d * 0.8, h: h - h1, y0: y0 + h1, color: b.color, offsetU, rot: b.rot }));
+      target.push(facadeBox({ x: b.x, z: b.z, w: b.w, d: b.d, h: h1, y0, color: b.color, offsetU, rot: b.rot }));
+      target.push(facadeBox({ x: b.x, z: b.z, w: b.w * 0.8, d: b.d * 0.8, h: h - h1, y0: y0 + h1, color: b.color, offsetU, rot: b.rot }));
     } else {
-      geos.push(facadeBox({ x: b.x, z: b.z, w: b.w, d: b.d, h, y0, color: b.color, offsetU, rot: b.rot }));
+      target.push(facadeBox({ x: b.x, z: b.z, w: b.w, d: b.d, h, y0, color: b.color, offsetU, rot: b.rot }));
     }
     // roof plant: a couple of small plain boxes
     const plants = b.storeys > 3 ? 1 + Math.floor(rng() * 2) : 0;
     for (let k = 0; k < plants; k++) {
       const pw = Math.min(0.08, b.w * 0.3);
-      geos.push(
+      groups.band.push(
         facadeBox({
           x: b.x + (rng() - 0.5) * b.w * 0.5,
           z: b.z + (rng() - 0.5) * b.d * 0.5,
@@ -192,7 +238,7 @@ function buildingGeometries(buildings, rng) {
     }
     if (b.landmark?.clock) clock = { x: b.x, z: b.z, y: roofY };
   }
-  return { geos, footprints, clock };
+  return { groups, footprints, clock, signs };
 }
 
 // ---- roads, rail, trees -----------------------------------------------------------------------
@@ -399,7 +445,7 @@ function createTraffic() {
 export function createKowloonBay() {
   const rng = mulberry32(1997);
   const buildings = generateBuildings(rng);
-  const { geos, footprints, clock } = buildingGeometries(buildings, rng);
+  const { groups, footprints, clock, signs } = buildingGeometries(buildings, rng);
 
   // baked occlusion on the ground around buildings
   const ao = (x, z) => {
@@ -444,18 +490,58 @@ export function createKowloonBay() {
   const sea = createRealSea((x, z) => -landDistance(x, z)); // positive over water
   const foam = createCoastFoam(water);
 
-  const textures = makeFacadeTextures();
-  const buildingMaterial = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    map: textures.map,
-    emissiveMap: textures.emissive,
-    emissive: 0xffffff,
-    emissiveIntensity: 0,
-    roughness: 0.45,
-    metalness: 0.15,
-  });
-  const buildingMesh = new THREE.Mesh(mergeGeometries(geos, false), buildingMaterial);
-  setShadows(buildingMesh, true, true);
+  const facadeMaterials = {
+    grid: { roughness: 0.45, metalness: 0.15 },
+    glass: { roughness: 0.18, metalness: 0.3 }, // mirror-like curtain wall
+    band: { roughness: 0.5, metalness: 0.1 },
+  };
+  const buildingMaterials = [];
+  const buildingMeshes = [];
+  for (const [kind, geos] of Object.entries(groups)) {
+    if (!geos.length) continue;
+    const textures = makeFacadeTextures(kind);
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      map: textures.map,
+      emissiveMap: textures.emissive,
+      emissive: 0xffffff,
+      emissiveIntensity: 0,
+      ...facadeMaterials[kind],
+    });
+    buildingMaterials.push(material);
+    const mesh = new THREE.Mesh(mergeGeometries(geos, false), material);
+    setShadows(mesh, true, true);
+    buildingMeshes.push(mesh);
+  }
+  const buildingMesh = new THREE.Group();
+  buildingMesh.add(...buildingMeshes);
+  // the "megaBOX" lettering on the red podium
+  const signTexture = (() => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#d9472b';
+    ctx.fillRect(0, 0, 256, 96);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 64px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('megaBOX', 128, 50);
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  if (signTexture) {
+    const signMaterial = new THREE.MeshBasicMaterial({ map: signTexture });
+    for (const sg of signs) {
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(sg.w, sg.h), signMaterial);
+      plane.position.set(sg.x, sg.y, sg.z);
+      plane.rotation.y = sg.rotY;
+      buildingMesh.add(plane);
+    }
+  }
 
   const roadMesh = new THREE.Mesh(
     mergeParts([...roadParts(), ...railParts()]),
@@ -501,6 +587,7 @@ export function createKowloonBay() {
   const detail = createDetailLayer({ material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.1 }), cell: 2.0 });
   const drng = mulberry32(3131); // own generator, so the layout above never changes
   for (const b of buildings) {
+    if (b.noDetail) continue;
     const { lit, glow } = buildingDetails({
       w: b.w,
       d: b.d,
@@ -510,6 +597,7 @@ export function createKowloonBay() {
       size: STOREY * 1.7, // exaggerated, like the building heights
       rng: drng,
       roof: !b.podium,
+      upper: b.upper,
     });
     detail.local(b.x, b.z, b.rot ?? 0, lit, glow);
   }
@@ -583,7 +671,7 @@ export function createKowloonBay() {
     object: new THREE.Group(),
     update(t, dt, env) {
       detail.update(env);
-      buildingMaterial.emissiveIntensity = 0.95 * env.night; // lit windows
+      for (const m of buildingMaterials) m.emissiveIntensity = 0.95 * env.night; // lit windows
       glowMaterial.opacity = 0.9 * env.night;
       glow.visible = env.night > 0.01;
       board.update(env, camera.position);

@@ -89,7 +89,7 @@ const WARM = ['#ffd890', '#ffe8b0', '#cfe6ff'];
  *   size: scale of the small features (defaults to floorH; larger makes them readable on tiny maps);
  *   skin: how far the existing windows already stand proud of the walls.
  */
-export function buildingDetails({ w, d, h, y0, floorH, size = floorH, skin = 0, rng, shops = true, roof = true }) {
+export function buildingDetails({ w, d, h, y0, floorH, size = floorH, skin = 0, rng, shops = true, roof = true, upper = 'all' }) {
   const sz = size; // how big the little things are; floorH only spaces the storeys
   const lit = [];
   const glow = [];
@@ -124,14 +124,14 @@ export function buildingDetails({ w, d, h, y0, floorH, size = floorH, skin = 0, 
   }
 
   // air-conditioners and balconies on the upper floors
-  const units = Math.min(12, Math.round(storeys * 0.5));
+  const units = upper === 'none' ? 0 : Math.min(12, Math.round(storeys * 0.5));
   for (let k = 0; k < units; k++) {
     const f = faces[Math.floor(rng() * 4)];
     const floor = 1 + Math.floor(rng() * Math.max(1, storeys - 1));
     const u = (rng() - 0.5) * f.width * 0.8;
     onFace(f, u, y0 + (floor + 0.4) * floorH, sz * 0.34, sz * 0.24, sz * 0.22, '#c9ced3', lit, 0.003);
   }
-  if (storeys >= 4) {
+  if (storeys >= 4 && upper === 'all') {
     const f = faces[Math.floor(rng() * 4)];
     if (f.width > sz * 2) {
       const start = 1 + Math.floor(rng() * 2);
