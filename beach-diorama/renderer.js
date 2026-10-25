@@ -1,23 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { HIT_LAYER, markSolid } from './scene/util.js';
-import { createBase, createIsland } from './scene/island.js';
-import { createFoam, createSea } from './scene/sea.js';
-import { createFerry } from './scene/ferry.js';
-import { createCity } from './scene/city.js';
-import { createTraffic } from './scene/traffic.js';
-import { createHarbourLights } from './scene/harbourlights.js';
+import { HIT_LAYER } from './scene/util.js';
 import { MODES, createLighting } from './scene/lighting.js';
+import { createMiniHK } from './scene/worlds/minihk.js';
 
 const api = window.diorama;
 
-const FPS = 30;
+// The desktop window is capped at 30 fps; the web preview (see web/shim.js) may ask for more.
+const FPS = window.diorama.fps ?? 30;
 const FRAME_MS = 1000 / FPS;
 const FOV = 32;
 // Sphere around TARGET that contains the whole diorama and the tallest tower.
 // Keeping the camera at least this far away (for any rotation) keeps the island fully in view.
 const TARGET = new THREE.Vector3(0, 0.4, 0);
-const BOUNDING_RADIUS = 7.0;
 const DEFAULT_VIEW = { azimuth: 0.65, polar: 1.0, zoom: 1.04 }; // zoom is relative to the fit distance
 const MAX_ZOOM_OUT = 1.7;
 
@@ -47,7 +42,7 @@ controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, R
 function fitDistance() {
   const v = THREE.MathUtils.degToRad(FOV) / 2;
   const h = Math.atan(Math.tan(v) * camera.aspect);
-  return BOUNDING_RADIUS / Math.sin(Math.min(v, h));
+  return world.boundingRadius / Math.sin(Math.min(v, h));
 }
 
 function updateZoomLimits() {
@@ -63,8 +58,9 @@ function setView(azimuth, polar, distance) {
 }
 
 function resize() {
-  const w = Math.max(1, window.innerWidth);
-  const h = Math.max(1, window.innerHeight);
+  // The canvas fills the Electron window, or a square on the web page: size to the canvas.
+  const w = Math.max(1, canvas.clientWidth);
+  const h = Math.max(1, canvas.clientHeight);
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(w, h, false);
@@ -75,27 +71,23 @@ function resize() {
 
 // ---- the diorama ------------------------------------------------------------------------------
 
+const state = (await api.getState()) ?? { mode: 'day', moveMode: false, map: 'hk-mini' };
+
 const lighting = createLighting(scene);
-const city = createCity();
-const island = createIsland({ ao: city.ao });
-const base = createBase();
-const sea = createSea();
-const foam = createFoam();
-const ferry = createFerry();
-const traffic = createTraffic();
-const harbourLights = createHarbourLights();
+// The second map (a realistic Kowloon Bay) is loaded only when it is chosen.
+const world =
+  state.map === 'kowloon-bay'
+    ? (await import('./scene/worlds/kowloonbay.js')).createKowloonBay()
+    : createMiniHK();
+world.configure({ renderer, scene, lighting });
+const animated = world.parts;
+for (const part of world.parts) scene.add(part.object);
+for (const extra of world.extras) scene.add(extra);
+world.setCamera(camera);
 
-const animated = [sea, foam, city, traffic, ferry, harbourLights];
-for (const part of [island, base, sea, foam, city, traffic, ferry, harbourLights]) scene.add(part.object);
-scene.add(city.glow); // lamp glows are not solid: clicks pass through them
-
-// Everything counts as "the diorama" for click-through hit testing.
-for (const part of [island, base, sea, city, traffic, ferry]) markSolid(part.object);
-
-city.setCamera(camera);
 resize();
 setView(DEFAULT_VIEW.azimuth, DEFAULT_VIEW.polar, fitDistance() * DEFAULT_VIEW.zoom);
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(canvas);
 
 // ---- reset view (animated) --------------------------------------------------------------------
 
@@ -232,7 +224,7 @@ let nextDue = 0;
 function renderFrame(dt) {
   simTime += dt;
   const env = lighting.update(dt);
-  for (const part of animated) part.update(simTime, dt, env);
+  for (const part of animated) part.update?.(simTime, dt, env);
   stepResetAnim(dt);
   controls.update();
   // Keep the haze relative to the camera, so zooming does not fog the whole diorama.
@@ -255,7 +247,6 @@ function frame(now) {
   renderFrame(dt);
 }
 
-const state = (await api.getState()) ?? { mode: 'day', moveMode: false };
 moveMode = state.moveMode;
 document.body.classList.toggle('move-mode', moveMode);
 
@@ -270,5 +261,5 @@ requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
-  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, parts: { sea, foam, city, traffic, ferry, harbourLights } };
+  window.__diorama = { THREE, scene, camera, controls, renderer, lighting, isOverDiorama, resetView, fitDistance, world, parts: world.debug };
 }

@@ -111,6 +111,7 @@ export function createLighting(scene) {
   return {
     env,
     fog,
+    sun,
     get mode() {
       return mode;
     },

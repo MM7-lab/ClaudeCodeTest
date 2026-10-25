@@ -1,6 +1,8 @@
 # 迷你香港桌面擺設（Beach Diorama）
 
-一個浮喺 Windows 桌面最上層嘅 3D low-poly 卡通迷你香港。地圖係**方形**，**陸地佔 8、維多利亞港佔 2**：右邊係一條窄身維港，有綠白色雙層**天星小輪**來回航行；其餘係海旁城市，有密集高樓天際線、後面嘅山脊、街道、霓虹招牌、海濱摩天輪，最高嗰座大廈天台有一塊**大型 LED 數字鐘**（顯示電腦本地時間），仲有**雙層電車（叮叮）同紅色的士**沿環形馬路行駛（電車同的士共用外圈路，電車有路軌）。夜晚大廈窗戶會亮燈。地圖冇牆，四邊係剖面（泥土層同水層），唔會擋住後面嘅大廈；畫面冇太陽、月亮或星星。全部用 Three.js 即時生成，冇用任何外部模型檔，冇人物，亦冇動物。用 Electron 包住，視窗約 300×300 px，背景透明，透明位置嘅點擊會穿透去底下嘅程式。
+一個浮喺 Windows 桌面最上層嘅 3D low-poly 卡通迷你香港。地圖係**方形**，**陸地佔 8、維多利亞港佔 2**：右邊係一條窄身維港，有綠白色雙層**天星小輪**來回航行；其餘係海旁城市，有密集高樓天際線、後面嘅山脊、街道、霓虹招牌、海濱摩天輪，最高嗰座大廈天台有一塊**大型 LED 數字鐘**（顯示電腦本地時間），仲有**雙層電車（叮叮）同紅色的士**沿環形馬路行駛（電車同的士共用外圈路，電車有路軌）。夜晚大廈窗戶、街燈同車燈會亮，海面有燈光倒影。地圖冇牆，四邊係剖面（泥土層同水層），唔會擋住後面嘅大廈；畫面冇太陽、月亮或星星。全部用 Three.js 即時生成，冇用任何外部模型檔，冇人物，亦冇動物。用 Electron 包住，視窗約 300×300 px，背景透明，透明位置嘅點擊會穿透去底下嘅程式。
+
+另外有**第二個地圖：九龍灣（寫實版）**，用寫實材質（窗戶玻璃、環境反光、電影式色調映射）同按真實街道佈局重現嘅街區，詳見下面「九龍灣（寫實版）」。右鍵選單可以切換兩個地圖。
 
 ## 需要咩
 
@@ -42,21 +44,23 @@ npm start
 | 日間 (Day) | 預設。藍天色調、暖色陽光 |
 | 日落 (Sunset) | 橙粉紅光線、低角度長影、玻璃反映粉橙天空、金黃至粉紫嘅海水 |
 | 夜晚 (Night) | 深藍光線，大廈窗戶同招牌亮燈 |
+| 地圖：迷你香港 (卡通) / 地圖：九龍灣 (寫實) | 切換地圖（會重新載入畫面，約幾秒）。**會記住** |
 | 移動位置 (Move position) | 視窗頂部出現一個**拖曳控點**（同埋白色外框），按住控點就可以搬視窗。移動期間成個視窗會接收滑鼠（唔穿透），搬好再揀「鎖定位置」 |
 | 鎖定位置 (Lock position) | 移動模式中先出現（取代「移動位置」）。收起控點、恢復穿透，並**記住位置** |
 | 重設視角 (Reset view) | 鏡頭角度同縮放回到預設（有短短動畫） |
 | 結束 (Quit) | 閂 app |
 
 - 三個光線模式之間會用約 **2 秒**平滑過渡。
-- **上次揀嘅光線模式**同**視窗位置**會記住，下次開機自動還原。
+- **上次揀嘅光線模式**、**地圖**同**視窗位置**會記住，下次開機自動還原。
 - 如果記住嘅位置喺已拔走嘅螢幕外面，會自動跳返去右下角預設位置。
 
-設定檔喺 Electron 嘅 userData 資料夾，Windows 通常係 `%APPDATA%\beach-diorama\settings.json`（內容好簡單：`{ "mode": "day", "position": { "x": …, "y": … } }`）。刪咗佢就會還原預設。
+設定檔喺 Electron 嘅 userData 資料夾，Windows 通常係 `%APPDATA%\beach-diorama\settings.json`（內容好簡單：`{ "mode": "day", "map": "hk-mini", "position": { "x": …, "y": … } }`）。刪咗佢就會還原預設。
 
 ## 效能
 
 - 渲染上限約 **30 fps**，像素比最多 2（`Math.min(devicePixelRatio, 2)`）。
-- 全場約 40 個 mesh、約 15,000 個三角形，幾何同物料盡量共用；頁面被判定為隱藏（`document.hidden`）時會暫停渲染。
+- 迷你香港：約 77 個 mesh、約 18,000 個三角形（每幀約 94 次 draw call）。九龍灣：約 240 幢樓合併成一個 mesh，約 9 萬個三角形，只有約 50 次 draw call，但三角形多同材質重，**對 GPU 要求高啲**（陰影貼圖已降到 1024）。頁面被判定為隱藏（`document.hidden`）時會暫停渲染。
+- 我喺冇真 GPU 嘅 Linux container 量過：迷你香港每幀 JS 約 0.6 ms；九龍灣約 2.2 ms。**Windows 上嘅實際 CPU／GPU 用量我冇量過**，請自己量。如果九龍灣版嘅 GPU 偏高，可以將 `renderer.js` 嘅 `FPS` 降低。
 - 想睇 CPU：開工作管理員 →「詳細資料」→ 搵 `electron.exe`（會有幾個程序：主程序、renderer、GPU），加返「GPU」欄一齊睇。主要成本喺 GPU 程序，真 GPU 上應該好輕；如果見到 GPU 程序 CPU 好高，多數係 Chromium 退回咗軟件渲染（例如 GPU 驅動黑名單）。
 
 ## 疑難排解
@@ -99,14 +103,49 @@ scene/
   city.js         大樓、窗戶、山脊樹林、招牌、摩天輪、天台大鐘
   traffic.js      道路、電車路軌、雙層電車、紅的士
   ferry.js        天星小輪
-  lighting.js     日間／日落／夜晚光線 + 2 秒過渡
-tools/csp-hash.js 改咗 import map 之後用嚟重新計 CSP hash
+  lighting.js     日間／日落／夜晚光線 + 2 秒過渡 + 距離霧氣
+  harbourlights.js 夜晚海面燈光倒影
+  textures.js     光暈、燈光條紋嘅小貼圖
+  clockboard.js   天台大型 LED 數字鐘（兩個地圖共用）
+  worlds/minihk.js    迷你香港（卡通）
+  worlds/kowloonbay.js 九龍灣（寫實）
+  real/           九龍灣用嘅資料、立面貼圖、水面、幾何工具
+tools/
+  csp-hash.js     改咗 import map 之後用嚟重新計 CSP hash
+  osm-to-map.mjs  將 OpenStreetMap 匯出檔轉成九龍灣版嘅地圖資料（見下面）
+  sync-web.mjs    砌出獨立嘅網頁預覽資料夾（含 Three.js，唔靠 CDN）
+web/              網頁預覽用嘅頁面、shim 同按鈕（同桌面版共用 renderer.js）
 ```
 
 安全設定：`contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`，頁面有 Content-Security-Policy，唔准導航同開新視窗。
 
 **改 `index.html` 入面嘅 import map 之後**，要行 `node tools/csp-hash.js`，將輸出嘅 hash 貼返入 `<meta http-equiv="Content-Security-Policy">` 嘅 `script-src`，否則頁面會被 CSP 擋住而成片空白。
 
+## 九龍灣（寫實版）
+
+右鍵 →「地圖：九龍灣 (寫實)」。視窗範圍大約 1.4 公里見方：左下角係九龍灣海面同填海地，啟祥道、承啟道、偉業街、宏照道、常悅道、常怡道等主要道路，右邊係 MTR 路軌走廊同車廠，有公園、MegaBox（天台有大型數字鐘）、君立酒店、歷山文儀中心、香港兒童醫院、九龍灣站等地標。街上有紅的士，路軌上有 MTR 列車（行到地圖邊界會被切走）。
+
+**資料準確度（重要）**
+
+- 呢個版本係我**照一張 Google Maps 截圖用手描出嚟**嘅：道路、公園、海岸同地標位置大致準確（誤差大約幾個百分點）。**樓宇高度係估計**；一般樓宇嘅位置同大小係程式按街區自動填充，**唔係每幢真實樓宇**。截圖本身冇放入 repo。
+- 想用真實資料：喺有網絡嘅機器匯出 OpenStreetMap，再轉換：
+
+```
+node tools/osm-to-map.mjs --query 22.3215 114.2100 1400    # 印出 Overpass 查詢，貼去 https://overpass-turbo.eu 匯出 JSON
+node tools/osm-to-map.mjs overpass.json scene/real/kowloonbay.data.js 22.3215 114.2100 1400
+```
+
+  轉換後每幢樓用真實樓宇輪廓嘅方形外框（唔係完全貼合多邊形），層數取自 `building:levels`（冇就預設 8 層）。資料來源 © OpenStreetMap contributors（ODbL），公開發佈請保留署名。我嘅環境連唔到 OpenStreetMap，所以呢個工具只用模擬資料測試過，**未用真實匯出檔試過**。
+- 九龍灣版用 `renderer.toneMapping`、環境反光同 PBR 材質，同卡通版風格唔同，亦較食 GPU。
+
+## 網頁預覽
+
+```
+node tools/sync-web.mjs ./web-preview
+```
+
+會砌出一個獨立資料夾（頁面、共用嘅 `renderer.js` 同 `scene/`、內置嘅 Three.js），用任何靜態伺服器打開 `index.html` 就得，網址加 `#kowloon-bay` 或 `#hk-mini` 揀地圖。網頁版冇透明穿透、置頂同記住位置。
+
 ## 唔包括
 
-聲音、其他地點、按真實時間自動轉光線、開機自動啟動、打包成安裝檔。
+聲音、按真實時間自動轉光線、開機自動啟動、打包成安裝檔。

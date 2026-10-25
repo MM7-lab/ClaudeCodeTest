@@ -130,7 +130,7 @@ const WATER_BOTTOM = new THREE.Color('#1d628f');
  * No walls: the map is a cut-away block. Its four sides show layers of earth under the city
  * and a slab of water under the harbour, standing on a wooden base plate.
  */
-export function createBase() {
+export function createBase({ heightAt = islandHeight } = {}) {
   const group = new THREE.Group();
 
   // Perimeter, walked round once, sampled finely enough to follow the ground profile.
@@ -145,7 +145,7 @@ export function createBase() {
   const colors = new Float32Array(ring.length * 2 * 6);
   const c = new THREE.Color();
   ring.forEach(([x, z], i) => {
-    const ground = islandHeight(x, z);
+    const ground = heightAt(x, z);
     const top = Math.max(ground, 0); // water surface is y = 0
     const land = smoothstep(-0.02, 0.12, ground);
     positions.set([x, top, z, x, BLOCK_BOTTOM, z], i * 6);
@@ -174,6 +174,6 @@ export function createBase() {
   const plate = new THREE.Mesh(new THREE.BoxGeometry(2 * HALF + 0.8, 0.22, 2 * HALF + 0.8), lambert('#b97b4b'));
   plate.position.y = BLOCK_BOTTOM - 0.11;
   group.add(skirt, plate);
-  setShadows(group, false, true);
+  setShadows(group, false, false); // nothing here needs shadows, and flat faces at grazing angles would show acne
   return { object: group };
 }

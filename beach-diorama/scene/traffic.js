@@ -83,7 +83,7 @@ function tramGeometry() {
 }
 
 /** Red taxi: red body, silver roof, roof sign, four wheels. */
-function taxiGeometry() {
+export function taxiGeometry() {
   const wheel = new THREE.CylinderGeometry(0.036, 0.036, 0.03, 8);
   const parts = [
     P(new THREE.BoxGeometry(0.2, 0.075, 0.38), '#e0312c', { pos: [0, 0.07, 0] }),
@@ -99,7 +99,7 @@ function taxiGeometry() {
 }
 
 /** Head and tail lights for a vehicle of the given half width and half length (unlit, glow at night). */
-function lightsGeometry(halfWidth, halfLength, y, size) {
+export function lightsGeometry(halfWidth, halfLength, y, size) {
   const parts = [];
   for (const sx of [-1, 1]) {
     parts.push(P(new THREE.BoxGeometry(size, size, 0.012), '#fff3c4', { pos: [sx * halfWidth * 0.62, y, halfLength + 0.004] })); // headlights

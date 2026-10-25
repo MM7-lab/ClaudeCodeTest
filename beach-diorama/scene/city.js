@@ -4,6 +4,7 @@ import { P, bottomShade, lambert, mergeParts, mulberry32, setShadows, smoothstep
 import { HALF, RIDGE_X, SHORE_X, hillHeight, islandHeight } from './island.js';
 import { BLOCKS, LANDMARKS, OUTER_RING, WHEEL } from './layout.js';
 import { glowTexture } from './textures.js';
+import { createClockBoard } from './clockboard.js';
 
 // A small Hong Kong: towers on small plinths with ribbon windows between the roads, a forested
 // mountain ridge along the left wall, vertical shop signs, street lamps, an observation wheel on
@@ -253,70 +254,6 @@ function buildWheel() {
   return { group, spinner, cabins };
 }
 
-const SIGN_W = 1.7;
-const SIGN_H = 0.78;
-
-/** Canvas texture with the time as big amber LED digits; the colon blinks every second. */
-function makeClockTexture() {
-  if (typeof document === 'undefined') return null; // no canvas outside the browser
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = Math.round((512 * SIGN_H) / SIGN_W);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return {
-    texture,
-    draw(now) {
-      const ctx = canvas.getContext('2d');
-      const { width, height } = canvas;
-      ctx.fillStyle = '#120d06';
-      ctx.fillRect(0, 0, width, height);
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      const colon = now.getSeconds() % 2 === 0 ? ':' : ' ';
-      ctx.font = '700 168px "Courier New", Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#ff9a1f';
-      ctx.shadowBlur = 24;
-      ctx.fillStyle = '#ffb02e';
-      ctx.fillText(`${hh}${colon}${mm}`, width / 2, height / 2 + 6);
-      ctx.shadowBlur = 0;
-      texture.needsUpdate = true;
-    },
-  };
-}
-
-/**
- * A big digital clock on the roof of the tallest tower, showing the computer's local time.
- * The board turns to face the camera, so it can be read from any angle.
- */
-function buildRooftopClock() {
-  const lm = LANDMARKS.find((l) => l.kind === 'clock');
-  const roofY = islandHeight(lm.x, lm.z) - 0.02 + lm.h + 0.12;
-  const group = new THREE.Group();
-  group.position.set(lm.x, roofY, lm.z);
-
-  const frame = new THREE.Mesh(
-    mergeParts([
-      P(new THREE.BoxGeometry(SIGN_W + 0.1, SIGN_H + 0.1, 0.07), '#2a2f36', { pos: [0, 0.3 + SIGN_H / 2, -0.045] }),
-      P(new THREE.BoxGeometry(0.06, 0.3, 0.06), '#8d98a5', { pos: [-0.35, 0.15, -0.04] }),
-      P(new THREE.BoxGeometry(0.06, 0.3, 0.06), '#8d98a5', { pos: [0.35, 0.15, -0.04] }),
-    ]),
-    vertexColorMaterial,
-  );
-  const clock = makeClockTexture();
-  const material = new THREE.MeshBasicMaterial({ map: clock ? clock.texture : null, color: 0xffffff, toneMapped: false });
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(SIGN_W, SIGN_H), material);
-  board.position.y = 0.3 + SIGN_H / 2;
-  group.add(frame, board);
-  setShadows(group, true, false);
-  return { group, material, clock };
-}
-
-let lastSecond = -1;
-
 const _c = new THREE.Color();
 const WARM = new THREE.Color('#ffcf6e');
 
@@ -365,7 +302,8 @@ export function createCity() {
 
   const wheel = buildWheel();
   setShadows(wheel.group, true, false);
-  const clock = buildRooftopClock();
+  const lm = LANDMARKS.find((l) => l.kind === 'clock');
+  const clock = createClockBoard({ x: lm.x, y: islandHeight(lm.x, lm.z) - 0.02 + lm.h + 0.12, z: lm.z });
   const camera = { position: new THREE.Vector3(0, 10, 10) };
 
   group.add(bodyMesh, windowMesh, signMesh, treeMesh, lampPostMesh, lampHeadMesh, wheel.group, clock.group);
@@ -393,14 +331,7 @@ export function createCity() {
       glowMaterial.opacity = 0.95 * env.night;
       glowPoints.visible = env.night > 0.01;
 
-      // The rooftop clock: redraw once a second, glow a little brighter at night, face the camera.
-      const now = new Date();
-      if (clock.clock && now.getSeconds() !== lastSecond) {
-        lastSecond = now.getSeconds();
-        clock.clock.draw(now);
-      }
-      clock.material.color.setScalar(0.88 + 0.12 * env.night);
-      clock.group.rotation.y = Math.atan2(camera.position.x - clock.group.position.x, camera.position.z - clock.group.position.z);
+      clock.update(env, camera.position);
 
       wheel.spinner.rotation.z = -t * 0.12;
       for (const holder of wheel.cabins) holder.rotation.z = t * 0.12; // cabins stay upright

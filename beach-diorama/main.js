@@ -7,6 +7,8 @@ const WIN_SIZE = 300;
 const MARGIN = 20;
 const MODES = ['day', 'sunset', 'night'];
 const MODE_LABELS = { day: '日間 (Day)', sunset: '日落 (Sunset)', night: '夜晚 (Night)' };
+const MAPS = ['hk-mini', 'kowloon-bay'];
+const MAP_LABELS = { 'hk-mini': '地圖：迷你香港 (卡通)', 'kowloon-bay': '地圖：九龍灣 (寫實)' };
 const DEBUG = Boolean(process.env.DIORAMA_DEBUG);
 
 /**
@@ -27,7 +29,7 @@ function resolveClickThrough() {
 const clickThrough = resolveClickThrough();
 
 let win = null;
-let settings = { mode: 'day', position: null };
+let settings = { mode: 'day', position: null, map: 'hk-mini' };
 let moveMode = false;
 let ignoring = false;
 let saveTimer = null;
@@ -42,6 +44,7 @@ function loadSettings() {
   try {
     const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
     if (MODES.includes(raw.mode)) settings.mode = raw.mode;
+    if (MAPS.includes(raw.map)) settings.map = raw.map;
     const p = raw.position;
     if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) settings.position = { x: Math.round(p.x), y: Math.round(p.y) };
   } catch {
@@ -138,6 +141,14 @@ function setMode(mode) {
   win.webContents.send('diorama:mode', mode);
 }
 
+/** Switching map rebuilds the whole scene, so the page is simply loaded again. */
+function setMap(map) {
+  if (!MAPS.includes(map) || map === settings.map) return;
+  settings.map = map;
+  saveSettings();
+  win.webContents.reload();
+}
+
 function setMoveMode(on) {
   moveMode = on;
   if (on) {
@@ -157,6 +168,13 @@ function buildMenu() {
       type: 'radio',
       checked: settings.mode === m,
       click: () => setMode(m),
+    })),
+    { type: 'separator' },
+    ...MAPS.map((m) => ({
+      label: MAP_LABELS[m],
+      type: 'radio',
+      checked: settings.map === m,
+      click: () => setMap(m),
     })),
     { type: 'separator' },
     moveMode
@@ -244,7 +262,7 @@ function fromRenderer(event) {
 
 ipcMain.handle('diorama:get-state', (event) => {
   if (!fromRenderer(event)) return null;
-  return { mode: settings.mode, moveMode };
+  return { mode: settings.mode, moveMode, map: settings.map };
 });
 
 ipcMain.on('diorama:set-interactive', (event, interactive) => {
