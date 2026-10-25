@@ -5,7 +5,7 @@ import { P, gridGeometry, makeLoop, markSolid, mergeParts, mulberry32, setShadow
 import { HALF, createBase } from '../island.js';
 import { createClockBoard } from '../clockboard.js';
 import { glowTexture } from '../textures.js';
-import { busGeometry, lightsGeometry, taxiGeometry } from '../traffic.js';
+import { vehicleSpec } from '../traffic.js';
 import { bench, buildingDetails, busStop, createDetailLayer, crosswalk, lampPost, post, trafficLight } from '../details.js';
 import { createCoastFoam, createRealSea } from '../real/water.js';
 import { facadeBox, facadeRound, makeFacadeTextures } from '../real/facade.js';
@@ -355,29 +355,29 @@ function createTraffic() {
 
   const taxiMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 });
   const lightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const taxiGeo = taxiGeometry();
-  const taxiLights = lightsGeometry(0.1, 0.19, 0.075, 0.035);
-  const taxiPts = (data.taxiLoop ?? []).map(toWorld);
-  const loop = taxiPts.length > 2 ? loopFromPoints(smoothClosed(taxiPts, 3)) : null;
-  const taxis = [];
-  for (let i = 0; loop && i < 6; i++) {
-    const mesh = new THREE.Mesh(taxiGeo, taxiMat);
-    mesh.add(new THREE.Mesh(taxiLights, lightMat));
-    mesh.scale.setScalar(0.36);
-    setShadows(mesh, true, false);
-    group.add(mesh);
-    taxis.push({ mesh, start: (i / 6) * loop.length });
-  }
-  // Double-decker buses between the taxis: same speed, so the gaps never close.
-  const busGeo = busGeometry();
-  const busLights = lightsGeometry(0.1, 0.25, 0.09, 0.04);
-  for (let i = 0; loop && i < 3; i++) {
-    const mesh = new THREE.Mesh(busGeo, taxiMat);
-    mesh.add(new THREE.Mesh(busLights, lightMat));
-    mesh.scale.setScalar(0.36);
-    setShadows(mesh, true, false);
-    group.add(mesh);
-    taxis.push({ mesh, start: ((2 * i + 1.5) / 6) * loop.length });
+  // Road traffic: every road is a two-way loop (down the left lane, U-turn at the end, back up the
+  // other lane, as in Hong Kong). All vehicles on one road share a speed, so gaps never close.
+  const MIX = ['taxi', 'car', 'minibus', 'car', 'bus', 'truck', 'car', 'taxi', 'minibus', 'car', 'truck', 'bus'];
+  const drivable = roads.filter((r) => r.kind !== 'minor' && polylineLength(r.pts) > 0.8);
+  const taxis = []; // every road vehicle: { mesh, loop, start, speed }
+  let mixIndex = 0;
+  for (const r of drivable) {
+    const lane = (pts) => offsetPolyline(pts, -r.w * 0.22); // left of the direction of travel
+    const forward = lane(r.pts);
+    const back = lane([...r.pts].reverse());
+    const loop = loopFromPoints([...forward, ...back]);
+    const count = Math.max(2, Math.min(7, Math.floor(loop.length / 1.5)));
+    const speed = r.kind === 'major' ? 0.55 : 0.4;
+    for (let i = 0; i < count; i++) {
+      const spec = vehicleSpec(MIX[mixIndex % MIX.length], mixIndex);
+      mixIndex++;
+      const mesh = new THREE.Mesh(spec.geometry, taxiMat);
+      mesh.add(new THREE.Mesh(spec.lights, lightMat));
+      mesh.scale.setScalar(0.36);
+      setShadows(mesh, true, false);
+      group.add(mesh);
+      taxis.push({ mesh, loop, start: ((i + (mixIndex % 3) * 0.1) / count) * loop.length, speed });
+    }
   }
 
   // MTR trains: white cars with a green stripe, cut off cleanly at the edges of the map.
@@ -424,9 +424,9 @@ function createTraffic() {
     update(t, dt, env) {
       lightMat.color.setScalar(0.3 + 0.7 * env.night);
       for (const taxi of taxis) {
-        const s = taxi.start + t * 0.45;
-        loop.at(s, p);
-        loop.at(s + 0.05, q);
+        const s = taxi.start + t * taxi.speed;
+        taxi.loop.at(s, p);
+        taxi.loop.at(s + 0.05, q);
         taxi.mesh.position.set(p.x, LAND_Y + 0.012, p.z);
         taxi.mesh.rotation.y = Math.atan2(q.x - p.x, q.z - p.z);
       }

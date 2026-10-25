@@ -123,6 +123,71 @@ export function busGeometry() {
   return mergeParts(parts);
 }
 
+const CAR_COLORS = ['#f2f2f2', '#2b3a55', '#b0b5bb', '#1c1f24', '#9a2a2a', '#3f6f9a', '#d8c27a', '#4f7a5a'];
+
+function wheelsFor(parts, halfWidth, zs, radius = 0.036) {
+  const wheel = new THREE.CylinderGeometry(radius, radius, 0.03, 8);
+  for (const sx of [-halfWidth, halfWidth]) for (const sz of zs) parts.push(P(wheel, '#22262b', { pos: [sx, radius, sz], rot: [0, 0, Math.PI / 2] }));
+}
+
+/** Private car: coloured body, glass cabin. */
+export function carGeometry(color) {
+  const parts = [
+    P(new THREE.BoxGeometry(0.19, 0.07, 0.4), color, { pos: [0, 0.07, 0] }),
+    P(new THREE.BoxGeometry(0.17, 0.065, 0.2), color, { pos: [0, 0.14, -0.03] }),
+    P(new THREE.BoxGeometry(0.176, 0.045, 0.206), '#2b3946', { pos: [0, 0.143, -0.03] }),
+  ];
+  wheelsFor(parts, 0.095, [-0.125, 0.125]);
+  return mergeParts(parts);
+}
+
+/** Lorry: cab at the front (+z) and a cargo box behind it. */
+export function truckGeometry(color) {
+  const parts = [
+    P(new THREE.BoxGeometry(0.2, 0.12, 0.15), color, { pos: [0, 0.11, 0.2] }),
+    P(new THREE.BoxGeometry(0.202, 0.05, 0.1), '#2b3946', { pos: [0, 0.14, 0.215] }),
+    P(new THREE.BoxGeometry(0.22, 0.17, 0.36), '#e9ecef', { pos: [0, 0.15, -0.08] }),
+    P(new THREE.BoxGeometry(0.222, 0.02, 0.36), color, { pos: [0, 0.07, -0.08] }),
+    P(new THREE.BoxGeometry(0.2, 0.03, 0.54), '#3a3f47', { pos: [0, 0.045, 0] }),
+  ];
+  wheelsFor(parts, 0.105, [-0.2, -0.04, 0.2], 0.04);
+  return mergeParts(parts);
+}
+
+/** Public light bus (minibus): cream body, red or green roof band. */
+export function minibusGeometry(roof) {
+  const parts = [
+    P(new THREE.BoxGeometry(0.19, 0.15, 0.42), '#f1ead2', { pos: [0, 0.115, 0] }),
+    P(new THREE.BoxGeometry(0.196, 0.05, 0.36), '#2b3946', { pos: [0, 0.14, -0.01] }),
+    P(new THREE.BoxGeometry(0.195, 0.025, 0.42), roof, { pos: [0, 0.2, 0] }),
+    P(new THREE.BoxGeometry(0.194, 0.02, 0.42), roof, { pos: [0, 0.07, 0] }),
+  ];
+  wheelsFor(parts, 0.095, [-0.13, 0.13]);
+  return mergeParts(parts);
+}
+
+/**
+ * The road vehicles: kind is 'taxi' | 'car' | 'truck' | 'bus' | 'minibus'; `i` picks a colour.
+ * Returns { geometry, lights }; geometries are cached, so equal vehicles share them.
+ */
+const vehicleCache = new Map();
+export function vehicleSpec(kind, i = 0) {
+  const variant = kind === 'taxi' || kind === 'bus' ? 0 : i;
+  const key = `${kind}:${kind === 'minibus' ? variant % 2 : variant % CAR_COLORS.length}`;
+  let spec = vehicleCache.get(key);
+  if (!spec) {
+    const color = CAR_COLORS[variant % CAR_COLORS.length];
+    spec =
+      kind === 'taxi' ? { geometry: taxiGeometry(), lights: lightsGeometry(0.1, 0.19, 0.075, 0.035) }
+      : kind === 'bus' ? { geometry: busGeometry(), lights: lightsGeometry(0.1, 0.25, 0.09, 0.04) }
+      : kind === 'truck' ? { geometry: truckGeometry(['#2f5f9a', '#c8242b', '#e0a526', '#2f7d52'][variant % 4]), lights: lightsGeometry(0.1, 0.27, 0.09, 0.04) }
+      : kind === 'minibus' ? { geometry: minibusGeometry(variant % 2 ? '#2f8f4e' : '#d1262b'), lights: lightsGeometry(0.09, 0.21, 0.09, 0.04) }
+      : { geometry: carGeometry(color), lights: lightsGeometry(0.095, 0.2, 0.075, 0.035) };
+    vehicleCache.set(key, spec);
+  }
+  return spec;
+}
+
 /** Red taxi: red body, silver roof, roof sign, four wheels. */
 export function taxiGeometry() {
   const wheel = new THREE.CylinderGeometry(0.036, 0.036, 0.03, 8);
@@ -173,30 +238,25 @@ export function createTraffic() {
 
   const outerLoop = loopFor(OUTER_RING, false);
   const innerLoop = loopFor(INNER_RING, true);
-  const tramGeo = tramGeometry();
-  const taxiGeo = taxiGeometry();
-  const busGeo = busGeometry();
-
+  const tram = { geometry: tramGeometry(), lights: lightsGeometry(0.13, 0.36, 0.1, 0.05) };
   const lightMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const tramLights = lightsGeometry(0.13, 0.36, 0.1, 0.05);
-  const taxiLights = lightsGeometry(0.1, 0.19, 0.075, 0.035);
-  const busLights = lightsGeometry(0.1, 0.25, 0.09, 0.04);
 
   const vehicles = [];
-  const add = (geometry, loop, fraction, speed) => {
-    const mesh = new THREE.Mesh(geometry, vertexColorMaterial);
-    mesh.add(new THREE.Mesh(geometry === tramGeo ? tramLights : geometry === busGeo ? busLights : taxiLights, lightMaterial));
+  const add = (spec, loop, fraction, speed) => {
+    const mesh = new THREE.Mesh(spec.geometry, vertexColorMaterial);
+    mesh.add(new THREE.Mesh(spec.lights, lightMaterial));
     setShadows(mesh, true, false);
     group.add(mesh);
     vehicles.push({ mesh, loop, start: fraction * loop.length, speed });
   };
-  // Trams and taxis on the outer ring all move at the same speed, so the gaps between them
-  // never change and nothing ever drives through anything else.
+  // Everything on a ring moves at the same speed, so the gaps between vehicles never change and
+  // nothing ever drives through anything else.
   const SPEED = 0.45;
-  for (const f of [0, 0.5]) add(tramGeo, outerLoop, f, SPEED);
-  for (const f of [0.12, 0.34, 0.56, 0.78]) add(taxiGeo, outerLoop, f, SPEED);
-  for (const f of [0.1, 0.6]) add(taxiGeo, innerLoop, f, 0.55);
-  for (const f of [0.35, 0.85]) add(busGeo, innerLoop, f, 0.55); // same speed as the inner taxis: gaps never close
+  for (const f of [0, 0.5]) add(tram, outerLoop, f, SPEED);
+  const outer = [[0.12, 'taxi'], [0.18, 'bus'], [0.24, 'car'], [0.34, 'taxi'], [0.45, 'truck'], [0.56, 'taxi'], [0.62, 'car'], [0.68, 'minibus'], [0.78, 'taxi'], [0.9, 'car'], [0.95, 'car']];
+  outer.forEach(([f, kind], i) => add(vehicleSpec(kind, i), outerLoop, f, SPEED));
+  const inner = [[0.1, 'taxi'], [0.22, 'car'], [0.35, 'bus'], [0.47, 'truck'], [0.6, 'taxi'], [0.72, 'minibus'], [0.85, 'bus'], [0.97, 'car']];
+  inner.forEach(([f, kind], i) => add(vehicleSpec(kind, i + 3), innerLoop, f, 0.55));
 
   const p0 = { x: 0, z: 0 };
   const p1 = { x: 0, z: 0 };
