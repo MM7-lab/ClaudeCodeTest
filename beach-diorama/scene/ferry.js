@@ -103,6 +103,21 @@ function buildPier(z) {
 const _c = new THREE.Color();
 const WARM = new THREE.Color('#ffcf6e');
 
+/** Extra finger piers with teal-roofed terminals, like the Central ferry piers (no ferry berths here). */
+function buildDecorPiers() {
+  const parts = [];
+  const deckY = 0.13;
+  for (const z of [-1.7, -0.6, 0.55, 1.5]) {
+    const x0 = 2.55;
+    const x1 = 3.08;
+    parts.push(P(new THREE.BoxGeometry(x1 - x0, 0.05, 0.24), '#b98a6c', { pos: [(x0 + x1) / 2, deckY, z] }));
+    parts.push(P(new THREE.BoxGeometry(0.34, 0.12, 0.22), '#eef1f2', { pos: [x0 + 0.2, deckY + 0.085, z] }));
+    parts.push(P(new THREE.BoxGeometry(0.38, 0.025, 0.26), '#3aa7a3', { pos: [x0 + 0.2, deckY + 0.16, z] })); // teal roof
+    for (const px of [x0 + 0.3, x1 - 0.04]) for (const pz of [-0.1, 0.1]) parts.push(P(new THREE.CylinderGeometry(0.018, 0.018, 0.45, 5), '#59616b', { pos: [px, deckY - 0.2, z + pz] }));
+  }
+  return new THREE.Mesh(mergeParts(parts), vertexColorMaterial);
+}
+
 /** Ferry plus its two piers. Timeline: dock, depart, cross, dock, depart back, ... */
 export function createFerry() {
   const group = new THREE.Group();
@@ -110,7 +125,7 @@ export function createFerry() {
   ferry.rotation.order = 'YXZ';
   const wake = buildWake();
   ferry.add(wake);
-  group.add(buildPier(-PIER_Z), buildPier(PIER_Z), ferry);
+  group.add(buildPier(-PIER_Z), buildPier(PIER_Z), buildDecorPiers(), ferry);
   setShadows(group, true, true);
   const sample = new THREE.Vector3();
 

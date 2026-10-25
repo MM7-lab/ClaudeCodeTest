@@ -63,6 +63,7 @@ export function islandHeight(x, z) {
 }
 
 const PAVEMENT = new THREE.Color('#c3c8cf');
+const BRICK = new THREE.Color('#c98d6b'); // the red-brown harbourfront paving
 const GRASS_LOW = new THREE.Color('#79bd6c');
 const GRASS_HIGH = new THREE.Color('#4f9a58');
 
@@ -88,6 +89,12 @@ function sandColor(y, out) {
 /** Vertex colour: sand on the beach strip, pavement on the city ground, grass on the hill. */
 function groundColor(x, y, z, out) {
   sandColor(y, out).lerp(PAVEMENT, smoothstep(0.16, 0.34, y));
+  // Central-style waterfront: red-brown paving along the harbour and a lawn like the Tamar site.
+  const d = x - shoreX(z);
+  if (d > -1.3 && d < 0.1) {
+    out.lerp(BRICK, smoothstep(0.16, 0.3, y) * smoothstep(-1.3, -1.15, d));
+    if (z > -1.2 && z < 0.1 && d > -1.0 && d < -0.4) out.lerp(GRASS_LOW, smoothstep(0.3, 0.36, y) * 0.9);
+  }
   const hill = hillHeight(x, z);
   if (hill > 0.04) out.lerp(GRASS_LOW, smoothstep(0.04, 0.3, hill)).lerp(GRASS_HIGH, smoothstep(0.5, 1.5, hill));
   return out;

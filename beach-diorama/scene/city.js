@@ -78,12 +78,12 @@ function buildTowers(rng) {
   const list = []; // every tower, for the street-level detail layer
 
   /** One shaft: body, ribbon windows and a bottom-darkened base. Returns the roof height. */
-  const column = (x, z, w, d, h, color, y0) => {
+  const column = (x, z, w, d, h, color, y0, ribbons = true) => {
     const body = bottomShade(new THREE.BoxGeometry(w, h, d), -h / 2, h / 2, 0.7, 0.45);
     bodies.push(P(body, color, { pos: [x, y0 + h / 2, z] }));
     // Ribbon windows: a dark band every floor pair. Each band gets its own brightness, so at
     // night some floors are lit and some are dark.
-    const floors = Math.floor(h / 0.2);
+    const floors = ribbons ? Math.floor(h / 0.2) : 0;
     for (let k = 0; k < floors; k++) {
       const shade = 0.25 + 0.75 * rng();
       const c = new THREE.Color(shade, shade, shade);
@@ -118,6 +118,23 @@ function buildTowers(rng) {
       return;
     }
 
+    if (kind === 'jardine') {
+      // white shaft with a grid of round windows on every face
+      const top = column(x, z, w, d, h, '#eceff2', y0, false);
+      const dot = new THREE.CylinderGeometry(0.035, 0.035, 0.02, 8);
+      for (let k = 0; k < Math.floor(h / 0.2) - 1; k++) {
+        for (let c = -2; c <= 2; c++) {
+          const u = c * (w / 5.5);
+          const yy = y0 + 0.2 + k * 0.2;
+          windows.push(P(dot, '#4a5b6c', { pos: [x + u, yy, z + d / 2 + 0.005], rot: [Math.PI / 2, 0, 0] }));
+          windows.push(P(dot, '#4a5b6c', { pos: [x + u, yy, z - d / 2 - 0.005], rot: [Math.PI / 2, 0, 0] }));
+          windows.push(P(dot, '#4a5b6c', { pos: [x + w / 2 + 0.005, yy, z + u], rot: [0, 0, Math.PI / 2] }));
+          windows.push(P(dot, '#4a5b6c', { pos: [x - w / 2 - 0.005, yy, z + u], rot: [0, 0, Math.PI / 2] }));
+        }
+      }
+      bodies.push(P(new THREE.BoxGeometry(w * 0.5, 0.1, d * 0.5), '#9aa5b1', { pos: [x, top + 0.05, z] }));
+      return;
+    }
     const top = column(x, z, w, d, h, color, y0);
     if (kind === 'clock') {
       bodies.push(P(new THREE.BoxGeometry(w * 0.85, 0.12, d * 0.85), '#d4dbe3', { pos: [x, top + 0.06, z] }));
