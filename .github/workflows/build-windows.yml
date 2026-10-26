@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     tags: ['v*']
+    branches: ['claude/great-turing-2gtjz1']
+    paths: ['beach-diorama/**', '.github/workflows/build-windows.yml']
 
 jobs:
   windows:
