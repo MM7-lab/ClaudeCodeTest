@@ -9,6 +9,7 @@ const subscribe = (channel) => (callback) => {
 contextBridge.exposeInMainWorld('diorama', {
   getState: () => ipcRenderer.invoke('diorama:get-state'),
   setInteractive: (interactive) => ipcRenderer.send('diorama:set-interactive', Boolean(interactive)),
+  sceneReady: () => ipcRenderer.send('diorama:scene-ready'),
   showContextMenu: () => ipcRenderer.send('diorama:show-context-menu'),
   onMode: subscribe('diorama:mode'),
   onMoveMode: subscribe('diorama:move-mode'),

@@ -14,6 +14,21 @@ function log(...parts) {
     // logging must never break the app
   }
 }
+let reported = false;
+let sceneTimer = 0;
+/** Tell the user once, in a message box, that the page failed (the window itself is transparent, so it cannot show it). */
+function reportOnce(what) {
+  log('REPORT', what);
+  if (reported || DEBUG) return;
+  reported = true;
+  dialog.showMessageBox({
+    type: 'error',
+    title: 'Hong Kong Diorama',
+    message: 'The diorama could not start properly.',
+    detail: `${what}\n\nLog: ${path.join(app.getPath('userData'), 'diorama.log')}\n\nTry starting it with --disable-gpu, or tell the developer this message.`,
+  });
+}
+
 process.on('uncaughtException', (err) => {
   log('uncaughtException', err);
   dialog.showErrorBox('Hong Kong Diorama', `The app hit an error and will close.\n\n${err && err.message}\n\nDetails: diorama.log in ${app.getPath('userData')}`);
@@ -282,11 +297,23 @@ function createWindow() {
   win.on('closed', () => {
     win = null;
   });
-  win.webContents.on('did-fail-load', (_e, code, desc, url) => log('did-fail-load', code, desc, url));
-  win.webContents.on('render-process-gone', (_e, details) => log('render-process-gone', JSON.stringify(details)));
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => reportOnce(`Page failed to load: ${desc} (${code}) ${url}`));
+  win.webContents.on('render-process-gone', (_e, details) => reportOnce(`Renderer process gone: ${JSON.stringify(details)}`));
   win.webContents.on('console-message', (event) => {
-    if (event.level === 'error' || event.level === 'warning') log('page', event.level, event.message);
+    if (event.level === 'error') reportOnce(`Page error: ${event.message}`);
+    else if (event.level === 'warning') log('page warning', event.message);
   });
+  win.webContents.on('did-finish-load', () => log('did-finish-load'));
+  win.once('ready-to-show', () => log('ready-to-show'));
+  // Do not depend on 'ready-to-show' alone: show the window anyway after a few seconds.
+  setTimeout(() => {
+    if (win && !win.isDestroyed() && !win.isVisible()) {
+      log('window still hidden after 4 s: showing it');
+      win.showInactive();
+    }
+  }, 4000);
+  // The renderer says 'scene-ready' after its first frame; if that never comes, tell the user.
+  sceneTimer = setTimeout(() => reportOnce('The 3D scene did not start within 15 seconds (WebGL or the GPU driver may be unavailable).'), 15000);
   win.loadFile(path.join(__dirname, 'index.html'), DEBUG ? { query: { debug: '1' } } : undefined);
 }
 
@@ -305,6 +332,12 @@ ipcMain.on('diorama:set-interactive', (event, interactive) => {
   if (!fromRenderer(event) || typeof interactive !== 'boolean') return;
   if (clickThrough === 'off' || moveMode) return;
   setIgnore(!interactive);
+});
+
+ipcMain.on('diorama:scene-ready', (event) => {
+  if (!fromRenderer(event)) return;
+  clearTimeout(sceneTimer);
+  log('scene ready');
 });
 
 ipcMain.on('diorama:show-context-menu', (event) => {

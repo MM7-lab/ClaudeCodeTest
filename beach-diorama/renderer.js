@@ -278,6 +278,7 @@ for (const mode of MODES) {
 lighting.setMode(state.mode, true);
 renderFrame(0);
 requestAnimationFrame(frame);
+api.sceneReady?.(); // the first frame is drawn: tell main the scene started
 
 if (new URLSearchParams(location.search).has('debug')) {
   // Test hooks, only present when main was started with DIORAMA_DEBUG=1.
