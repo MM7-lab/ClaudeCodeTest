@@ -24,6 +24,16 @@ npm start
 - 視窗會出現喺主螢幕工作區嘅**右下角**（喺工作列上面，留 20 px 邊距）。
 - 想閂：右鍵撳小島 →「結束 (Quit)」。
 
+## Windows 安裝檔
+
+唔想裝 Node.js 嘅話，可以用 GitHub 幫你打包（`.github/workflows/build-windows.yml`，用 electron-builder，喺 Windows 機器上建）：
+
+- **自動**：喺 repo 推一個 `v` 開頭嘅 tag（例如 `v1.1.0`），GitHub Actions 就會建好**安裝版**（`Hong Kong Diorama-1.1.0-x64.exe`，NSIS，可揀安裝位置、建桌面捷徑）同**免安裝版**（portable），貼去該 tag 嘅 Release，亦會放入 workflow 嘅 Artifacts。
+- **手動**：GitHub → Actions →「Build Windows installer」→ Run workflow，完成後喺該次執行頁面底部下載 Artifacts。（呢個按鈕要 workflow 檔已經喺預設分支先見到。）
+- **自己喺 Windows 建**：`cd beach-diorama && npm install && npm run dist`，成品喺 `dist/`。
+
+注意：安裝檔**冇數碼簽署**，Windows SmartScreen 可能會警告「無法辨識嘅 app」，要撳「更多資訊 → 仍要執行」。圖示係我生成嘅簡單示意圖（`build/icon.png`，可自行換）。我喺 Linux 驗證過打包設定同 asar 內容（用同一份 asar 喺 Electron 跑到畫面），但**冇喺真 Windows 上行過 CI 或安裝檔**，請你試完回報。
+
 ## 操作
 
 | 動作 | 效果 |
