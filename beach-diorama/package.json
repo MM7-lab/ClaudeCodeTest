@@ -21,7 +21,7 @@
   "build": {
     "appId": "org.mm7lab.beachdiorama",
     "productName": "Hong Kong Diorama",
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "artifactName": "HongKongDiorama-${version}.${ext}",
     "directories": {
       "output": "dist"
     },
@@ -40,12 +40,6 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "portable",
           "arch": [
             "x64"
@@ -54,12 +48,8 @@
       ],
       "icon": "build/icon.png"
     },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+    "portable": {
+      "artifactName": "HongKongDiorama-${version}-portable.exe"
     }
   }
 }

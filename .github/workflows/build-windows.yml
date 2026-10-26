@@ -1,4 +1,4 @@
-name: Build Windows installer
+name: Build Windows portable exe
 
 on:
   workflow_dispatch:
@@ -32,6 +32,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.exe --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes "Windows installer and portable build (unsigned)." || gh release upload "$GITHUB_REF_NAME" dist/*.exe --repo "$GITHUB_REPOSITORY" --clobber
+          gh release create "$GITHUB_REF_NAME" dist/*.exe --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes "Single-file portable Windows build (unsigned). No installation, no auto-start." || gh release upload "$GITHUB_REF_NAME" dist/*.exe --repo "$GITHUB_REPOSITORY" --clobber
     permissions:
       contents: write
