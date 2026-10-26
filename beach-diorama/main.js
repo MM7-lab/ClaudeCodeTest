@@ -1,7 +1,24 @@
 'use strict';
-const { app, BrowserWindow, Menu, ipcMain, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, screen, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
+
+// A small log next to the settings (%APPDATA%\beach-diorama\diorama.log on Windows), so that a
+// failure to start can be diagnosed from a file instead of guessed.
+function log(...parts) {
+  try {
+    const file = path.join(app.getPath('userData'), 'diorama.log');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${new Date().toISOString()} ${parts.map((p) => (p instanceof Error ? p.stack : String(p))).join(' ')}\n`);
+  } catch {
+    // logging must never break the app
+  }
+}
+process.on('uncaughtException', (err) => {
+  log('uncaughtException', err);
+  dialog.showErrorBox('Hong Kong Diorama', `The app hit an error and will close.\n\n${err && err.message}\n\nDetails: diorama.log in ${app.getPath('userData')}`);
+  app.exit(1);
+});
 
 const WIN_SIZE = 300;
 const MARGIN = 20;
@@ -265,6 +282,11 @@ function createWindow() {
   win.on('closed', () => {
     win = null;
   });
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => log('did-fail-load', code, desc, url));
+  win.webContents.on('render-process-gone', (_e, details) => log('render-process-gone', JSON.stringify(details)));
+  win.webContents.on('console-message', (event) => {
+    if (event.level === 'error' || event.level === 'warning') log('page', event.level, event.message);
+  });
   win.loadFile(path.join(__dirname, 'index.html'), DEBUG ? { query: { debug: '1' } } : undefined);
 }
 
@@ -292,12 +314,18 @@ ipcMain.on('diorama:show-context-menu', (event) => {
 // ---- app lifecycle ----------------------------------------------------------------------------
 
 if (!app.requestSingleInstanceLock()) {
+  log('another copy is already running; this one quits');
   app.quit();
 } else {
+  // Starting a second copy brings the first one back instead of silently doing nothing.
+  app.on('second-instance', () => {
+    if (win && !win.isDestroyed()) win.showInactive();
+  });
   app.setAppUserModelId('beach-diorama');
   Menu.setApplicationMenu(null);
 
   app.whenReady().then(() => {
+    log('start', app.getVersion(), process.platform, process.arch, `electron ${process.versions.electron}`);
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     loadSettings();
     createWindow();
