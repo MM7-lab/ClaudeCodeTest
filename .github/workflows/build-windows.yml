@@ -34,8 +34,9 @@ jobs:
         run: |
           $exe = Get-ChildItem dist/win-unpacked -Filter *.exe | Select-Object -First 1
           Write-Host "Starting $($exe.FullName)"
-          Start-Process -FilePath $exe.FullName
-          Start-Sleep -Seconds 60
+          Start-Process -FilePath $exe.FullName -ArgumentList '--remote-debugging-port=9222'
+          node tools/diagnose.mjs
+          Start-Sleep -Seconds 5
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
