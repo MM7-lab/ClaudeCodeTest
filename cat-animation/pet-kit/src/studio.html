@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cozy Bear Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Self-contained styles (no CSS framework), so the page and the future desktop pet work offline. */
+  :root {
+    --bg: #efece6;
+    --card: #fbfaf6;
+    --ink: #141210;
+    --text: #1f1c18;
+    --muted: #6b645a;
+    --track: #dedad0;
+    --stage: #f8f6f1;
+    --display: "Fredoka", "Inter", system-ui, sans-serif;
+    --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--body);
+    min-height: 100vh; padding: 16px; overflow-x: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  h1, h2 { font-family: var(--display); margin: 0; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 1152px; margin: 0 auto; }
+
+  /* buttons and cards: the chunky ink look of the character */
+  .neo-btn {
+    font: inherit; color: var(--ink); background: var(--card); cursor: pointer;
+    border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink);
+    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s, background-color 0.15s;
+  }
+  .neo-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--ink); }
+  .neo-btn:active, .neo-btn[aria-pressed="true"] { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .neo-btn:focus-visible { outline: 3px solid #f59e0b; outline-offset: 3px; }
+  .neo-card { background: var(--card); border: 2.5px solid var(--ink); border-radius: 24px; box-shadow: 0 6px 0 rgba(20, 18, 16, 0.12); }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; font-size: 24px; }
+  .brand h1 { font-size: clamp(1.2rem, 3vw, 1.5rem); font-weight: 700; line-height: 1; color: var(--ink); }
+  .brand p { margin: 3px 0 0; font-size: 0.82rem; color: var(--muted); }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toggle { padding: 8px 13px; border-radius: 12px; font-size: 0.86rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .toggle[aria-pressed="false"] { opacity: 0.6; }
+  .toggle.pat { background: #ffe4e6; color: #881337; }
+  .toggle.auto[aria-pressed="true"] { background: #d1fae5; }
+
+  main { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+  @media (min-width: 1024px) { main { grid-template-columns: 7fr 5fr; } }
+
+  /* the stage */
+  .stage {
+    position: relative; overflow: hidden; padding: 56px 12px 12px; background-color: var(--stage);
+    background-image: radial-gradient(rgba(20, 18, 16, 0.04) 1px, transparent 0); background-size: 24px 24px;
+    display: flex; flex-direction: column; align-items: center; transition: background-color 0.5s;
+  }
+  .pill {
+    position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; align-items: center; gap: 8px;
+    background: rgba(251, 250, 246, 0.95); border: 2px solid var(--ink); border-radius: 999px; padding: 4px 12px;
+    font: 500 0.82rem var(--display);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; animation: pulse 2s infinite; }
+  .dot.manual { background: #f59e0b; }
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  .scenes { position: absolute; top: 14px; right: 14px; z-index: 2; display: flex; gap: 4px; padding: 4px; background: rgba(251, 250, 246, 0.95); border: 2px solid var(--ink); border-radius: 999px; }
+  .scene-btn { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+  .scene-btn[aria-pressed="true"] { background: var(--ink); }
+  .scene-btn:focus-visible { outline: 3px solid #f59e0b; }
+  #character-svg { width: 100%; height: auto; max-width: 500px; max-height: 500px; overflow: visible; display: block; margin: auto; position: relative; z-index: 1; touch-action: manipulation; }
+  #character-svg.wide { max-width: 617px; }
+  .hotspot { cursor: pointer; transition: filter 0.15s ease; }
+  .hotspot:hover { filter: brightness(1.03); }
+  .legend { width: 100%; padding-top: 8px; border-top: 1px solid rgba(168, 162, 158, 0.6); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 0.74rem; color: var(--muted); font-weight: 500; position: relative; z-index: 2; }
+  .stage.night .legend { color: #c9c4ba; }
+
+  /* controls */
+  aside { display: flex; flex-direction: column; gap: 16px; }
+  .panel { padding: 18px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+  .panel-head h2 { font-size: 1.05rem; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+  .chip { font-size: 0.72rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #e7e5e4; color: #44403c; }
+  .modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 560px) { .modes { grid-template-columns: repeat(3, 1fr); } }
+  .mode { text-align: left; border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+  .mode[aria-pressed="true"] { background: #fef3c7; }
+  .mode .em { font-size: 1.25rem; }
+  .mode b { font: 600 0.9rem var(--display); }
+  .mode small { font-size: 0.7rem; color: #78716c; }
+  .exprs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .expr { border-radius: 12px; padding: 8px 4px; font-size: 0.74rem; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .expr[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .expr .sym { font-family: ui-monospace, monospace; font-size: 1rem; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .shot { border-radius: 12px; padding: 9px 10px; font-size: 0.84rem; font-weight: 600; }
+  .shot.glasses { background: #fffbeb; }
+  .shot.toes { background: #ecfdf5; }
+  .slider { margin-top: 14px; font-size: 0.85rem; }
+  .slider .row { display: flex; justify-content: space-between; font-weight: 500; margin-bottom: 6px; }
+  .slider output { font-family: ui-monospace, monospace; color: #57534e; }
+  .link { background: none; border: 0; font: 600 0.78rem var(--body); color: #78716c; text-decoration: underline; cursor: pointer; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: var(--track); outline: none; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); border: 3px solid var(--card); box-shadow: 0 2px 5px rgba(0,0,0,.2); cursor: pointer; }
+  input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--ink); border: 3px solid var(--card); cursor: pointer; }
+  input[type="range"]:focus-visible { outline: 3px solid #f59e0b; outline-offset: 4px; }
+  .note { margin: 10px 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+  @media (prefers-reduced-motion: reduce) { .neo-btn, .neo-btn:hover { transition: none; transform: none; } .dot { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo neo-btn" aria-hidden="true">🐻‍❄️</div>
+      <div>
+        <h1>Cozy Bear Onesie Studio</h1>
+        <p>Interactive 2D Puppet Rig • Tap body parts or choose an action</p>
+      </div>
+    </div>
+    <div class="toggles">
+      <button id="btn-auto" class="neo-btn toggle auto" aria-pressed="true" title="Let him decide what to do, like a desktop pet">🤖 <span>Auto</span></button>
+      <button id="btn-sound" class="neo-btn toggle" aria-pressed="true" title="Cute sound effects">🔊 <span id="label-sound">SFX On</span></button>
+      <button id="btn-eyetrack" class="neo-btn toggle" aria-pressed="true" title="Eyes follow the cursor">👀 <span>Look at Cursor</span></button>
+      <button id="btn-deskclock" class="neo-btn toggle" aria-pressed="true" title="A little clock beside him, always showing the time">⏰ <span>Desk Clock</span></button>
+      <button id="btn-pet" class="neo-btn toggle pat">🤚 <span>Head Pat</span></button>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div id="stage-container" class="stage neo-card">
+        <div class="pill" aria-live="polite"><span id="status-dot" class="dot"></span><span id="status-text">Idle &amp; Chilling</span></div>
+        <div class="scenes" role="group" aria-label="Scene">
+          <button class="scene-btn" data-scene="sketch" aria-pressed="true" title="Original Cream Studio">☀️</button>
+          <button class="scene-btn" data-scene="snow" aria-pressed="false" title="Snowy Polar Day">❄️</button>
+          <button class="scene-btn" data-scene="night" aria-pressed="false" title="Cozy Night Lamp">🌙</button>
+          <button class="scene-btn" data-scene="matcha" aria-pressed="false" title="Matcha Cafe">🍵</button>
+        </div>
+@@CHARACTER@@
+        <div class="legend">
+          <span>✨ <b>Tap Glasses:</b> Adjust</span>
+          <span>👂 <b>Tap Ears:</b> Twitch</span>
+          <span>🐻‍❄️ <b>Tap Belly Bear:</b> Wink</span>
+          <span>🐾 <b>Tap Feet/Tail:</b> Wiggle</span>
+          <span>🙂 <b>Tap Face:</b> Pat</span>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="neo-card panel">
+        <div class="panel-head">
+          <h2>🎬 <span>Animation Modes</span></h2>
+          <span class="chip" id="fps-chip">Any refresh rate</span>
+        </div>
+        <div class="modes" role="group" aria-label="Animation mode">
+          <button data-anim="idle" class="neo-btn mode" aria-pressed="true"><span class="em">😌</span><b>Chill Idle</b><small>Breathe, blink, fidget</small></button>
+          <button data-anim="wave" class="neo-btn mode" aria-pressed="false"><span class="em">👋</span><b>Wave Hi</b><small>Friendly paw wave</small></button>
+          <button data-anim="cocoa" class="neo-btn mode" aria-pressed="false"><span class="em">☕</span><b>Hot Cocoa</b><small>Cozy warm sips</small></button>
+          <button data-anim="vibe" class="neo-btn mode" aria-pressed="false"><span class="em">🎧</span><b>Lo-Fi Vibe</b><small>Head bop &amp; beats</small></button>
+          <button data-anim="sleep" class="neo-btn mode" aria-pressed="false"><span class="em">💤</span><b>Sleepy Nod</b><small>Dozing off Zzz</small></button>
+          <button data-anim="code" class="neo-btn mode" aria-pressed="false"><span class="em">💻</span><b>Coding</b><small>Fast paw typing</small></button>
+          <button data-anim="clock" class="neo-btn mode" aria-pressed="false"><span class="em">⏰</span><b>What Time?</b><small>Shows you the clock</small></button>
+        </div>
+        <p class="note">Auto lets him pick what to do on his own, like a desktop pet, and on the hour he holds up the clock to show you the time. Choosing a mode yourself turns Auto off.</p>
+      </div>
+
+      <div class="neo-card panel">
+        <div class="panel-head"><h2>🙂 <span>Expression &amp; Reactions</span></h2></div>
+        <div class="exprs" role="group" aria-label="Mouth">
+          <button data-expr="deadpan" class="neo-btn expr" aria-pressed="true"><span class="sym">—</span>Deadpan</button>
+          <button data-expr="smile" class="neo-btn expr" aria-pressed="false"><span class="sym">‿</span>Soft Smile</button>
+          <button data-expr="cat" class="neo-btn expr" aria-pressed="false"><span class="sym">ω</span>Cozy Cat</button>
+          <button data-expr="o" class="neo-btn expr" aria-pressed="false"><span class="sym">o</span>Whoa</button>
+        </div>
+        <div class="shots">
+          <button id="btn-push-glasses" class="neo-btn shot glasses">🤓 Adjust Glasses</button>
+          <button id="btn-happy-jump" class="neo-btn shot toes">🎉 Happy Toe Wiggle</button>
+        </div>
+      </div>
+
+      <div class="neo-card panel">
+        <div class="panel-head">
+          <h2>🎚️ <span>Rig Physics &amp; Speed</span></h2>
+          <button id="btn-reset-sliders" class="link">Reset</button>
+        </div>
+        <label class="slider"><div class="row"><span>Animation Speed</span><output id="val-speed">1.0x</output></div>
+          <input id="slider-speed" type="range" min="0.3" max="2.2" step="0.1" value="1.0"></label>
+        <label class="slider"><div class="row"><span>Bounce &amp; Squish Intensity</span><output id="val-bounce">100%</output></div>
+          <input id="slider-bounce" type="range" min="0" max="200" step="10" value="100"></label>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+@@SCRIPT@@</script>
+</body>
+</html>

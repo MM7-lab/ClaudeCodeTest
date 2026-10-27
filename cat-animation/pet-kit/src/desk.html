@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>熊仔</title>
+<style>
+  /* desktop pet: no page, no background — only the character on a transparent window */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { user-select: none; -webkit-user-select: none; cursor: default; }
+  .hidden { display: none !important; }
+  #character-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; touch-action: none; }
+  #character-svg.grabbing, #character-svg.grabbing * { cursor: grabbing !important; }
+  #rig-shadow { opacity: 0.55; }
+</style>
+</head>
+<body>
+@@CHARACTER@@
+<script>
+const DESK = true;
+@@SCRIPT@@
+</script>
+</body>
+</html>
