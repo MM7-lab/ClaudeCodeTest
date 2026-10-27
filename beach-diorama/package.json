@@ -5,18 +5,19 @@
   "main": "main.js",
   "private": true,
   "scripts": {
+    "prestart": "node tools/vendor-three.mjs",
     "start": "electron .",
+    "predist": "node tools/vendor-three.mjs",
     "dist": "electron-builder --win --publish never",
+    "prepack": "node tools/vendor-three.mjs",
     "pack": "electron-builder --win dir --publish never"
   },
   "license": "MIT",
-  "dependencies": {
-    "three": "^0.186.1"
-  },
   "author": "MM7-lab",
   "devDependencies": {
     "electron": "^45.0.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "three": "^0.186.1"
   },
   "build": {
     "appId": "org.mm7lab.beachdiorama",
@@ -32,10 +33,8 @@
       "styles.css",
       "renderer.js",
       "scene/**/*",
-      "package.json",
-      "node_modules/three/build/**/*",
-      "node_modules/three/examples/jsm/**/*",
-      "node_modules/three/package.json"
+      "vendor/**/*",
+      "package.json"
     ],
     "win": {
       "target": [

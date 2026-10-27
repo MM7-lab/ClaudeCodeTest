@@ -29,7 +29,6 @@ jobs:
             beach-diorama/dist/*.exe
           if-no-files-found: error
       - name: Smoke test on Windows (start the app, print its log, take a screenshot)
-        continue-on-error: true
         shell: pwsh
         run: |
           $exe = Get-ChildItem dist/win-unpacked -Filter *.exe | Select-Object -First 1
@@ -47,7 +46,13 @@ jobs:
           Write-Host "---- logs"
           Get-ChildItem $env:APPDATA -Recurse -Filter diorama.log -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.FullName)"; Get-Content $_.FullName | Write-Host }
           Get-Process | Where-Object { $_.ProcessName -like '*iorama*' } | Stop-Process -Force
+          $log = "$env:APPDATA/beach-diorama/diorama.log"
+          if (-not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'scene ready' -Quiet)) {
+            Write-Host "::error::The 3D scene did not start on the Windows runner"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: smoke-test-screenshot
           path: beach-diorama/smoke.png

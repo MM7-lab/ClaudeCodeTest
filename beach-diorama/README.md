@@ -110,7 +110,7 @@ $env:DIORAMA_CLICK_THROUGH = 'poll'; npm start
 package.json      npm start
 main.js           視窗、穿透、右鍵選單、設定儲存（Electron 主程序）
 preload.js        contextBridge，只開放最少嘅 IPC
-index.html        載入 Three.js（import map 指去 node_modules）、CSP
+index.html        載入 Three.js（import map 指去 vendor/three）、CSP
 styles.css        透明背景、拖曳控點
 renderer.js       場景組裝、相機、30 fps 迴圈、穿透用嘅 raycast
 scene/
@@ -134,6 +134,7 @@ tools/
   csp-hash.js     改咗 import map 之後用嚟重新計 CSP hash
   osm-to-map.mjs  將 OpenStreetMap 匯出檔轉成九龍灣版嘅地圖資料（見下面）
   sync-web.mjs    砌出獨立嘅網頁預覽資料夾（含 Three.js，唔靠 CDN）
+  vendor-three.mjs 將頁面用到嘅 Three.js 檔案複製去 vendor/three（npm start／打包前自動行）
 web/              網頁預覽用嘅頁面、shim 同按鈕（同桌面版共用 renderer.js）
 ```
 
