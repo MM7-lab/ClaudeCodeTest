@@ -35,6 +35,15 @@ process.on('uncaughtException', (err) => {
   app.exit(1);
 });
 
+// --software: draw with Chromium's software WebGL (SwiftShader) instead of the GPU. Used by hand, and
+// automatically once if the 3D scene fails to start (blocked GPU, VM, broken driver).
+const SOFTWARE = process.argv.includes('--software');
+if (SOFTWARE) {
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+}
+
 const WIN_SIZE = 300;
 const MARGIN = 20;
 const MODES = ['day', 'sunset', 'night'];
@@ -313,7 +322,15 @@ function createWindow() {
     }
   }, 4000);
   // The renderer says 'scene-ready' after its first frame; if that never comes, tell the user.
-  sceneTimer = setTimeout(() => reportOnce('The 3D scene did not start within 15 seconds (WebGL or the GPU driver may be unavailable).'), 15000);
+  sceneTimer = setTimeout(() => {
+    if (!SOFTWARE) {
+      log('scene did not start in 15 s: restarting once with software rendering');
+      app.relaunch({ args: [...process.argv.slice(1), '--software'] });
+      app.exit(0);
+      return;
+    }
+    reportOnce('The 3D scene did not start within 15 seconds, even with software rendering (WebGL or the GPU driver may be unavailable).');
+  }, 15000);
   win.loadFile(path.join(__dirname, 'index.html'), DEBUG ? { query: { debug: '1' } } : undefined);
 }
 
@@ -358,7 +375,8 @@ if (!app.requestSingleInstanceLock()) {
   Menu.setApplicationMenu(null);
 
   app.whenReady().then(() => {
-    log('start', app.getVersion(), process.platform, process.arch, `electron ${process.versions.electron}`);
+    log('start', app.getVersion(), process.platform, process.arch, `electron ${process.versions.electron}`, SOFTWARE ? '(software rendering)' : '');
+    app.getGPUInfo('basic').then((info) => log('gpu', JSON.stringify(info.gpuDevice ?? info).slice(0, 600))).catch((e) => log('gpu info failed', e));
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     loadSettings();
     createWindow();
