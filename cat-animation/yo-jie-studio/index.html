@@ -848,6 +848,17 @@ Object.assign(JOINT, {
   gaze: [(YO.eyeL[0] + YO.eyeR[0]) / 2 / 600, (YO.eyeL[1] + YO.eyeR[1]) / 2 / 630],
 });
 const yo = { jumpAt: -9 };
+
+// ---------- framing: she is tall and slim, so the picture is cropped close around her (and bigger in the window) ----------
+// the clock beside her is off until it is switched on (right-click menu or the studio's Desk Clock button)
+if (store.get("deskClock", null) === null) state.deskClock = false;
+const VIEW = { x: 160, y: 5, w: 320, wClock: 540, h: 595 };
+fitView = function () {
+  const w = state.deskClock ? VIEW.wClock : VIEW.w;
+  rig.svg.setAttribute("viewBox", `${VIEW.x} ${VIEW.y} ${w} ${VIEW.h}`);
+  rig.svg.classList.toggle("wide", state.deskClock);
+  JOINT.gaze = [((YO.eyeL[0] + YO.eyeR[0]) / 2 - VIEW.x) / w, ((YO.eyeL[1] + YO.eyeR[1]) / 2 - VIEW.y) / VIEW.h];
+};
 const JUMP_TIME = 1.1;
 const jumpK = () => (state.t - yo.jumpAt) / JUMP_TIME;
 const jumpShow = () => { const k = jumpK(); return k > 0 && k < 1 ? smooth(k * 6) * smooth((1 - k) * 6) : 0; };

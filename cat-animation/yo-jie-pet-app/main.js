@@ -6,12 +6,12 @@ const fs = require("fs");
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");   // her sound effects
 
-// the character's drawing is 600 × 630; with the desk clock beside her it is 740 wide
-const SIZES = { small: [200, 210], medium: [280, 294], large: [380, 399] };
-const WIDE = 740 / 600;
+// her picture is 320 × 595 (cropped close around her); with the desk clock beside her it is 540 wide
+const SIZES = { small: [161, 300], medium: [226, 420], large: [301, 560] };
+const WIDE = 540 / 320;
 const winSize = (name) => { const [w, h] = SIZES[name]; return [Math.round(w * (state.wide ? WIDE : 1)), h]; };
 const statePath = () => path.join(app.getPath("userData"), "pet-state.json");
-let state = { size: "medium", top: true, wide: true, x: null, y: null };
+let state = { size: "medium", top: true, wide: false, x: null, y: null };
 let win = null, cursorTimer = null, lastCursor = "";
 
 function loadState() {
@@ -123,7 +123,7 @@ ipcMain.on("show-menu", (e, raw) => {
     const [w, h] = winSize(name);
     const [x, y] = win.getPosition(), [, oh] = win.getSize();
     const scale = h / oh;
-    win.setBounds({ x: x + Math.round((300 / 630) * oh * (1 - scale)), y: y + oh - h, width: w, height: h });   // keeps her standing on the same spot
+    win.setBounds({ x: x + Math.round((144 / 595) * oh * (1 - scale)), y: y + oh - h, width: w, height: h });   // keeps her standing on the same spot
   };
   const mode = (id, label) => ({ label, type: "radio", checked: s.mode === id, click: send(id) });
   const template = [
