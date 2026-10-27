@@ -1,0 +1,50 @@
+{
+  "name": "yo-jie-desk-pet",
+  "productName": "Yo Jie Pet",
+  "version": "1.0.0",
+  "description": "Yo Jie desktop pet",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "lab.mm7.yojiepet",
+    "productName": "Yo Jie Pet",
+    "files": [
+      "main.js",
+      "preload.js",
+      "pet.html",
+      "icon.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.png",
+      "signExecutable": false
+    },
+    "portable": {
+      "artifactName": "YoJiePet-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "artifactName": "YoJiePet-${version}-setup.exe"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
+    },
+    "copyright": "© 2026 MM7 Lab"
+  },
+  "author": "MM7 Lab"
+}

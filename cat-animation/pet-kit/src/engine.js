@@ -58,6 +58,11 @@ const rig = {
   propLaptop: $("prop-laptop"), propMug: $("prop-mug"), propHeadphones: $("prop-headphones"), particles: $("particles-layer"),
 };
 const showEl = (el, on) => el.classList.toggle("hidden", !on);
+// where the character's joints are (these are the polar bear's); a character's rig.js can move them
+const JOINT = { root: [304, 586], head: [308, 298], earL: [248, 134], earR: [390, 136], zipper: [301, 322], tail: [452, 512],
+  pawL: [208, 492], pawR: [318, 496], footL: [176, 566], footR: [242, 560],
+  reach: [16, -262, 96],     // the right paw's offset and turn when it pushes up the glasses
+  gaze: [0.48, 0.34] };      // the eyes' centre, as a fraction of the picture's width and height
 
 // The laptop sits on his lap facing him: we see the back of the lid, and his paws type behind it.
 // It is drawn above both arms (the sheet's own laptop sits under them, beside him, so it stays hidden).
@@ -447,7 +452,7 @@ function tick(real) {
     state.glassesT = Math.max(0, state.glassesT - real * 1.6);
     const p = smooth(Math.sin(state.glassesT * Math.PI));
     push = p;
-    pose.pawRX = lerp(pose.pawRX, 16, p); pose.pawRY = lerp(pose.pawRY, -262, p); pose.pawRRot = lerp(pose.pawRRot, 96, p);
+    pose.pawRX = lerp(pose.pawRX, JOINT.reach[0], p); pose.pawRY = lerp(pose.pawRY, JOINT.reach[1], p); pose.pawRRot = lerp(pose.pawRRot, JOINT.reach[2], p);
     pose.headRot -= 3.5 * p; pose.headY += 2.5 * p;
   }
   rig.glasses.setAttribute("transform", `translate(0, ${(-3.5 * push).toFixed(1)})`);
@@ -536,20 +541,21 @@ function tick(real) {
   if (hp > 0.01) { rig.propHeadphones.setAttribute("transform", `translate(0 ${(-(1 - smooth(hp)) * 60).toFixed(1)})`); rig.propHeadphones.setAttribute("opacity", Math.min(1, hp * 2).toFixed(2)); }
 
   // apply
-  rig.root.setAttribute("transform", `translate(304, ${(586 + pose.rootY).toFixed(2)}) scale(${pose.rootScaleX.toFixed(4)}, ${pose.rootScaleY.toFixed(4)})`);
+  const J = JOINT;
+  rig.root.setAttribute("transform", `translate(${J.root[0]}, ${(J.root[1] + pose.rootY).toFixed(2)}) scale(${pose.rootScaleX.toFixed(4)}, ${pose.rootScaleY.toFixed(4)})`);
   rig.shadow.setAttribute("rx", (186 * pose.rootScaleX - pose.rootY * 0.8).toFixed(1));
   rig.bellyContent.setAttribute("transform", `translate(0, ${pose.bellyY.toFixed(2)})`);
-  rig.zipper.setAttribute("transform", `translate(301, 322) rotate(${(pose.headRot * 1.2).toFixed(2)})`);
-  rig.head.setAttribute("transform", `translate(${(308 + pose.headX).toFixed(2)}, ${(298 + pose.headY).toFixed(2)}) rotate(${pose.headRot.toFixed(2)})`);
-  rig.earLeft.setAttribute("transform", `translate(248, 134) rotate(${pose.earLRot.toFixed(2)})`);
-  rig.earRight.setAttribute("transform", `translate(390, 136) rotate(${pose.earRRot.toFixed(2)})`);
+  rig.zipper.setAttribute("transform", `translate(${J.zipper[0]}, ${J.zipper[1]}) rotate(${(pose.headRot * 1.2).toFixed(2)})`);
+  rig.head.setAttribute("transform", `translate(${(J.head[0] + pose.headX).toFixed(2)}, ${(J.head[1] + pose.headY).toFixed(2)}) rotate(${pose.headRot.toFixed(2)})`);
+  rig.earLeft.setAttribute("transform", `translate(${J.earL[0]}, ${J.earL[1]}) rotate(${pose.earLRot.toFixed(2)})`);
+  rig.earRight.setAttribute("transform", `translate(${J.earR[0]}, ${J.earR[1]}) rotate(${pose.earRRot.toFixed(2)})`);
   updateLeftSleeveGeometry(pose.pawLX, pose.pawLY);
-  rig.pawLeft.setAttribute("transform", `translate(${(208 + pose.pawLX).toFixed(2)}, ${(492 + pose.pawLY).toFixed(2)}) rotate(${pose.pawLRot.toFixed(2)})`);
+  rig.pawLeft.setAttribute("transform", `translate(${(J.pawL[0] + pose.pawLX).toFixed(2)}, ${(J.pawL[1] + pose.pawLY).toFixed(2)}) rotate(${pose.pawLRot.toFixed(2)})`);
   updateRightSleeveGeometry(pose.pawRX, pose.pawRY);
-  rig.pawRight.setAttribute("transform", `translate(${(318 + pose.pawRX).toFixed(2)}, ${(496 + pose.pawRY).toFixed(2)}) rotate(${pose.pawRRot.toFixed(2)})`);
-  rig.footLeft.setAttribute("transform", `translate(176, 566) rotate(${pose.footLRot.toFixed(2)})`);
-  rig.footRight.setAttribute("transform", `translate(242, 560) rotate(${pose.footRRot.toFixed(2)})`);
-  rig.tail.setAttribute("transform", `translate(452, 512) rotate(${pose.tailRot.toFixed(2)})`);
+  rig.pawRight.setAttribute("transform", `translate(${(J.pawR[0] + pose.pawRX).toFixed(2)}, ${(J.pawR[1] + pose.pawRY).toFixed(2)}) rotate(${pose.pawRRot.toFixed(2)})`);
+  rig.footLeft.setAttribute("transform", `translate(${J.footL[0]}, ${J.footL[1]}) rotate(${pose.footLRot.toFixed(2)})`);
+  rig.footRight.setAttribute("transform", `translate(${J.footR[0]}, ${J.footR[1]}) rotate(${pose.footRRot.toFixed(2)})`);
+  rig.tail.setAttribute("transform", `translate(${J.tail[0]}, ${J.tail[1]}) rotate(${pose.tailRot.toFixed(2)})`);
 
   updateParticles(real);
   dbg.w = w; dbg.pose = pose;

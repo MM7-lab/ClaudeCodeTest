@@ -7,16 +7,19 @@
 | 檔案 | 係乜 |
 |---|---|
 | `characters/polar-bear/character.svg.html` | 熊仔嘅畫（一個 `<svg>`，所有會郁嘅部位都有 id） |
+| `characters/yo-jie/` | Yo 姐（企喺度嘅角色）：畫、`rig.js`（自己嘅關節、手臂同動作）、`build.json` |
 | `src/engine.js` | 動畫引擎：動作（idle、wave、cocoa、vibe、sleep、code、clock）、漸變、彈簧、眨眼、粒子、自動模式、時鐘 |
 | `src/input.js` | 撳角色各部位嘅反應 |
 | `src/studio.html` + `src/ui-studio.js` | 網頁版（有控制面板） |
 | `src/desk.html` + `src/ui-desk.js` | 桌面寵物版（透明、冇背景） |
 | `build.py` | 將角色同引擎砌成兩個網頁 |
 | `../bear-pet-app/` | Windows 桌面寵物（Electron）；GitHub Actions 自動整 `.exe` |
+| `../yo-jie-studio/`、`../yo-jie-pet-app/` | Yo 姐嘅網頁版同桌面寵物（workflow：`.github/workflows/yo-jie-pet-app.yml`） |
 
 ```
 python3 build.py                 # 熊仔 → ../bear-onesie-studio/index.html 同 ../bear-pet-app/pet.html
-python3 build.py <角色名>        # characters/<角色名>/character.svg.html
+python3 build.py <角色名>        # characters/<角色名>/character.svg.html（有 rig.js 就一齊砌入去）
+python3 build.py yo-jie          # Yo 姐 → ../yo-jie-studio/index.html 同 ../yo-jie-pet-app/pet.html
 ```
 
 每個角色可以喺 `characters/<角色名>/build.json` 指定輸出位置，例如：
@@ -24,6 +27,8 @@ python3 build.py <角色名>        # characters/<角色名>/character.svg.html
 ```json
 { "studio": "../cat-studio/index.html", "pet": "../cat-pet-app/pet.html" }
 ```
+
+`build.json` 仲可以加 `"replace"`，將網頁入面熊仔嘅字眼（標題、說明、按鈕）換成新角色嘅，例如 `{"<title>熊仔</title>": "<title>Yo 姐</title>"}`；每句都一定要搵到，搵唔到 build 會停。`characters/yo-jie/build.json` 有完整例子。
 
 ## 新角色要符合嘅「骨架」
 
@@ -55,9 +60,17 @@ python3 build.py <角色名>        # characters/<角色名>/character.svg.html
 
 隱藏嘅部位用 `class="hidden"`。
 
-**手袖係程式畫嘅**：`src/engine.js` 嘅 `updateLeftSleeveGeometry` 同 `updateRightSleeveGeometry` 會按手掌位置重畫手袖，入面嘅數字跟熊仔嘅膊頭位置。新角色膊頭位置唔同，就要改呢兩個 function。
+**手袖係程式畫嘅**：`src/engine.js` 嘅 `updateLeftSleeveGeometry` 同 `updateRightSleeveGeometry` 會按手掌位置重畫手袖，入面嘅數字跟熊仔嘅膊頭位置。新角色膊頭位置唔同，就喺佢自己嘅 `rig.js` 重新定義呢兩個 function（唔使改引擎）。
 
-**位置唔同點算**：如果新角色嘅關節唔喺上面啲位，搜 `src/engine.js` 入面「// apply」之後嗰段，將 `translate(…)` 嘅數字改成新角色嘅關節位置。
+**位置唔同點算**：喺 `characters/<角色名>/rig.js` 改 `JOINT`（引擎預設係熊仔嘅關節位置），唔好改引擎，咁熊仔就照舊行。`rig.js` 會喺引擎之後、撳部位反應之前執行，所以可以：
+
+- `Object.assign(JOINT, { head: [304, 174], pawR: [384, 354], … })`：搬關節（仲有 `reach` 推眼鏡時手去邊、`gaze` 眼望滑鼠嘅中心）
+- 重新定義 `updateLeftSleeveGeometry`／`updateRightSleeveGeometry`：自己畫手臂
+- 換 `MODES.<動作>.pose`／`emit`：例如企喺度嘅角色要自己嘅動作同粒子位置
+- 重新定義 `twitchEar`、`wiggleToes`、`triggerGlassesPush`、`headPat`、`fidget` 等反應
+- 加 pose 欄位：`REST.x = 0; KEYS.push("x")`，佢會同其他欄位一樣喺動作之間漸變
+
+`characters/yo-jie/rig.js` 係完整例子：企喺度、兩節手臂、Hooray 跳、托住個鐘介紹時間。
 
 ## 喺另一個 chat 整新角色
 

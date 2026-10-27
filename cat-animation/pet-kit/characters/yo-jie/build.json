@@ -1,0 +1,23 @@
+{
+  "studio": "../yo-jie-studio/index.html",
+  "pet": "../yo-jie-pet-app/pet.html",
+  "replace": {
+    "<title>Cozy Bear Studio</title>": "<title>Yo 姐 Studio</title>",
+    "<title>熊仔</title>": "<title>Yo 姐</title>",
+    "<div class=\"logo neo-btn\" aria-hidden=\"true\">🐻‍❄️</div>": "<div class=\"logo neo-btn\" aria-hidden=\"true\">👋</div>",
+    "<h1>Cozy Bear Onesie Studio</h1>": "<h1>Yo 姐 Studio</h1>",
+    "Let him decide what to do, like a desktop pet": "Let her decide what to do, like a desktop pet",
+    "A little clock beside him, always showing the time": "A little clock beside her, always showing the time",
+    "<span>✨ <b>Tap Glasses:</b> Adjust</span>": "<span>✨ <b>Tap Loose Hair:</b> Tuck</span>",
+    "<span>👂 <b>Tap Ears:</b> Twitch</span>": "<span>👂 <b>Tap Earrings:</b> Swing</span>",
+    "<span>🐻‍❄️ <b>Tap Belly Bear:</b> Wink</span>": "<span>🔘 <b>Tap Button:</b> Glint</span>",
+    "<span>🐾 <b>Tap Feet/Tail:</b> Wiggle</span>": "<span>🙌 <b>Tap Legs:</b> Hooray! · <b>Braid:</b> Swish</span>",
+    "<small>Friendly paw wave</small>": "<small>Friendly hand wave</small>",
+    "<small>Fast paw typing</small>": "<small>Laptop in hand</small>",
+    "<small>Shows you the clock</small>": "<small>Presents the clock</small>",
+    "Auto lets him pick what to do on his own, like a desktop pet, and on the hour he holds up the clock": "Auto lets her pick what to do on her own, like a desktop pet, and on the hour she holds up the clock",
+    "🤓 Adjust Glasses": "💁 Tuck Hair",
+    "🎉 Happy Toe Wiggle": "🙌 Hooray Jump",
+    "\"cozybear.\" + k": "\"yojie.\" + k"
+  }
+}
