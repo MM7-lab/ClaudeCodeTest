@@ -5,6 +5,11 @@ import { MODES, createLighting } from './scene/lighting.js';
 import { createMiniHK } from './scene/worlds/minihk.js';
 
 const api = window.diorama;
+// ?lite=1 (set by main as a last resort): no shadows, no anti-aliasing, no Chinese sign text.
+const LITE = new URLSearchParams(location.search).has('lite');
+globalThis.DIORAMA_LITE = LITE;
+const step = (message) => api.log?.(message); // progress goes to diorama.log, to see where a crash happens
+step(`renderer start${LITE ? ' (lite)' : ''}, devicePixelRatio ${window.devicePixelRatio}`);
 
 // The desktop window is capped at 30 fps; the web preview (see web/shim.js) may ask for more.
 const FPS = window.diorama.fps ?? 30;
@@ -20,9 +25,14 @@ const MIN_ZOOM = 0.09; // closest distance, relative to the distance that fits t
 // ---- renderer, scene, camera ------------------------------------------------------------------
 
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, alpha: true, powerPreference: 'low-power' });
+{
+  const gl = renderer.getContext();
+  const ext = gl.getExtension('WEBGL_debug_renderer_info');
+  step(`webgl ok: ${ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`);
+}
 renderer.setClearColor(0x000000, 0);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !LITE;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scene = new THREE.Scene();
@@ -68,7 +78,7 @@ function resize() {
   // The canvas fills the Electron window, or a square on the web page: size to the canvas.
   const w = Math.max(1, canvas.clientWidth);
   const h = Math.max(1, canvas.clientHeight);
-  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  const pixelRatio = LITE ? 1 : Math.min(window.devicePixelRatio, 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
@@ -78,8 +88,10 @@ function resize() {
 
 // ---- the diorama ------------------------------------------------------------------------------
 
+step('asking main for the state');
 const state = (await api.getState()) ?? { mode: 'day', moveMode: false, map: 'hk-mini' };
 
+step(`state ${JSON.stringify(state)}`);
 const lighting = createLighting(scene);
 // The realistic maps (Kowloon Bay, Central) are loaded only when chosen.
 const world =
@@ -88,6 +100,7 @@ const world =
     : state.map === 'central'
       ? (await import('./scene/worlds/realmap.js')).createCentral()
       : createMiniHK();
+step(`world ${world.id} built`);
 world.configure({ renderer, scene, lighting });
 const animated = world.parts;
 for (const part of world.parts) scene.add(part.object);
@@ -271,10 +284,12 @@ moveMode = state.moveMode;
 document.body.classList.toggle('move-mode', moveMode);
 
 // Draw every look once up front so all shader programs are compiled before the first switch.
+step('compiling shaders');
 for (const mode of MODES) {
   lighting.setMode(mode, true);
   renderFrame(0);
 }
+step('shaders compiled');
 lighting.setMode(state.mode, true);
 renderFrame(0);
 requestAnimationFrame(frame);

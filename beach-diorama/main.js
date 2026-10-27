@@ -29,6 +29,19 @@ function reportOnce(what) {
   });
 }
 
+/**
+ * When the scene cannot start, try again with less: first software rendering, then the plain
+ * "lite" scene. Returns false when there is nothing left to try.
+ */
+function fallBack(why) {
+  const next = !SOFTWARE ? '--software' : !LITE ? '--lite' : null;
+  log('FALLBACK', why, '->', next ?? 'nothing left');
+  if (!next) return false;
+  app.relaunch({ args: [...process.argv.slice(1), next] });
+  app.exit(0);
+  return true;
+}
+
 process.on('uncaughtException', (err) => {
   log('uncaughtException', err);
   dialog.showErrorBox('Hong Kong Diorama', `The app hit an error and will close.\n\n${err && err.message}\n\nDetails: diorama.log in ${app.getPath('userData')}`);
@@ -38,6 +51,8 @@ process.on('uncaughtException', (err) => {
 // --software: draw with Chromium's software WebGL (SwiftShader) instead of the GPU. Used by hand, and
 // automatically once if the 3D scene fails to start (blocked GPU, VM, broken driver).
 const SOFTWARE = process.argv.includes('--software');
+// --lite: the plainest possible scene (no shadows, no anti-aliasing, no Chinese sign text), the last resort.
+const LITE = process.argv.includes('--lite');
 if (SOFTWARE) {
   app.commandLine.appendSwitch('use-angle', 'swiftshader');
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
@@ -307,7 +322,10 @@ function createWindow() {
     win = null;
   });
   win.webContents.on('did-fail-load', (_e, code, desc, url) => reportOnce(`Page failed to load: ${desc} (${code}) ${url}`));
-  win.webContents.on('render-process-gone', (_e, details) => reportOnce(`Renderer process gone: ${JSON.stringify(details)}`));
+  win.webContents.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit') return;
+    if (!fallBack(`renderer gone: ${JSON.stringify(details)}`)) reportOnce(`Renderer process gone: ${JSON.stringify(details)}`);
+  });
   win.webContents.on('console-message', (event) => {
     if (event.level === 'error') reportOnce(`Page error: ${event.message}`);
     else if (event.level === 'warning') log('page warning', event.message);
@@ -323,15 +341,9 @@ function createWindow() {
   }, 4000);
   // The renderer says 'scene-ready' after its first frame; if that never comes, tell the user.
   sceneTimer = setTimeout(() => {
-    if (!SOFTWARE) {
-      log('scene did not start in 15 s: restarting once with software rendering');
-      app.relaunch({ args: [...process.argv.slice(1), '--software'] });
-      app.exit(0);
-      return;
-    }
-    reportOnce('The 3D scene did not start within 15 seconds, even with software rendering (WebGL or the GPU driver may be unavailable).');
+    if (!fallBack('scene did not start in 15 s')) reportOnce('The 3D scene did not start within 15 seconds, even in lite mode (WebGL or the GPU driver may be unavailable).');
   }, 15000);
-  win.loadFile(path.join(__dirname, 'index.html'), DEBUG ? { query: { debug: '1' } } : undefined);
+  win.loadFile(path.join(__dirname, 'index.html'), { query: { ...(DEBUG ? { debug: '1' } : {}), ...(LITE ? { lite: '1' } : {}) } });
 }
 
 // ---- IPC --------------------------------------------------------------------------------------
@@ -349,6 +361,10 @@ ipcMain.on('diorama:set-interactive', (event, interactive) => {
   if (!fromRenderer(event) || typeof interactive !== 'boolean') return;
   if (clickThrough === 'off' || moveMode) return;
   setIgnore(!interactive);
+});
+
+ipcMain.on('diorama:log', (event, message) => {
+  if (fromRenderer(event) && typeof message === 'string') log('renderer:', message);
 });
 
 ipcMain.on('diorama:scene-ready', (event) => {
@@ -375,7 +391,7 @@ if (!app.requestSingleInstanceLock()) {
   Menu.setApplicationMenu(null);
 
   app.whenReady().then(() => {
-    log('start', app.getVersion(), process.platform, process.arch, `electron ${process.versions.electron}`, SOFTWARE ? '(software rendering)' : '');
+    log('start', app.getVersion(), process.platform, process.arch, `electron ${process.versions.electron}`, SOFTWARE ? '(software rendering)' : '', LITE ? '(lite)' : '');
     app.getGPUInfo('basic').then((info) => log('gpu', JSON.stringify(info.gpuDevice ?? info).slice(0, 600))).catch((e) => log('gpu info failed', e));
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     loadSettings();

@@ -21,7 +21,7 @@ const SIGN_H_UNITS = 0.62;
 
 /** Atlas texture with the sign text drawn top to bottom, one sign per column. */
 function makeSignAtlas() {
-  if (typeof document === 'undefined') return null; // no canvas outside the browser
+  if (typeof document === 'undefined' || globalThis.DIORAMA_LITE) return null; // no canvas outside the browser, and no text in lite mode
   const colW = 64;
   const canvas = document.createElement('canvas');
   canvas.width = colW * SIGN_TEXTS.length;

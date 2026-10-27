@@ -32,6 +32,8 @@ npm start
 - **手動**：GitHub → Actions →「Build Windows portable exe」→ Run workflow（要 workflow 檔已喺預設分支先見到按鈕），完成後喺該次執行頁面底部下載 Artifacts。
 - **自己喺 Windows 建**：`cd beach-diorama && npm install && npm run dist`，成品喺 `dist/`。
 
+**如果開唔到／畫面冇出**：app 起唔到 3D 場景（或渲染程序當機）時，會自動降級重開——先用軟件渲染（`--software`），再用精簡模式（`--lite`：冇陰影、冇抗鋸齒、冇中文招牌字）。全部都失敗先彈錯誤框。啟動過程每一步都寫入 `%APPDATA%\beach-diorama\diorama.log`（亦記錄顯示卡資料），回報問題時請貼呢個檔案。
+
 注意：exe **冇數碼簽署**，Windows SmartScreen 可能警告「無法辨識嘅 app」，要撳「更多資訊 → 仍要執行」。免安裝版每次啟動要先自行解壓，開得會慢幾秒。圖示係我生成嘅簡單示意圖（`build/icon.png`）。我喺 Linux 驗證過打包設定同 asar 內容，但**冇喺真 Windows 上行過 CI 或呢個 exe**，請你試完回報。
 
 ## 操作
