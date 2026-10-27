@@ -7,7 +7,7 @@
 | 檔案 | 係乜 |
 |---|---|
 | `characters/polar-bear/character.svg.html` | 熊仔嘅畫（一個 `<svg>`，所有會郁嘅部位都有 id） |
-| `characters/yo-jie/` | Yo 姐（企喺度嘅角色）：畫、`rig.js`（自己嘅關節、手臂同動作）、`build.json` |
+| `characters/yo-jie/` | Yo 姐（企喺度嘅角色）：`source/sheet/` 係佢嘅角色設定稿，`source/make_character.py` 由設定稿砌出 `character.svg.html`；`rig.js` 係佢自己嘅動作同反應 |
 | `src/engine.js` | 動畫引擎：動作（idle、wave、cocoa、vibe、sleep、code、clock）、漸變、彈簧、眨眼、粒子、自動模式、時鐘 |
 | `src/input.js` | 撳角色各部位嘅反應 |
 | `src/studio.html` + `src/ui-studio.js` | 網頁版（有控制面板） |
@@ -70,7 +70,7 @@ python3 build.py yo-jie          # Yo 姐 → ../yo-jie-studio/index.html 同 ..
 - 重新定義 `twitchEar`、`wiggleToes`、`triggerGlassesPush`、`headPat`、`fidget` 等反應
 - 加 pose 欄位：`REST.x = 0; KEYS.push("x")`，佢會同其他欄位一樣喺動作之間漸變
 
-`characters/yo-jie/rig.js` 係完整例子：企喺度、兩節手臂、Hooray 跳、托住個鐘介紹時間。
+`characters/yo-jie/rig.js` 係完整例子：用角色設定稿嘅插圖做角色，表情疊喺塊面上，揮手、飲嘢、拎電腦、介紹時間同 Hooray 跳就淡入整張插圖。
 
 ## 喺另一個 chat 整新角色
 

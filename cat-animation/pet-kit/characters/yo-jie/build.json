@@ -9,8 +9,7 @@
     "Let him decide what to do, like a desktop pet": "Let her decide what to do, like a desktop pet",
     "A little clock beside him, always showing the time": "A little clock beside her, always showing the time",
     "<span>✨ <b>Tap Glasses:</b> Adjust</span>": "<span>✨ <b>Tap Loose Hair:</b> Tuck</span>",
-    "<span>👂 <b>Tap Ears:</b> Twitch</span>": "<span>👂 <b>Tap Earrings:</b> Swing</span>",
-    "<span>🐻‍❄️ <b>Tap Belly Bear:</b> Wink</span>": "<span>🔘 <b>Tap Button:</b> Glint</span>",
+    "<span>🐻‍❄️ <b>Tap Belly Bear:</b> Wink</span>": "<span>🔘 <b>Tap Waist Button:</b> Heart</span>",
     "<span>🐾 <b>Tap Feet/Tail:</b> Wiggle</span>": "<span>🙌 <b>Tap Legs:</b> Hooray! · <b>Braid:</b> Swish</span>",
     "<small>Friendly paw wave</small>": "<small>Friendly hand wave</small>",
     "<small>Fast paw typing</small>": "<small>Laptop in hand</small>",
@@ -18,6 +17,8 @@
     "Auto lets him pick what to do on his own, like a desktop pet, and on the hour he holds up the clock": "Auto lets her pick what to do on her own, like a desktop pet, and on the hour she holds up the clock",
     "🤓 Adjust Glasses": "💁 Tuck Hair",
     "🎉 Happy Toe Wiggle": "🙌 Hooray Jump",
-    "\"cozybear.\" + k": "\"yojie.\" + k"
+    "\"cozybear.\" + k": "\"yojie.\" + k",
+    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src": "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; script-src",
+    "<span>👂 <b>Tap Ears:</b> Twitch</span>": "<span>👂 <b>Tap Earrings:</b> Glint</span>"
   }
 }
