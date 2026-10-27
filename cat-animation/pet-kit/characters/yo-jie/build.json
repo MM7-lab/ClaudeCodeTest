@@ -19,6 +19,8 @@
     "🎉 Happy Toe Wiggle": "🙌 Hooray Jump",
     "\"cozybear.\" + k": "\"yojie.\" + k",
     "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src": "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; script-src",
-    "<span>👂 <b>Tap Ears:</b> Twitch</span>": "<span>👂 <b>Tap Earrings:</b> Glint</span>"
+    "<span>👂 <b>Tap Ears:</b> Twitch</span>": "<span>👂 <b>Tap Earrings:</b> Glint</span>",
+    "<button id=\"btn-pet\" class=\"neo-btn toggle pat\">": "<button id=\"btn-office\" class=\"neo-btn toggle\" aria-pressed=\"false\" title=\"Sit her at her desk (tap the neon sign to switch 營業中 / 被迫營業中)\">💼 <span>返工</span></button>\n      <button id=\"btn-pet\" class=\"neo-btn toggle pat\">",
+    "<span>🙂 <b>Tap Face:</b> Pat</span>": "<span>🙂 <b>Tap Face:</b> Pat</span>\n          <span>💼 <b>返工:</b> tap the neon sign for 營業中 / 被迫營業中</span>"
   }
 }

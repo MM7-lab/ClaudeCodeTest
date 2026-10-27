@@ -8,10 +8,10 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");   /
 
 // her picture is 320 × 595 (cropped close around her); with the desk clock beside her it is 540 wide
 const SIZES = { small: [161, 300], medium: [226, 420], large: [301, 560] };
-const WIDE = 540 / 320;
-const winSize = (name) => { const [w, h] = SIZES[name]; return [Math.round(w * (state.wide ? WIDE : 1)), h]; };
+const WIDE = 540 / 320, OFFICE = 420 / 320;      // at her desk (返工模式) the picture is 420 wide
+const winSize = (name) => { const [w, h] = SIZES[name]; return [Math.round(w * (state.office ? OFFICE : state.wide ? WIDE : 1)), h]; };
 const statePath = () => path.join(app.getPath("userData"), "pet-state.json");
-let state = { size: "medium", top: true, wide: false, x: null, y: null };
+let state = { size: "medium", top: true, wide: false, office: false, x: null, y: null };
 let win = null, cursorTimer = null, lastCursor = "";
 
 function loadState() {
@@ -21,6 +21,7 @@ function loadState() {
     if (SIZES[saved.size]) state.size = saved.size;
     if (typeof saved.top === "boolean") state.top = saved.top;
     if (typeof saved.wide === "boolean") state.wide = saved.wide;
+    if (typeof saved.office === "boolean") state.office = saved.office;
     if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) { state.x = Math.round(saved.x); state.y = Math.round(saved.y); }
   } catch (e) { /* first run */ }
 }
@@ -69,6 +70,7 @@ function createWindow() {
   win.webContents.on("will-navigate", (e) => e.preventDefault());
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile(path.join(__dirname, "pet.html"));
+  win.webContents.on("did-finish-load", () => win.webContents.send("menu", state.office ? "office-on" : "office-off"));
   win.on("moved", () => { [state.x, state.y] = win.getPosition(); saveState(); });
 
   // her eyes follow the cursor anywhere on the screen, not only over her window
@@ -141,6 +143,14 @@ ipcMain.on("show-menu", (e, raw) => {
     { label: "撥頭髮", click: send("glasses") },
     { label: "🙌 Hooray 跳", click: send("toes") },
     { label: "身邊擺個鐘", type: "checkbox", checked: s.deskClock, click: send("deskclock") },
+    { type: "separator" },
+    { label: "💼 返工模式（坐喺枱前）", type: "checkbox", checked: state.office, click: () => {
+      state.office = !state.office; saveState();
+      const [x, y] = win.getPosition(), [w, h] = winSize(state.size);
+      win.setBounds({ x, y, width: w, height: h });                    // grows to the right, so she does not move
+      send(state.office ? "office-on" : "office-off")();
+    } },
+    { label: "🪧 營業中／被迫營業中", enabled: state.office, click: send("neon") },
     { type: "separator" },
     { label: "大細", submenu: [["small", "細"], ["medium", "中"], ["large", "大"]].map(([n, l]) => ({ label: l, type: "radio", checked: state.size === n, click: size(n) })) },
     { label: "聲效", type: "checkbox", checked: s.sound, click: send("sound") },

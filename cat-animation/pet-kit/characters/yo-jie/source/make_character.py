@@ -54,32 +54,37 @@ FEET_Y, CENTER_X = 2470, 828
 def feet_center(mask):
     ys, xs = np.nonzero(mask[FEET_Y - 140:FEET_Y + 20])
     return float(xs.mean()) if len(xs) else CENTER_X
-def to_canvas(x, y, dx=0.0):
+# the desk scenes (desk-*.jpg) share one framing: the desk's legs on the floor, the desk centred a little right of her
+K_DESK, DESK_X, DESK_FLOOR, DESK_AT = 0.26, 848, 2387, 320
+def to_canvas(x, y, dx=0.0, desk=False):
+    if desk:
+        return (DESK_AT + (x - DESK_X) * K_DESK, 586 + (y - DESK_FLOOR) * K_DESK)
     return (304 + (x + dx - CENTER_X) * K, 586 + (y - FEET_Y) * K)
 def pt(x, y, dx=0.0):
     return [round(v, 1) for v in to_canvas(x, y, dx)]
 
 OUT_SCALE = 0.42                                                     # stored pixels per sheet pixel (about 2x the canvas)
-def encode_rgba(rgba, x0, y0, dx=0.0, hit=None):
+def encode_rgba(rgba, x0, y0, dx=0.0, hit=None, desk=False):
     """An <image> of rgba (whose top-left is sheet pixel x0, y0) placed on the canvas, plus an optional hit outline."""
     h, w = rgba.shape[:2]
     im = Image.fromarray(rgba, "RGBA").resize((max(1, round(w * OUT_SCALE)), max(1, round(h * OUT_SCALE))), Image.LANCZOS)
     buf = io.BytesIO(); im.save(buf, "WEBP", quality=88, method=6)
-    cx, cy = to_canvas(x0, y0, dx)
+    cx, cy = to_canvas(x0, y0, dx, desk)
+    k = K_DESK if desk else K
     href = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
-    out = f'<image href="{href}" x="{cx:.1f}" y="{cy:.1f}" width="{w * K:.1f}" height="{h * K:.1f}" preserveAspectRatio="none" pointer-events="none" />'
+    out = f'<image href="{href}" x="{cx:.1f}" y="{cy:.1f}" width="{w * k:.1f}" height="{h * k:.1f}" preserveAspectRatio="none" pointer-events="none" />'
     if hit is not None:
         cs, _ = cv2.findContours(hit.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         c = cv2.approxPolyDP(max(cs, key=cv2.contourArea), 6, True)[:, 0, :]
-        out += '<polygon points="' + " ".join("%.1f,%.1f" % to_canvas(x + x0, y + y0, dx) for x, y in c) + '" fill="transparent" />'
+        out += '<polygon points="' + " ".join("%.1f,%.1f" % to_canvas(x + x0, y + y0, dx, desk) for x, y in c) + '" fill="transparent" />'
     return out
 
-def encode_mask(img, mask, dx=0.0):
+def encode_mask(img, mask, dx=0.0, desk=False):
     ys, xs = np.nonzero(mask)
     x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
     alpha = cv2.GaussianBlur(mask[y0:y1, x0:x1].astype(np.float32), (3, 3), 0.8)
     rgba = np.dstack([cv2.cvtColor(img[y0:y1, x0:x1], cv2.COLOR_BGR2RGB), (np.clip(alpha, 0, 1) * 255).astype(np.uint8)])
-    return encode_rgba(rgba, x0, y0, dx, hit=mask[y0:y1, x0:x1])
+    return encode_rgba(rgba, x0, y0, dx, hit=mask[y0:y1, x0:x1], desk=desk)
 
 # ---------- yo0: body and head ----------
 base = figure_mask(sheet[0])
@@ -135,14 +140,24 @@ for name, (x0, y0, x1, y1) in FACES.items():
     print(f"face {name}: match {v:.3f} scale {s:.3f}")
 
 # ---------- whole figures ----------
-FIGS = {"wave": 3, "cocoa": 4, "code": 5, "clock": 6, "jump": 7}
+FIGS = {"wave": 3, "cocoa": 4, "code": 5, "clock": 6, "jump": 7, "phone": "stand-phone", "thumbs": "stand-thumbs", "ponder": "stand-ponder"}
 base_feet = feet_center(base)
 figs, fig_dx = {}, {}
+def sheet_img(n):
+    return sheet[n] if isinstance(n, int) else cv2.imread(os.path.join(HERE, "sheet", n + ".jpg"))
 for name, n in FIGS.items():
-    m = figure_mask(sheet[n])
+    img = sheet_img(n)
+    m = figure_mask(img)
     dx = 0.0 if name == "jump" else base_feet - feet_center(m)       # stand where yo0 stands
     fig_dx[name] = dx
-    figs[name] = encode_mask(sheet[n], m, dx)
+    figs[name] = encode_mask(img, m, dx)
+
+# ---------- the desk scenes ("返工模式"): the empty desk below, her poses over it ----------
+DESK = ["empty", "think", "write", "coffee", "stretch", "asleep", "celebrate", "call"]
+desk_imgs = {}
+for name in DESK:
+    img = sheet_img("desk-" + name)
+    desk_imgs[name] = encode_mask(img, figure_mask(img), desk=True)
 
 # ---------- joints on the canvas (for rig.js) ----------
 joints = {
@@ -151,6 +166,10 @@ joints = {
     "button": pt(838, 1100), "braid": pt(510, 1010), "handL": pt(560, 1330), "handR": pt(1110, 1330),
     "palm": pt(1448, 786, fig_dx["clock"]), "mug": pt(848, 600, fig_dx["cocoa"]), "laptop": pt(1000, 1060, fig_dx["code"]),
     "waveHand": pt(1450, 520, fig_dx["wave"]), "hairTop": pt(838, 150),
+    # desk scenes
+    "deskSign": [round(v, 1) for v in to_canvas(320, 1405, desk=True)], "deskBooks": [round(v, 1) for v in to_canvas(262, 1258, desk=True)],
+    "deskHead": [round(v, 1) for v in to_canvas(770, 560, desk=True)], "deskMug": [round(v, 1) for v in to_canvas(1110, 1215, desk=True)],
+    "deskLaptop": [round(v, 1) for v in to_canvas(990, 1040, desk=True)],
 }
 json.dump(joints, open(os.path.join(HERE, "joints.json"), "w"), indent=1)
 
@@ -222,7 +241,10 @@ svg = f'''                <svg id="character-svg" viewBox="0 0 600 630" class="w
                             </g>
                         </g>
                         <!-- whole figures from the sheet, faded in by rig.js -->
-''' + "".join(f'                        <g id="yo-fig-{name}" class="hidden" opacity="0">{figs[name]}</g>\n' for name in FIGS) + '''                        <g id="particles-layer" pointer-events="none"></g>
+''' + "".join(f'                        <g id="yo-fig-{name}" class="hidden" opacity="0">{figs[name]}</g>\n' for name in FIGS) + '''                        <!-- 返工模式: her at the desk (the sign and the clock on it are added by rig.js) -->
+                        <g id="yo-office" class="hidden" opacity="0">
+''' + "".join(f'                            <g id="yo-desk-{name}" class="hidden" opacity="0">{desk_imgs[name]}</g>\n' for name in DESK) + '''                        </g>
+                        <g id="particles-layer" pointer-events="none"></g>
                         </g>
                     </g>
                 </svg>
