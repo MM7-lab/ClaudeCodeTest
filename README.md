@@ -62,6 +62,7 @@ python3 floor-planner/build_pages.py
 | `cat-animation/bear-onesie-studio/index.html` | Cozy Bear Onesie Studio：你嘅熊仔衫人仔角色（造型一筆都冇改），換咗新嘅動畫系統：唔使網絡都用得（冇 CSS framework）、喺 60／120／144Hz 螢幕速度一樣、轉模式時動作同道具會漸變（杯、電腦、耳筒會長出嚟／收返）、自己眨眼、閒時會周圍望／郁耳仔／篤腳／推眼鏡／打喊露；Auto 模式好似桌面寵物咁自己決定做乜（飲可可、寫 code、聽歌、揮手、瞓覺），瞓緊撳佢會醒；設定會記低 |
 | `cat-animation/bear-pet-app/` | 熊仔 Windows 桌面寵物（Electron）：透明冇背景、永遠置頂，自己決定做乜，眼跟滑鼠，拖佢搬位、右鍵有選單；`.exe` 由 GitHub Actions「Bear desk pet (Windows)」整，詳見入面 README |
 | `cat-animation/pet-kit/` | 熊仔動畫系統嘅原始碼（引擎、網頁版、桌面寵物版、角色畫）同 `build.py`；README 講點樣用同一套系統整新角色 |
+| `cat-animation/yojie-pet-app/` | Yo Jie Windows 桌面寵物：用 Gemini 圖（去咗背景）做 WebGL 網格動畫，打字、望你、諗嘢、伸懶腰、瞇眼、眨眼、眼跟滑鼠；枱上牌仔顯示時間；`.exe` 由 GitHub Actions「Yo Jie desk pet (Windows)」整 |
 
 重新產生（需要 Python Pillow、numpy 同 ffmpeg）：
 
