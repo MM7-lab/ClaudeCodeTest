@@ -1,0 +1,32 @@
+name: Yo Jie desk pet (Windows)
+
+on:
+  push:
+    paths:
+      - "cat-animation/yojie-pet-app/**"
+      - ".github/workflows/yojie-pet-app.yml"
+  workflow_dispatch:
+
+# the build only reads the repository
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cat-animation/yojie-pet-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci           # exact versions from package-lock.json
+      - run: npm audit --audit-level=high
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YoJie-windows
+          path: cat-animation/yojie-pet-app/dist/*.exe
+          retention-days: 30
