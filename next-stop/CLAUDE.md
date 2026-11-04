@@ -42,6 +42,7 @@
 - 關愛座後生仔用兩隻手玩手提遊戲機（`arm:'game'`，紅藍手掣、有畫面；掛喺 `spine`，`p.console`，第五步佢讓座時 `arm` 變咗就自動收起）；其他人睇電話只用一隻手（`arm:'phone'` 只舉 `arms[1]`，另一隻手放低／坐低放膝頭），電話係黑色機身加光屏；耳機放大咗，戴喺頭髮外面
 - 遮擋：跟住某人嘅鏡頭會揀擋住最少人嘅角度（`followTarget` 嘅 `blockers()`，有 `f.ci` 防跳來跳去）；`updateOccluders()` 喺螢幕空間判斷：凡係比目標近鏡頭、而且喺畫面上同目標重疊嘅人，或者離鏡頭 1 米內嘅人，都會收埋
 - 方法三試行（插畫人物）：六個日常乘客（xA–xF）而家用 Tommy 角色設定圖剪出嚟嘅插畫（`CARDS`，WebP data URI，每張 20–60 KB），`makeCard()` 將佢企喺隱藏咗嘅 3D 身體上面（`p.root.visible=false`，身體照樣用嚟揀人、對焦、遮擋判斷），每格只沿垂直軸轉向鏡頭；號碼牌掛喺 `p.g` 張卡上面；顏色用 `CARD_TINT` 調暗少少，同 3D 人物光暗夾。插畫係企嘅靜態圖，所以佢哋一律企、冇動作，線索已經改成配合張圖。重新剪圖用 `tools/cut_cards.py`（numpy、pillow、scipy；入面有每張設定圖嘅剪裁範圍同要挖空嘅手挽位）。主線角色（婆婆、孕婦、腳傷男仔等）仍然係 3D，因為第三、五步要影近佢哋嘅細節同埋行、坐
+- 婆婆插畫（Tommy 用 prompt 生成）：`GRANNY_ART.panel`（第三步三張困難卡入面嘅細節圖：勒紅手指、震緊嘅膝頭、卡喺門邊嘅手推車轆，撳一下可以放大）；`GRANNY_ART.face`（tired／worried／surprised／smile 頭像：第二步睇婆婆時用 tired；`say(who,text,btns,face)` 第四個參數顯示頭像——直接攞袋嗰條路 surprised、先問意願 worried、結果有讓座 smile、冇讓座 tired）。用 `tools/cut_granny.py` 剪。婆婆本身仲係 3D：佢企喺門邊扶柱嗰款插畫（1a）未有，行路（1b）同坐低（1c）嘅插畫已經收到但未用，等 1a 到咗先一次過換晒三個狀態，唔好一時插畫一時 3D
 
 ## 約束
 - 介面文字一律用香港繁體中文（廣東話口語）
