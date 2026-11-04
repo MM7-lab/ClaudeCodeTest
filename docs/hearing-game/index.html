@@ -135,6 +135,7 @@
       const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
       const [timeLeft, setTimeLeft] = useState(20);
       const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+      const [previewPlaying, setPreviewPlaying] = useState(null); // 關前／關後試聽：'muffled' | 'clear' | null
       const [failCount, setFailCount] = useState(0); // 新增：追蹤失敗次數來進行三次調整
       const [shuffledOptions, setShuffledOptions] = useState([]);
       
@@ -211,6 +212,47 @@
         }
         window.speechSynthesis.cancel();
         setIsPlayingAudio(false);
+        setPreviewPlaying(null);
+      };
+
+      // --- 關前／關後試聽錄音（正常語速，再撳一下停止）---
+      const togglePreview = (type) => {
+        if (previewPlaying === type) {
+          stopAudio();
+          return;
+        }
+        stopAudio();
+        const url = type === 'clear' ? customAudioClear : customAudioMuffled;
+        if (!url || !audioPlayerRef.current) return;
+        const player = audioPlayerRef.current;
+        player.src = url;
+        player.playbackRate = 1.0;
+        player.onended = () => setPreviewPlaying(null);
+        setPreviewPlaying(type);
+        player.play().catch(() => setPreviewPlaying(null));
+      };
+
+      const renderPreviewButton = (type) => {
+        const isClearType = type === 'clear';
+        const url = isClearType ? customAudioClear : customAudioMuffled;
+        const isThisPlaying = previewPlaying === type;
+        const label = isClearType ? '播放清晰錄音' : '試聽處理過嘅錄音';
+        const colors = isClearType
+          ? 'bg-teal-600 hover:bg-teal-700 text-white'
+          : 'bg-indigo-600 hover:bg-indigo-700 text-white';
+        return (
+          <button
+            onClick={() => togglePreview(type)}
+            disabled={!url}
+            className={`w-full py-4 rounded-xl font-bold text-lg transition shadow flex items-center justify-center gap-2 ${url ? colors : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+          >
+            {isThisPlaying ? (
+              <><span className="flex gap-1 items-end h-5"><span className="w-1.5 h-3 bg-white animate-bounce"></span><span className="w-1.5 h-5 bg-white animate-bounce" style={{ animationDelay: '100ms' }}></span><span className="w-1.5 h-2 bg-white animate-bounce" style={{ animationDelay: '200ms' }}></span></span> 播放中…撳一下停止</>
+            ) : (
+              <><Volume2 size={22} /> {url ? label : ((isClearType ? isLoadingClear : isLoadingMuffled) ? '錄音載入中…' : '未有錄音（請先喺下面手動載入）')}</>
+            )}
+          </button>
+        );
       };
 
       const playRealAudio = () => {
@@ -250,6 +292,7 @@
 
       // --- 遊戲流程控制 ---
       const startGame = () => {
+        stopAudio();
         setCurrentQuestionIdx(0);
         setFailCount(0); // 開始時重置失敗次數
         setGameState('playing');
@@ -314,6 +357,7 @@
       };
 
       const resetGame = () => {
+        stopAudio();
         setCurrentLevel(0);
         setCurrentQuestionIdx(0);
         setFailCount(0); // 重置失敗次數
@@ -349,6 +393,11 @@
               <h1 className="text-3xl font-bold text-gray-800">{level.title}</h1>
             </div>
             <p className="text-sm text-gray-600 max-w-lg">{level.context} 本關卡共需連續回答 3 條問題。</p>
+
+            <div className="w-full max-w-lg">
+              <p className="text-sm font-bold text-indigo-700 mb-2">🎧 開始前，先聽吓長者聽到嘅係點</p>
+              {renderPreviewButton('muffled')}
+            </div>
 
             <div className="w-full max-w-lg bg-indigo-50/80 border-2 border-indigo-200 rounded-2xl p-4 text-left mb-2 shadow-sm">
               <div className="space-y-3">
@@ -522,12 +571,17 @@
             <div className="bg-white/95 backdrop-blur p-10 rounded-3xl shadow-xl border border-gray-100 max-w-md w-full">
               <div className="bg-green-100 p-6 rounded-full mb-6 text-green-600 inline-block"><CheckCircle size={56} /></div>
               <h2 className="text-3xl font-bold text-gray-800 mb-4">{LEVELS[currentLevel].title}：過關！</h2>
-              <p className="text-md text-gray-600 mb-8 font-medium">連續 3 題挑戰成功！<br/>透過調整溝通方式，長者終於聽清楚了重要資訊。</p>
+              <p className="text-md text-gray-600 mb-6 font-medium">連續 3 題挑戰成功！<br/>透過調整溝通方式，長者終於聽清楚了重要資訊。</p>
+              <div className="bg-teal-50 border-2 border-teal-200 rounded-2xl p-4 mb-6 text-left">
+                <p className="text-sm font-bold text-teal-700 mb-3">🔊 聽返原本清楚嘅版本，比較吓有咩唔同</p>
+                {renderPreviewButton('clear')}
+                <p className="text-gray-800 font-bold leading-relaxed mt-3">「{LEVELS[currentLevel].clearText}」</p>
+              </div>
               <div className="flex flex-col gap-3">
                 {!isLastLevel && (
                   <button onClick={nextLevel} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2">進入下一關 <ArrowRight size={20} /></button>
                 )}
-                <button onClick={() => setGameState('end')} className={`w-full py-4 rounded-xl font-bold transition ${isLastLevel ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg text-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                <button onClick={() => { stopAudio(); setGameState('end'); }} className={`w-full py-4 rounded-xl font-bold transition ${isLastLevel ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg text-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                   {isLastLevel ? '完成體驗並查看總結' : '結束遊戲並查看總結'}
                 </button>
               </div>
