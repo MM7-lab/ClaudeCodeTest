@@ -1230,7 +1230,9 @@ function doActions(){
       if(!S.actions.has('trolley')){trolley.userData.rest=null;trolley.rotation.set(0,0,0);trolley.position.y=0;}},t+=1500);
     t+=3600;
   }
-  setTimeout(()=>{if(granny.pose==='sit')shotPerson(granny,null,1.4);outcome();},t+600);
+  // on a slow device the walk to the seat can outlast the timers: wait (up to 15 s) until she is actually seated before the outcome
+  const finish=(n)=>{if(S.actions.has('seat')&&granny.pose!=='sit'&&n<75){setTimeout(()=>finish(n+1),200);return;}if(granny.pose==='sit')shotPerson(granny,null,1.4);outcome();};
+  setTimeout(()=>finish(0),t+600);
 }
 function outcome(){
   const miss=ACTIONS.filter(a=>!S.actions.has(a.id));let txt;
