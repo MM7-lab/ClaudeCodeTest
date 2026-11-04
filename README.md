@@ -107,3 +107,16 @@ App 檔案：`index.html`、`manifest.webmanifest`（名稱同圖示）、`sw.js
 - 連線用 PeerJS 免費公共配對伺服器（0.peerjs.com），唔使自己架伺服器，但佢冇服務保證。所有手機最好連同一個 Wi-Fi；活動前一日請試玩一次。連唔到嘅話，主持人冇玩家都可以照開始，用投影機一齊答、舉手搶答。
 - 題目改喺 `index.html` 入面嘅 `QUESTIONS`（正確答案寫第一個，開始時會自動打亂次序）。
 - 唔會收集任何個人資料：名同分數只喺主持人部機嘅記憶體，閂咗就冇。
+
+---
+
+# 聽覺體驗（長者聽力測試遊戲）
+
+`docs/hearing-game/`：由 `MM7-lab/ElderlyAudioGame` 原封不動複製過嚟嘅副本，用嚟喺呢度修改，原本個 repo 唔會受影響。
+
+網址：`https://mm7-lab.github.io/ClaudeCodeTest/hearing-game/`（要 merge 入 main 同開咗 GitHub Pages 先用得）
+
+- 3 關：街市購物、前往社區中心、診所覆診，每關 3 條題，每題 20 秒。
+- 每關有兩段錄音：`… muffled.wav`（模擬聽損）同 `… clear.wav`（清晰版）。
+- 答錯會逐步加輔助：錯 1 次放慢語速 → 錯 2 次出部分字幕 → 錯 3 次播清晰錄音同完整字幕。
+- 題目、對白同檔名都改喺 `index.html` 入面嘅 `LEVELS`；背景圖放喺 postimg.cc（外部網站）。

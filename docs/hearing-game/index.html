@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 手機與平板響應式設定，防止畫面被縮放變形 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  
+  <!-- iOS App 模式設定 (加入主畫面後隱藏 Safari 網址列) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="聽覺體驗" />
+  
+  <title>聽覺體驗</title>
+
+  <!-- 自動生成 App Icon 與 Manifest 的內嵌腳本 -->
+  <script>
+    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#2563eb"/><g transform="translate(136, 136) scale(10)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18.5a3.5 3.5 0 1 0 7 0c0-1.57.92-2.52 2.04-3.46 1.08-.9 2.96-2.5 2.96-5.04"/><path d="M11.4 6.6c.19-.06.4-.1.6-.1 3.31 0 6 2.69 6 6 0 1.25-.5 2.39-1.3 3.25"/><path d="M4 4l16 16"/></g></svg>`;
+    const iconDataUrl = "data:image/svg+xml;base64," + btoa(svgIcon);
+
+    const manifestContent = {
+      "name": "聽覺體驗",
+      "short_name": "聽覺體驗",
+      "description": "模擬長者高頻聽損的互動體驗遊戲",
+      "start_url": ".",
+      "display": "standalone",
+      "background_color": "#f8fafc",
+      "theme_color": "#2563eb",
+      "icons": [{ "src": iconDataUrl, "type": "image/svg+xml", "sizes": "512x512" }]
+    };
+    
+    const manifestDataUrl = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(manifestContent));
+
+    document.write(`<link rel="icon" type="image/svg+xml" href="${iconDataUrl}" />`);
+    document.write(`<link rel="apple-touch-icon" href="${iconDataUrl}" />`);
+    document.write(`<link rel="manifest" href="${manifestDataUrl}" />`);
+  </script>
+
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- 設定 React 與 Lucide Icons 的 CDN 載入路徑 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+      }
+    }
+  </script>
+
+  <!-- 載入 Babel (讓瀏覽器能直接讀懂 JSX 程式碼) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <style>
+    /* 防止手機長按選取文字影響遊戲體驗 */
+    body { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  </style>
+</head>
+<body class="bg-slate-100">
+  
+  <!-- 遊戲渲染容器 -->
+  <div id="root"></div>
+
+  <!-- 遊戲主程式 (React JSX 包裝於 HTML 中) -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useRef, useEffect } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { EarOff, Volume2, AlertTriangle, CheckCircle, Clock, MessageSquare, Eye, Settings2, Upload, Play, Loader2, ArrowRight } from 'lucide-react';
+
+    // --- 多關卡資料設定 (每關 3 題 + 專屬背景圖) ---
+    const LEVELS = [
+      {
+        id: 1,
+        title: "第一關：街市購物",
+        character: "街市檔主",
+        context: "街市環境非常嘈吵，檔主語速飛快地跟你結算剛買的菜錢...",
+        clearText: "婆婆！蘋果四舊，廁紙買二送一，仲有一盒豆腐，唔該你六十二個三。",
+        partialText: "婆婆！蘋果 _ 舊，_ 紙買 _ 送一，仲有一盒 _ 腐，唔該你 _ 十 _ 個三。",
+        questions: [
+          { text: "買這些東西總共要付多少錢？", options: ["四十二個三", "六十二個三", "十二個三"], correctIndex: 1 },
+          { text: "蘋果有幾舊？", options: ["兩舊", "四舊", "六舊"], correctIndex: 1 },
+          { text: "廁紙有咩優惠？", options: ["買一送一", "買二送一", "買三送一"], correctIndex: 1 }
+        ],
+        consequence: "你聽錯了價錢或商品資訊，檔主以為你想佔便宜，在眾人面前大聲喝斥你。",
+        npcReaction: "阿婆！六十二個三呀！畀得十二蚊？你係咪有心呃秤㗎！",
+        muffledFile: "購物 muffled.wav",
+        clearFile: "購物 clear.wav",
+        bgImage: "https://i.postimg.cc/59XfmH2N/gou-wu.png",
+        isPlaceholder: false
+      },
+      {
+        id: 2,
+        title: "第二關：前往社區中心",
+        character: "熱心街坊",
+        context: "天氣很熱，你在街上迷路了，向一位腳步匆忙的街坊問路...",
+        clearText: "社區中心啊？你過馬路先，跟住直行就見到商場，咁轉右就會見到社區中心㗎啦。",
+        partialText: "社區中心啊？你過＿＿先，跟住＿＿就見到＿＿，咁轉＿＿就會見到社區中心㗎啦。",
+        questions: [
+          { text: "去社區中心第一步要做咩？", options: ["轉左", "過馬路", "直行"], correctIndex: 1 },
+          { text: "過咗馬路之後會見到咩建築物？", options: ["街市", "商場", "學校"], correctIndex: 1 },
+          { text: "見到商場之後要點樣行？", options: ["轉左", "轉右", "直行"], correctIndex: 1 }
+        ],
+        consequence: "你聽錯了方向，越走越遠，天氣炎熱讓你感到體力不支，非常徬徨無助。",
+        npcReaction: "阿婆！我頭先咪講咗過馬路見到商場轉右囉，你又行錯方向！",
+        muffledFile: "社區中心muffled.wav",
+        clearFile: "社區中心 clear.wav",
+        bgImage: "https://i.postimg.cc/Wpds7D1h/she-qu-zhong-xin.png",
+        isPlaceholder: false
+      },
+      {
+        id: 3,
+        title: "第三關：診所覆診",
+        character: "診所護士",
+        context: "診所內有其他病人聊天的聲音。護士戴著口罩，低著頭看病歷對你說...",
+        clearText: "伯伯，呢隻藍色藥丸每日食三次，每次一粒。食完飯之後先好食啊。幫你約咗下個禮拜二覆診㗎啦。",
+        partialText: "伯伯，呢隻＿色藥丸每日食＿＿次，每次一粒。食完＿之後先好食啊。幫你約咗下個禮拜＿＿覆診㗎啦。",
+        questions: [
+          { text: "呢隻藥丸係咩顏色？", options: ["紅色", "藍色", "白色"], correctIndex: 1 },
+          { text: "護士吩咐幾時要食藥？", options: ["食飯前", "食完飯之後", "臨瞓前"], correctIndex: 1 },
+          { text: "下次覆診係幾時？", options: ["下個禮拜一", "下個禮拜二", "下個禮拜三"], correctIndex: 1 }
+        ],
+        consequence: "你記錯了用藥指示，吃錯藥導致身體不適，而且還錯過了覆診的日期。",
+        npcReaction: "伯伯！藥袋上面寫得好清楚啦，你自己唔留心聽，食錯藥好危險㗎！",
+        muffledFile: "醫生 muffled.wav",
+        clearFile: "醫生 clear.wav",
+        bgImage: "https://i.postimg.cc/43XJvBmr/yi-sheng.png",
+        isPlaceholder: false
+      }
+    ];
+
+    function AudioExperienceGame() {
+      const [gameState, setGameState] = useState('intro');
+      const [currentLevel, setCurrentLevel] = useState(0);
+      const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+      const [timeLeft, setTimeLeft] = useState(20);
+      const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+      const [failCount, setFailCount] = useState(0); // 新增：追蹤失敗次數來進行三次調整
+      const [shuffledOptions, setShuffledOptions] = useState([]);
+      
+      const [customAudioMuffled, setCustomAudioMuffled] = useState(null);
+      const [customAudioClear, setCustomAudioClear] = useState(null);
+      const [isLoadingMuffled, setIsLoadingMuffled] = useState(true);
+      const [isLoadingClear, setIsLoadingClear] = useState(true);
+      
+      const audioPlayerRef = useRef(null);
+      const timerRef = useRef(null);
+
+      // --- 每次進入新題目時，隨機打亂選項 ---
+      useEffect(() => {
+        if (gameState === 'playing' && LEVELS[currentLevel] && !LEVELS[currentLevel].isPlaceholder) {
+          const currentQ = LEVELS[currentLevel].questions[currentQuestionIdx];
+          if (currentQ) {
+            const shuffled = [...currentQ.options].sort(() => Math.random() - 0.5);
+            setShuffledOptions(shuffled);
+          }
+        }
+      }, [currentLevel, currentQuestionIdx, gameState]);
+
+      // --- 動態載入當前關卡的音檔 ---
+      useEffect(() => {
+        const level = LEVELS[currentLevel];
+        if (level.isPlaceholder) {
+          setIsLoadingMuffled(false);
+          setIsLoadingClear(false);
+          return;
+        }
+
+        const fetchAudio = async (filename, setAudioState, setLoadingState) => {
+          try {
+            setLoadingState(true);
+            const response = await fetch(`./${filename}`);
+            if (response.ok) {
+              const blob = await response.blob();
+              const url = URL.createObjectURL(blob);
+              setAudioState(url);
+            } else {
+              console.warn(`無法自動載入 ${filename}`);
+            }
+          } catch (error) {
+            console.warn(`自動載入失敗:`, error);
+          } finally {
+            setLoadingState(false);
+          }
+        };
+
+        fetchAudio(level.muffledFile, setCustomAudioMuffled, setIsLoadingMuffled);
+        fetchAudio(level.clearFile, setCustomAudioClear, setIsLoadingClear);
+        
+        return () => {
+          if (customAudioMuffled) URL.revokeObjectURL(customAudioMuffled);
+          if (customAudioClear) URL.revokeObjectURL(customAudioClear);
+        };
+      }, [currentLevel]);
+
+      // --- 處理手動錄音上傳 ---
+      const handleAudioUpload = (e, type) => {
+        const file = e.target.files[0];
+        if (file) {
+          const url = URL.createObjectURL(file);
+          if (type === 'muffled') setCustomAudioMuffled(url);
+          if (type === 'clear') setCustomAudioClear(url);
+        }
+      };
+
+      // --- 音訊控制 ---
+      const stopAudio = () => {
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current.currentTime = 0;
+        }
+        window.speechSynthesis.cancel();
+        setIsPlayingAudio(false);
+      };
+
+      const playRealAudio = () => {
+        stopAudio();
+        const isSlow = failCount >= 1; // 錯 1 次：放慢語速
+        const isClear = failCount >= 3; // 錯 3 次：播放清晰版
+        const targetUrl = isClear ? customAudioClear : customAudioMuffled;
+        
+        if (targetUrl && audioPlayerRef.current) {
+          setIsPlayingAudio(true);
+          audioPlayerRef.current.src = targetUrl;
+          audioPlayerRef.current.playbackRate = isSlow ? 0.75 : 1.0; 
+          audioPlayerRef.current.play();
+          
+          audioPlayerRef.current.onended = () => setIsPlayingAudio(false);
+        } else {
+          // 備用 TTS 方案
+          setIsPlayingAudio(true);
+          const level = LEVELS[currentLevel];
+          let textToSpeak = level.clearText;
+
+          if (!isClear) {
+            textToSpeak = textToSpeak.replace(/四/g, '二').replace(/十/g, '一').replace(/廁紙/g, '衣紙').replace(/商場/g, '休場').replace(/轉右/g, '轉後');
+          }
+
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.lang = 'zh-HK';
+          utterance.rate = isSlow ? 0.8 : (isClear ? 1.0 : 1.3);
+          utterance.pitch = isClear ? 1.0 : 0.4;
+
+          utterance.onend = () => setIsPlayingAudio(false);
+          utterance.onerror = () => setIsPlayingAudio(false);
+
+          window.speechSynthesis.speak(utterance);
+        }
+      };
+
+      // --- 遊戲流程控制 ---
+      const startGame = () => {
+        setCurrentQuestionIdx(0);
+        setFailCount(0); // 開始時重置失敗次數
+        setGameState('playing');
+        startTimer();
+      };
+
+      const startTimer = () => {
+        setTimeLeft(20);
+        if (timerRef.current) clearInterval(timerRef.current);
+        
+        timerRef.current = setInterval(() => {
+          setTimeLeft((prev) => {
+            if (prev <= 1) {
+              clearInterval(timerRef.current);
+              handleFail(true);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      };
+
+      const handleAnswer = (selectedOptionText) => {
+        clearInterval(timerRef.current);
+        const level = LEVELS[currentLevel];
+        const currentQ = level.questions[currentQuestionIdx];
+        const correctAnswerText = currentQ.options[currentQ.correctIndex]; 
+
+        if (selectedOptionText === correctAnswerText) {
+          if (currentQuestionIdx < level.questions.length - 1) {
+            setCurrentQuestionIdx(prev => prev + 1);
+            startTimer();
+          } else {
+            stopAudio();
+            setGameState('success');
+          }
+        } else {
+          stopAudio();
+          handleFail(false);
+        }
+      };
+
+      const handleFail = (isTimeout) => {
+        setFailCount(prev => prev + 1); // 答錯時增加失敗次數
+        setGameState('failed');
+      };
+
+      const nextLevel = () => {
+        if (currentLevel < LEVELS.length - 1) {
+          stopAudio();
+          setCustomAudioMuffled(null);
+          setCustomAudioClear(null);
+          setIsLoadingMuffled(true);
+          setIsLoadingClear(true);
+          setFailCount(0); // 換關卡時重置失敗次數
+          setCurrentQuestionIdx(0);
+          setCurrentLevel(prev => prev + 1);
+          setGameState('intro');
+        } else {
+          setGameState('end');
+        }
+      };
+
+      const resetGame = () => {
+        setCurrentLevel(0);
+        setCurrentQuestionIdx(0);
+        setFailCount(0); // 重置失敗次數
+        setGameState('intro');
+      };
+
+      // --- 畫面渲染組件 ---
+      const renderIntro = () => {
+        const level = LEVELS[currentLevel];
+        if (level.isPlaceholder) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full space-y-6 text-center animate-fade-in p-6 z-10 relative bg-white/90 backdrop-blur-sm m-4 rounded-3xl">
+              <div className="bg-gray-100 p-6 rounded-full mt-4">
+                <Settings2 size={48} className="text-gray-400" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-800">{level.title}</h1>
+              <p className="text-base text-gray-500 max-w-lg">本關卡的音訊檔案尚未上傳，請等待後續更新。</p>
+              <button onClick={resetGame} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-full font-bold transition hover:bg-gray-300 mt-8">返回第一關</button>
+            </div>
+          );
+        }
+
+        const isAudioLoaded = customAudioMuffled && customAudioClear;
+        const isReady = isAudioLoaded; // 恢復強制等待載入機制
+
+        return (
+          <div className="flex flex-col items-center justify-center h-full space-y-6 text-center animate-fade-in p-6 overflow-y-auto z-10 relative bg-white/90 backdrop-blur-md rounded-3xl m-4 border shadow-sm">
+            <div className="bg-blue-100 p-4 rounded-full">
+              <EarOff size={36} className="text-blue-600" />
+            </div>
+            <div>
+              <span className="text-blue-600 font-bold tracking-widest text-sm mb-2 block">聽覺體驗</span>
+              <h1 className="text-3xl font-bold text-gray-800">{level.title}</h1>
+            </div>
+            <p className="text-sm text-gray-600 max-w-lg">{level.context} 本關卡共需連續回答 3 條問題。</p>
+
+            <div className="w-full max-w-lg bg-indigo-50/80 border-2 border-indigo-200 rounded-2xl p-4 text-left mb-2 shadow-sm">
+              <div className="space-y-3">
+                <div className={`flex items-center justify-between bg-white p-3 rounded-xl border-2 transition ${customAudioMuffled ? 'border-green-400 bg-green-50' : 'border-gray-200'}`}>
+                  <div><span className="font-bold text-gray-800 block text-sm">錄音 1 (聽損版)</span></div>
+                  <div className="flex items-center gap-2">
+                    {isLoadingMuffled ? (
+                      <span className="text-blue-600 text-xs font-bold flex items-center gap-1"><Loader2 size={14} className="animate-spin"/> 載入中</span>
+                    ) : customAudioMuffled ? (
+                      <span className="text-green-600 text-xs font-bold flex items-center gap-1"><CheckCircle size={14}/> 已就緒</span>
+                    ) : (
+                      <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <Upload size={14}/> 手動載入
+                        <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleAudioUpload(e, 'muffled')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`flex items-center justify-between bg-white p-3 rounded-xl border-2 transition ${customAudioClear ? 'border-green-400 bg-green-50' : 'border-gray-200'}`}>
+                  <div><span className="font-bold text-gray-800 block text-sm">錄音 2 (清晰版)</span></div>
+                  <div className="flex items-center gap-2">
+                    {isLoadingClear ? (
+                      <span className="text-blue-600 text-xs font-bold flex items-center gap-1"><Loader2 size={14} className="animate-spin"/> 載入中</span>
+                    ) : customAudioClear ? (
+                      <span className="text-green-600 text-xs font-bold flex items-center gap-1"><CheckCircle size={14}/> 已就緒</span>
+                    ) : (
+                      <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <Upload size={14}/> 手動載入
+                        <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleAudioUpload(e, 'clear')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={startGame} disabled={!isReady} className={`px-8 py-4 rounded-full font-bold text-xl transition-all shadow-lg flex items-center gap-2 ${isReady ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+              <Play fill="currentColor" /> {isAudioLoaded ? '開始挑戰' : '等待錄音載入...'}
+            </button>
+          </div>
+        );
+      };
+
+      const renderPlaying = () => {
+        const level = LEVELS[currentLevel];
+        const currentQ = level.questions[currentQuestionIdx];
+        
+        // 判斷當前該啟用的輔助
+        const isSlow = failCount >= 1;
+        const isVisual = failCount >= 2;
+        const isClear = failCount >= 3;
+
+        return (
+          <div className="flex flex-col h-full animate-fade-in max-w-2xl mx-auto w-full p-4 z-10 relative">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 bg-white/95 backdrop-blur shadow-sm p-4 rounded-xl border border-gray-100">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-gray-800">{level.title}</h2>
+                  <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded font-bold">問題 {currentQuestionIdx + 1} / 3</span>
+                </div>
+              </div>
+              <div className={`flex items-center gap-2 text-2xl font-bold self-start sm:self-auto ${timeLeft < 5 ? 'text-red-500 animate-pulse' : 'text-blue-600'}`}>
+                <Clock size={24} /> {timeLeft}s
+              </div>
+            </div>
+
+            <div 
+              className="flex-1 flex flex-col items-center justify-center rounded-2xl p-6 mb-4 border-4 border-white/80 shadow-inner relative overflow-hidden bg-cover bg-center"
+              style={{ backgroundImage: `url('${level.bgImage}')` }}
+            >
+              <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] z-0"></div>
+
+              <div className="absolute top-4 left-4 flex gap-2 z-10">
+                {isSlow && <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow">🐢 語速放慢</span>}
+                {isVisual && <span className="bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow">👁️ 視覺輔助</span>}
+                {isClear && <span className="bg-teal-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow">✨ 清晰咬字</span>}
+              </div>
+
+              <button 
+                onClick={playRealAudio}
+                disabled={isPlayingAudio}
+                className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all mt-4 z-10 relative ${isPlayingAudio ? 'bg-blue-200 scale-110 shadow-xl' : 'bg-blue-600 hover:bg-blue-700 shadow-lg text-white ring-4 ring-white/50'}`}
+              >
+                {isPlayingAudio ? (
+                  <div className="flex gap-2">
+                    <span className="w-2 h-8 bg-blue-600 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-12 bg-blue-600 animate-bounce" style={{ animationDelay: '100ms' }}></span>
+                    <span className="w-2 h-6 bg-blue-600 animate-bounce" style={{ animationDelay: '200ms' }}></span>
+                  </div>
+                ) : (
+                  <>
+                    <Volume2 size={40} className="mb-2" />
+                    <span className="font-bold">點擊聆聽</span>
+                  </>
+                )}
+              </button>
+              
+              {isVisual && (
+                <div className="mt-6 p-4 bg-white/95 backdrop-blur border-2 border-yellow-400 rounded-lg max-w-md w-full text-center animate-fade-in shadow-lg z-10 relative">
+                  <p className="text-xl font-black text-gray-800 tracking-wider">
+                    {/* 錯2次顯示部分文字，錯3次顯示完整清晰文字 */}
+                    {isClear ? level.clearText : level.partialText}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white/95 backdrop-blur p-6 rounded-xl shadow-lg border border-white">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">{currentQuestionIdx + 1}. {currentQ.text}</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {shuffledOptions.map((opt, idx) => (
+                  <button key={idx} onClick={() => handleAnswer(opt)} className="p-4 bg-gray-50 border-2 border-gray-200 rounded-lg text-left font-bold text-gray-700 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 transition">
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderFailed = () => {
+        const level = LEVELS[currentLevel];
+        
+        // 根據失敗次數決定要顯示的系統提示訊息
+        let adjustmentMessage = "";
+        if (failCount === 1) adjustmentMessage = "🐢 系統已自動為您調整：放慢語速";
+        else if (failCount === 2) adjustmentMessage = "👁️ 系統已自動為您調整：提供部分字幕輔助";
+        else if (failCount >= 3) adjustmentMessage = "✨ 系統已自動為您調整：清晰咬字 (播放清晰錄音與完整字幕)";
+
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-6 animate-fade-in text-center max-w-xl mx-auto z-10 relative">
+            <div className="bg-white/95 backdrop-blur p-8 rounded-3xl shadow-xl w-full border border-gray-100">
+              <div className="bg-red-100 p-4 rounded-full mb-4 text-red-600 inline-block"><AlertTriangle size={48} /></div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">聽漏了...</h2>
+              <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl w-full mb-4 text-left relative mt-4">
+                <div className="absolute -top-3 left-4 bg-gray-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-sm">不良後果</div>
+                <p className="text-md text-gray-700 leading-relaxed font-medium mt-1">{level.consequence}</p>
+              </div>
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl w-full text-left mb-6 flex items-start gap-3">
+                <MessageSquare className="text-red-500 shrink-0 mt-1" size={20} />
+                <div>
+                  <p className="text-sm font-bold text-red-700 mb-1">對方的責怪：</p>
+                  <p className="text-gray-800 italic font-bold">「{level.npcReaction}」</p>
+                </div>
+              </div>
+
+              {/* 系統自動調整提示框 */}
+              {adjustmentMessage && (
+                <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl w-full text-left mb-6 animate-pulse">
+                  <p className="text-sm font-bold text-blue-700">{adjustmentMessage}</p>
+                  <p className="text-xs text-blue-600 mt-1">請使用新的溝通方式重新挑戰本題！</p>
+                </div>
+              )}
+
+              <div className="flex gap-4 w-full">
+                <button onClick={() => { setGameState('playing'); startTimer(); }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                  <Settings2 size={20} /> 使用新方式重試本題
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderSuccess = () => {
+        const isLastLevel = currentLevel === LEVELS.length - 1;
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-6 animate-fade-in text-center z-10 relative">
+            <div className="bg-white/95 backdrop-blur p-10 rounded-3xl shadow-xl border border-gray-100 max-w-md w-full">
+              <div className="bg-green-100 p-6 rounded-full mb-6 text-green-600 inline-block"><CheckCircle size={56} /></div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">{LEVELS[currentLevel].title}：過關！</h2>
+              <p className="text-md text-gray-600 mb-8 font-medium">連續 3 題挑戰成功！<br/>透過調整溝通方式，長者終於聽清楚了重要資訊。</p>
+              <div className="flex flex-col gap-3">
+                {!isLastLevel && (
+                  <button onClick={nextLevel} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2">進入下一關 <ArrowRight size={20} /></button>
+                )}
+                <button onClick={() => setGameState('end')} className={`w-full py-4 rounded-xl font-bold transition ${isLastLevel ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg text-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {isLastLevel ? '完成體驗並查看總結' : '結束遊戲並查看總結'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderEnd = () => (
+        <div className="flex flex-col items-center justify-center h-full p-6 animate-fade-in text-center z-10 relative overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur p-8 rounded-3xl shadow-xl w-full max-w-2xl border border-gray-100">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">體驗總結</h2>
+            <div className="space-y-4 w-full text-left mb-8">
+              <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                <h3 className="font-bold text-blue-700 text-lg mb-2 flex items-center gap-2"><EarOff size={20} /> 聽漏的無助感</h3>
+                <p className="text-gray-700 text-sm leading-relaxed">聽力退化並非單純「音量變小」，而是「字音缺失」。如同您剛才聽到的錄音，聽不清還要被責怪，會讓長者感到極大挫折。</p>
+              </div>
+              <div className="bg-teal-50 p-6 rounded-xl border border-teal-100">
+                <h3 className="font-bold text-teal-700 text-lg mb-2 flex items-center gap-2"><MessageSquare size={20} /> 我們能做什麼？</h3>
+                <p className="text-gray-700 text-sm leading-relaxed">與長者溝通不能只靠責怪。我們應該主動：<br/>1. 說話慢一點 (降低語速)<br/>2. 咬字清晰 (發音完整)<br/>3. 善用視覺 (手勢或文字輔助)</p>
+              </div>
+            </div>
+            <button onClick={resetGame} className="px-8 py-4 bg-gray-800 text-white rounded-full font-bold hover:bg-gray-900 transition shadow-lg w-full sm:w-auto">返回首頁</button>
+          </div>
+        </div>
+      );
+
+      // 加入這行來定義 currentBgImage，避免錯誤
+      const currentBgImage = LEVELS[currentLevel]?.bgImage;
+
+      return (
+        <div className="min-h-screen bg-slate-100 text-slate-800 font-sans selection:bg-blue-200 flex items-center justify-center p-4 sm:p-8">
+          <audio ref={audioPlayerRef} className="hidden" />
+          <div 
+            className="w-full max-w-3xl aspect-[4/3] min-h-[600px] rounded-[2rem] shadow-2xl overflow-hidden relative border border-gray-200 flex flex-col bg-cover bg-center transition-all duration-700"
+            style={{ backgroundColor: '#f8fafc' }}
+          >
+            {currentBgImage && <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-0 pointer-events-none"></div>}
+            {gameState === 'intro' && renderIntro()}
+            {gameState === 'playing' && renderPlaying()}
+            {gameState === 'failed' && renderFailed()}
+            {gameState === 'success' && renderSuccess()}
+            {gameState === 'end' && renderEnd()}
+          </div>
+        </div>
+      );
+    }
+
+    // 啟動 React 應用
+    const root = createRoot(document.getElementById('root'));
+    root.render(<AudioExperienceGame />);
+  </script>
+</body>
+</html>
