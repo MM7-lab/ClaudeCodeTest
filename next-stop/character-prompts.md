@@ -17,7 +17,7 @@ Clean cartoon character illustration, same style as a webtoon character design s
 
 ## 已經有插畫，唔使再生
 
-婆婆（全部姿勢）、攰到耷頭嘅上班族、藝術系學生、夜班醫護、外賣員、夜校生。
+婆婆（全部姿勢）、攰到耷頭嘅上班族、藝術系學生、夜班醫護、便利店職員、外賣員、夜校生。
 
 ---
 
@@ -81,7 +81,7 @@ Character: Hong Kong boy about 5, short black hair, yellow T-shirt, navy shorts,
 |---|---|
 | `kid_sit.png` | `Pose: sitting on an invisible seat (no chair drawn), facing the viewer, legs dangling, looking up to his right, a little restless.` |
 
-### 便利店職員（換新塊面）
+### 便利店職員（✅ 已換新圖）
 ```
 Character: Hong Kong convenience store clerk, man about 28, short slightly messy black hair, clean-shaven, healthy skin tone, only very light under-eye shadows (tired after a night shift but not sickly), calm friendly face with a small polite smile. Dark charcoal hoodie, red-and-green uniform vest with thin white horizontal stripes, two green pockets and a small white name tag (no logo, no brand), dark grey cargo trousers, brown shoes.
 ```
