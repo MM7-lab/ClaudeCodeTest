@@ -919,9 +919,9 @@ function populate(){
     label:'瞓著咗嘅叔叔',clues:['頭側埋一邊瞓著咗','著住地盤靴，可能做完嘢好攰'],feedback:'佢只係攰到瞓著咗，坐得安穩，唔需要即時幫助。可以留意，但唔好打擾佢休息。'});
   sitAt(uncle,seats.find(s=>s.side===-1&&Math.abs(s.x+2.6)<0.3)||freeSeat());uncle.sleep=true;uncle.act='doze';uncle.faceShut=null;makeCard(uncle,CARDS.uncle);
   const mum=makePerson({id:'mum',act:'kid',skin:SKINS[0],top:0xe07a52,bottom:0x2a3b66,hair:0x3f2a22,hairStyle:'long',mood:'happy',label:'湊住小朋友嘅媽媽',clues:['同個仔坐埋一齊','講緊故仔俾個仔聽'],feedback:'兩母子都有位坐，玩得開心，暫時冇明顯需要。'});
-  sitAt(mum,seats.find(s=>s.side===1&&Math.abs(s.x+3.8)<0.3)||freeSeat());makeCard(mum,CARDS.mum);
+  sitAt(mum,seats.find(s=>s.side===1&&Math.abs(s.x+3.8)<0.3)||freeSeat());makeCard(mum,CARDS.mum).userData.flip=-1;
   const kid=makePerson({id:'kid',skin:SKINS[0],top:0xf0c04f,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',scale:0.62,shorts:true,label:'細路仔',clues:['坐喺媽媽身邊','扭計想飲嘢'],feedback:'有媽媽照顧緊，冇即時需要幫助。'});
-  sitAt(kid,seats.find(s=>s.side===1&&Math.abs(s.x+4.33)<0.3)||freeSeat());makeCard(kid,CARDS.kid);
+  sitAt(kid,seats.find(s=>s.side===1&&Math.abs(s.x+4.33)<0.3)||freeSeat());makeCard(kid,CARDS.kid).userData.flip=-1;
   const hurt=makePerson({id:'hurt',need:true,skin:SKINS[2],top:0xfaf7f0,bottom:0x2a3b66,hair:0x231a1a,hairStyle:'short',bandage:true,shorts:true,focus:'legs',mood:'tired',
     label:'企喺扶手邊嘅男仔',clues:['一直將重心放喺左腳，左手撐住一支拐杖','右腳包住紗布，只著住一隻拖鞋'],feedback:'答對！佢腳受咗傷，企得好辛苦。呢種需要唔留意下半身就睇唔到。'});
   standAt(hurt,{x:-2.2,z:0.4,occ:null},Math.PI*0.4);reserve(-2.2,0.4,hurt);hurt.arm='crutch';hurt.injured=true;hurt.arms[1].hold=true;setCurl(hurt.arms[1],true);hurt.root.add(makeCrutch(hurt));makeCard(hurt,CARDS.hurt);
