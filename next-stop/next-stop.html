@@ -876,6 +876,9 @@ function makeCardSet(p,set){p.cardSet={};Object.keys(set).forEach(k=>{p.cardSet[
 function pickCardSet(p){const k=p.pose==='sit'?'sit':'stand',c=p.cardSet[k];if(p.card!==c){Object.values(p.cardSet).forEach(x=>{x.visible=x===c;});p.card=c;p.cardH=c.userData.h;}}
 /* cards are flat, so one standing beside seated people would cut through their knees. Pull each card toward the camera and shrink it by the
    same ratio: it covers exactly the same pixels, but sits in front of whatever it used to intersect. Anything truly in front still hides it. */
+/* standing / walking drawings turn fully toward the camera; seated ones only turn a little (up to SEAT_TURN either side of facing the aisle) */
+const SEAT_TURN=0.4;
+function cardYaw(p,at){let a=Math.atan2(camera.position.x-at.x,camera.position.z-at.z)-p.g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));return p.pose==='sit'?clamp(a,-SEAT_TURN,SEAT_TURN):a;}
 const _cb=new THREE.Vector3(),_cc=new THREE.Vector3();
 function biasCard(p,c){const base=c.userData.base;if(!base)return;_cb.copy(base);p.g.localToWorld(_cb);const D=_cb.distanceTo(camera.position);if(D<0.05)return;
   const k=(D-Math.min(0.45,D*0.3))/D;_cc.copy(camera.position).lerp(_cb,k);p.g.worldToLocal(_cc);c.position.copy(_cc);c.scale.set((c.userData.flip||1)*k,k,k);}
@@ -890,7 +893,7 @@ function updateGrannyCard(p){const C=p.cards,pos=p.g.position;
   if(p.pose==='walk'){_gm.copy(pos).sub(p.lastPos);if(_gm.lengthSq()>1e-8){_gs.copy(pos).project(camera);const a=_gs.x;_gs.copy(pos).addScaledVector(_gm.normalize(),0.3).project(camera);p.mirror=_gs.x<a;}}
   p.lastPos.copy(pos);
   ['walk','walkfree','stand','standafter'].forEach(k=>{C[k].userData.flip=p.mirror?-1:1;C[k].userData.base.y=p.pose==='walk'?Math.abs(Math.sin(p.phase))*0.025:0;});
-  Object.values(C).forEach(c=>{if(!c.visible)return;_gs.copy(c.userData.base);p.g.localToWorld(_gs);c.rotation.y=p.pose==='sit'?0:Math.atan2(camera.position.x-_gs.x,camera.position.z-_gs.z)-p.g.rotation.y;biasCard(p,c);});}
+  Object.values(C).forEach(c=>{if(!c.visible)return;_gs.copy(c.userData.base);p.g.localToWorld(_gs);c.rotation.y=cardYaw(p,_gs);biasCard(p,c);});}
 /* six everyday passengers from Tommy's character sheets; none of them needs help, but each looks tired or busy */
 const EXTRAS=[
  {id:'xA',label:'攰到耷晒頭嘅上班族',clues:['著住西裝，一手拎公事包，一手拎遮','眼睛半開、眼袋好深，睇落做到好攰'],feedback:'佢做完嘢好攰，但企得穩，冇即時需要幫助。可以體諒佢，唔使打擾佢。',
@@ -1012,7 +1015,7 @@ function updatePeople(dt,t){
     blink(p,dt);
     if(p.pose==='stand'&&!p.path.length&&(p.arm==='strap'||p.arm==='pole'||p.arm==='belly'||p.arm==='crutch'))gripIK(p);
     if(p.cards)updateGrannyCard(p);
-    else if(p.card){if(p.cardSet)pickCardSet(p);p.card.rotation.y=p.pose==='sit'?0:Math.atan2(camera.position.x-p.g.position.x,camera.position.z-p.g.position.z)-p.g.rotation.y;p.card.rotation.z=p.root.rotation.z*0.5;biasCard(p,p.card);}
+    else if(p.card){if(p.cardSet)pickCardSet(p);p.card.rotation.y=cardYaw(p,p.g.position);p.card.rotation.z=p.root.rotation.z*0.5;biasCard(p,p.card);}
     if(p===granny&&trolley&&p.spawned){if(p.pull)pullTrolley(p);else settleTrolley(dt);}
   });
 }
