@@ -17,7 +17,7 @@ Clean cartoon character illustration, same style as a webtoon character design s
 
 ## 已經有插畫，唔使再生
 
-婆婆（全部姿勢）、攰到耷頭嘅上班族、藝術系學生、夜班醫護、便利店職員、外賣員、夜校生。
+婆婆（全部姿勢）、腳受傷嘅男仔（企）、瞓著咗嘅叔叔、攰到耷頭嘅上班族、藝術系學生、夜班醫護、便利店職員、外賣員、夜校生。
 
 ---
 
