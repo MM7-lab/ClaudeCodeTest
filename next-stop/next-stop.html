@@ -1094,7 +1094,7 @@ function buildCast(){
   all.sort((a,b)=>a.g.position.x-b.g.position.x);
   if(all[0]&&all[0].id==='granny')all.push(all.shift());
   S.cast=all;S.ci=0;
-  all.forEach((p,i)=>{p.tag=new THREE.Sprite(new THREE.SpriteMaterial({map:tagTex(i+1,null),depthTest:false,transparent:true}));
+  all.forEach((p,i)=>{p.tag=new THREE.Sprite(new THREE.SpriteMaterial({map:tagTex(i+1,null),alphaTest:0.5}));
     p.tag.renderOrder=10;p.tag.scale.set(0.13,0.13,1);if(p.card){p.tag.position.y=p.cardH+0.12;p.g.add(p.tag);}else{p.tag.position.y=0.42;p.neck.add(p.tag);}});
 }
 const TAGC={};
