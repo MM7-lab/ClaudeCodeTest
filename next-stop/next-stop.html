@@ -756,7 +756,7 @@ function overview(){cam.follow=null;cam.mode='over';cam.tPos.copy(OVERVIEW.pos);
 function shotPerson(p,part,dist){cam.mode='follow';cam.follow={p,part:part||null,dist:dist||null};}
 function focusPoint(p,part){const v=new THREE.Vector3();let o=p.torso;
   if(part==='head')o=p.head;else if(part==='legs')o=p.bandage||p.legs[0].shin;else if(part==='hands')o=p.arms[1].hand;else if(part==='badge')o=p.badge||p.torso;else if(part==='knees')o=p.legs[0].knee;
-  else if(part==='injury'){p.hips.getWorldPosition(v);const b=new THREE.Vector3();(p.bandage||p.legs[0].shin).getWorldPosition(b);return v.lerp(b,0.55);}
+  else if(part==='injury'||part==='whole'){v.copy(p.g.position);v.y=0.82;return v;}
   else if(part&&part.isObject3D)o=part;o.getWorldPosition(v);return v;}
 const _bt=new THREE.Vector3();
 function followTarget(){
@@ -869,7 +869,7 @@ const GRANNY_CARDS={
 function cardMesh(p,c){const tex=new THREE.TextureLoader().load(c.src);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=4;
   const w=c.h*c.ar,geo=new THREE.PlaneGeometry(w,c.h);geo.translate(-((c.ax==null?0.5:c.ax)-0.5)*w,c.h/2,0);
   const m=mesh(geo,new THREE.MeshBasicMaterial({map:tex,alphaTest:0.5,side:THREE.DoubleSide,color:CARD_TINT}));m.userData.person=p;m.userData.noOutline=true;return m;}
-function makeCard(p,c){const card=cardMesh(p,c);card.position.set(0,c.dy||0,c.dz||0);card.userData.base=card.position.clone();p.root.visible=false;p.g.add(card);p.card=card;p.cardH=c.h;
+function makeCard(p,c){const card=cardMesh(p,c);card.position.set(0,c.dy||0,c.dz||0);card.userData.base=card.position.clone();card.userData.dy0=c.dy||0;p.root.visible=false;p.g.add(card);p.card=card;p.cardH=c.h;
   if(p.umb)p.umb.visible=false;if(p.paper)p.paper.visible=false;if(p.ftote)p.ftote.visible=false;return card;}
 /* a person drawn seated and standing: the card follows their pose (walking uses the standing drawing) */
 function makeCardSet(p,set){p.cardSet={};Object.keys(set).forEach(k=>{p.cardSet[k]=makeCard(p,set[k]);p.cardSet[k].userData.h=set[k].h;});}
@@ -879,6 +879,15 @@ function pickCardSet(p){const k=p.pose==='sit'?'sit':'stand',c=p.cardSet[k];if(p
 /* standing / walking drawings turn fully toward the camera; seated ones only turn a little (up to SEAT_TURN either side of facing the aisle) */
 const SEAT_TURN=0.4;
 function cardYaw(p,at){let a=Math.atan2(camera.position.x-at.x,camera.position.z-at.z)-p.g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));return p.pose==='sit'?clamp(a,-SEAT_TURN,SEAT_TURN):a;}
+/* a drawn person walking: flip the drawing to face the direction they move on screen (c.face: which way the drawing faces, 1 = right, -1 = left) and bob a little */
+const _wm=new THREE.Vector3(),_ws=new THREE.Vector3();
+function walkCard(p,c){const base=c.userData.base;if(!base)return;
+  if(!p.lastPos)p.lastPos=p.g.position.clone();
+  if(p.pose==='walk'){_wm.copy(p.g.position).sub(p.lastPos);if(_wm.lengthSq()>1e-8){_ws.copy(p.g.position).project(camera);const a=_ws.x;_ws.copy(p.g.position).addScaledVector(_wm.normalize(),0.3).project(camera);
+      const right=_ws.x>a;c.userData.flip=(right?1:-1)*(c.userData.face||1);}
+    base.y=(c.userData.dy0||0)+Math.abs(Math.sin(p.phase))*0.03;}
+  else base.y=c.userData.dy0||0;
+  p.lastPos.copy(p.g.position);}
 const _cb=new THREE.Vector3(),_cc=new THREE.Vector3();
 function biasCard(p,c){const base=c.userData.base;if(!base)return;_cb.copy(base);p.g.localToWorld(_cb);const D=_cb.distanceTo(camera.position);if(D<0.05)return;
   const k=(D-Math.min(0.45,D*0.3))/D;_cc.copy(camera.position).lerp(_cb,k);p.g.worldToLocal(_cc);c.position.copy(_cc);c.scale.set((c.userData.flip||1)*k,k,k);}
@@ -948,7 +957,7 @@ function boardPerson(p,door,target,delay){
 function boardStop(){
     const preg=makePerson({id:'preg',need:true,skin:SKINS[4],top:0xd8c2aa,bottom:0x3a3f58,coat:0x6f7d52,belly:true,badge:true,hair:0x3f2a22,hairStyle:'long',longSleeve:true,arm:'belly',focus:'badge',
       label:'著住長褸嘅女士',clues:['一隻手一直輕輕扶住個肚','褸邊隱約見到粉紅色襟章：「BB on board」'],feedback:'答對！佢係孕婦，件褸遮住咗大部分襟章，要細心先發現到。'});
-    makeCard(preg,CARDS.preg);reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
+    makeCard(preg,CARDS.preg).userData.face=-1;reserve(-3.35,-0.3,preg);boardPerson(preg,-6,{spot:{x:-3.35,z:-0.3,occ:null},face:-Math.PI/2},0.2);
     granny=makeGranny();reserve(-5.55,-0.38,granny);reserve(-4.3,0.85,granny);
     boardPerson(granny,-6,{spot:{x:-5.3,z:-0.4,occ:null},face:-Math.PI*0.45},1.6);
     granny.pull=true;
@@ -1015,7 +1024,7 @@ function updatePeople(dt,t){
     blink(p,dt);
     if(p.pose==='stand'&&!p.path.length&&(p.arm==='strap'||p.arm==='pole'||p.arm==='belly'||p.arm==='crutch'))gripIK(p);
     if(p.cards)updateGrannyCard(p);
-    else if(p.card){if(p.cardSet)pickCardSet(p);p.card.rotation.y=cardYaw(p,p.g.position);p.card.rotation.z=p.root.rotation.z*0.5;biasCard(p,p.card);}
+    else if(p.card){if(p.cardSet)pickCardSet(p);walkCard(p,p.card);p.card.rotation.y=cardYaw(p,p.g.position);p.card.rotation.z=p.root.rotation.z*0.5+(p.pose==='walk'?Math.sin(p.phase)*0.035:0);biasCard(p,p.card);}
     if(p===granny&&trolley&&p.spawned){if(p.pull)pullTrolley(p);else settleTrolley(dt);}
   });
 }
@@ -1126,7 +1135,7 @@ function tagTex(n,state){const k=n+'|'+state;return TAGC[k]||(TAGC[k]=textTex(64
 function setTag(p){const i=S.cast.indexOf(p);if(p.tag&&i>=0){p.tag.material.map=tagTex(i+1,p.judged);p.tag.material.needsUpdate=true;}}
 function inspect(p){
   if(S.step>=3)return;
-  current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:p.id==='hurt'?'injury':null,p.id==='hurt'&&p.judged!=='ok'?2.0:null);
+  current=p;shotPerson(p,(p.judged==='ok'&&p.need)?p.focus:p.id==='hurt'?'whole':null,p.id==='hurt'&&p.judged!=='ok'?3.0:null);
   const panel=$('#insp');panel.hidden=false;
   const n=S.cast.length,i=S.cast.indexOf(p);
   let html='';
