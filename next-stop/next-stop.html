@@ -763,7 +763,7 @@ function followTarget(){
   const f=cam.follow,p=f.p;const pt=focusPoint(p,f.part);
   if(!f.part){const h=focusPoint(p,'head');pt.lerp(h,0.45);}
   const dist=f.part?Math.max(f.dist||0,1.15):(f.dist||(p.pose==='sit'?1.45:1.6));
-  const ry=p.g.rotation.y;const cands=[0.35,-0.35,0.8,-0.8,1.3,-1.3,Math.PI/2+0.4,-Math.PI/2-0.4];
+  const ry=p.g.rotation.y;const cands=(p.card||p.cards)&&p.pose==='sit'?[0.15,-0.15,0.35,-0.35]:[0.35,-0.35,0.8,-0.8,1.3,-1.3,Math.PI/2+0.4,-Math.PI/2-0.4];
   const camY0=f.part?Math.max(0.9,pt.y+0.35):Math.max(1.05,pt.y+0.2);
   const others=[];people.forEach(q=>{if(q===p||!q.spawned)return;const d=Math.hypot(q.g.position.x-pt.x,q.g.position.z-pt.z);if(d<dist+1.2){q.torso.getWorldPosition(_bt);others.push([_bt.x,_bt.y,_bt.z]);}});
   const blockers=(cx,cz)=>{let n=0;const ax=cx,ay=camY0,az=cz,bx=pt.x-ax,by=pt.y-ay,bz=pt.z-az,L2=bx*bx+by*by+bz*bz;
@@ -894,7 +894,7 @@ function biasCard(p,c){const base=c.userData.base;if(!base)return;_cb.copy(base)
 /* granny: hidden 3D body (still used for picking, camera focus, paths) under three cards; the 3D trolley and bags stay hidden because the drawings include them */
 function makeGrannyCards(p){p.root.visible=false;const C={};
   [['walk','walk'],['walkfree','walkfree'],['stand','stand'],['standafter','standafter'],['sit','sit'],['props','sitprops']].forEach(([k,src])=>{C[k]=cardMesh(p,GRANNY_CARDS[src]);C[k].visible=false;p.g.add(C[k]);});
-  C.sit.position.z=0.28;C.props.position.set(-0.28,0,0.8);Object.values(C).forEach(c=>{c.userData.base=c.position.clone();});p.cards=C;p.mirror=false;p.lastPos=p.g.position.clone();setGrannyCard(p,'walk');}
+  C.sit.position.z=0.28;C.sit.userData.flip=-1;C.props.position.set(0.28,0,0.8);C.props.userData.flip=-1;Object.values(C).forEach(c=>{c.userData.base=c.position.clone();});p.cards=C;p.mirror=false;p.lastPos=p.g.position.clone();setGrannyCard(p,'walk');}
 function setGrannyCard(p,k){const C=p.cards;Object.keys(C).forEach(n=>{C[n].visible=n===k||(n==='props'&&k==='sit');});p.card=C[k];p.cardKey=k;p.cardH=GRANNY_CARDS[k].h;}
 const _gm=new THREE.Vector3(),_gs=new THREE.Vector3();
 function updateGrannyCard(p){const C=p.cards,pos=p.g.position;
